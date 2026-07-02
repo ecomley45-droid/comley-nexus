@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@theme {
+  --color-glass-indigo: #6366f1;
+  --color-glass-fuchsia: #d946ef;
+  --color-glass-sky: #38bdf8;
+  --color-glass-amber: #fbbf24;
+  --color-glass-base: #0b0b14;
+}
+
+@keyframes drift-a {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(6%, 8%) scale(1.08); }
+}
+@keyframes drift-b {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-8%, -4%) scale(1.12); }
+}
+@keyframes drift-c {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-5%, 7%) scale(1.05); }
+}
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes countdown-bar {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+.animate-drift-a { animation: drift-a 22s ease-in-out infinite; }
+.animate-drift-b { animation: drift-b 26s ease-in-out infinite; }
+.animate-drift-c { animation: drift-c 19s ease-in-out infinite; }
+.animate-panel-in { animation: panel-in 0.35s ease-out both; }
+.animate-countdown { animation: countdown-bar 3s linear forwards; }
