@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { compilePageHtml, getFullPath, pickWeightedVariant } from './src/shared/compilePage.js';
 import { mountCommerceWebhooks, mountCommerceApi } from './lib/commerce/routes.js';
+import { mountOpsApi } from './lib/ops/routes.js';
 import { rowsToCsv, csvToRows } from './lib/csv.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -572,11 +573,26 @@ app.patch('/api/feedback/:id', requireRole('editor'), (req, res) => {
   const feedback = readJsonFile(FEEDBACK_FILE);
   const idx = feedback.findIndex(f => f.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Feedback ticket not found' });
-  feedback[idx] = { ...feedback[idx], status, updatedAt: Date.now() };
+  const now = Date.now();
+  // Stamp resolved_at when the ticket first reaches a completed state so the
+  // stats endpoint and dashboard can compute completion durations.
+  const isDone = status === 'resolved' || status === 'closed';
+  const prev = feedback[idx];
+  feedback[idx] = {
+    ...prev,
+    status,
+    updatedAt: now,
+    resolved_at: isDone ? (prev.resolved_at || now) : null,
+  };
   writeJsonFile(FEEDBACK_FILE, feedback);
   appendAudit('Feedback status changed', `${feedback[idx].type} ticket -> ${status}`);
   res.json({ success: true, entry: feedback[idx] });
 });
+
+// Ops endpoints — assignees, comments thread, systems, prefs, stats, git-pulls.
+// Kept in a separate module to keep server.js manageable; mirrors the pattern
+// of mountCommerceApi above.
+mountOpsApi(app);
 
 // 2h. CSV import/export. "pages" is handled separately below (nested content
 // doesn't flatten like the other four), which share this generic config.

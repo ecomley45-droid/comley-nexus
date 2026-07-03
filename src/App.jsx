@@ -18,6 +18,12 @@ import SettingsPage from './cms/pages/SettingsPage.jsx';
 import AuditLogPage from './cms/pages/AuditLogPage.jsx';
 import ImportExportPage from './cms/pages/ImportExportPage.jsx';
 import FeedbackPage from './cms/pages/FeedbackPage.jsx';
+import OpsDashboardPage from './cms/pages/ops/DashboardPage.jsx';
+import OpsSystemStatusPage from './cms/pages/ops/SystemStatusPage.jsx';
+import OpsFeatureRequestsPage from './cms/pages/ops/FeatureRequestsPage.jsx';
+import OpsSchedulePage from './cms/pages/ops/SchedulePage.jsx';
+import OpsGitPullPage from './cms/pages/ops/GitPullPage.jsx';
+import OpsProfilePage from './cms/pages/ops/ProfilePage.jsx';
 import CommerceLayout from './commerce/lib/CommerceLayout.jsx';
 import HomePage from './commerce/pages/admin/HomePage.jsx';
 import OrdersPage from './commerce/pages/admin/OrdersPage.jsx';
@@ -77,6 +83,12 @@ export default function App() {
           <Route path="settings" element={<SettingsPage />} />
           <Route path="import-export" element={<ImportExportPage />} />
           <Route path="audit" element={<AuditLogPage />} />
+          <Route path="ops/dashboard" element={<OpsDashboardPage />} />
+          <Route path="ops/system-status" element={<OpsSystemStatusPage />} />
+          <Route path="ops/feature-requests" element={<OpsFeatureRequestsPage />} />
+          <Route path="ops/schedule" element={<OpsSchedulePage />} />
+          <Route path="ops/git-pull" element={<OpsGitPullPage />} />
+          <Route path="ops/profile" element={<OpsProfilePage />} />
         </Route>
 
         <Route path="/admin/commerce" element={<CommerceLayout />}>

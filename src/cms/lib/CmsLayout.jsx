@@ -15,6 +15,18 @@ const NAV_ITEMS = [
   { to: '/admin/feedback', label: 'Feedback' },
   { to: '/admin/import-export', label: 'Import / Export' },
   {
+    to: '/admin/ops/dashboard',
+    label: 'Ops',
+    children: [
+      { to: '/admin/ops/dashboard', label: 'Dashboard', end: true },
+      { to: '/admin/ops/system-status', label: 'System Status' },
+      { to: '/admin/ops/feature-requests', label: 'Feature Requests' },
+      { to: '/admin/ops/schedule', label: 'Schedule' },
+      { to: '/admin/ops/git-pull', label: 'Git Pull' },
+      { to: '/admin/ops/profile', label: 'Profile' },
+    ],
+  },
+  {
     to: '/admin/settings',
     label: 'Settings',
     children: [

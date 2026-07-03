@@ -1,0 +1,10 @@
+[
+  { "id": "sys-store", "name": "Storefront", "product": "Commerce", "status": "operational", "display_order": 1 },
+  { "id": "sys-cart", "name": "Cart & Checkout", "product": "Commerce", "status": "operational", "display_order": 2 },
+  { "id": "sys-catalog", "name": "Catalog", "product": "Commerce", "status": "operational", "display_order": 3 },
+  { "id": "sys-editor", "name": "Page Editor", "product": "CMS", "status": "operational", "display_order": 4 },
+  { "id": "sys-media", "name": "Media Library", "product": "CMS", "status": "operational", "display_order": 5 },
+  { "id": "sys-import", "name": "Import / Export", "product": "CMS", "status": "operational", "display_order": 6 },
+  { "id": "sys-integrations", "name": "Integrations", "product": "Platform", "status": "down", "display_order": 7 },
+  { "id": "sys-analytics", "name": "Analytics", "product": "Platform", "status": "operational", "display_order": 8 }
+]

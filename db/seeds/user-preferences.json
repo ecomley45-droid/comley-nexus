@@ -1,0 +1,59 @@
+{
+  "local@comley-builder": {
+    "display_name": "Local Dev",
+    "image": null,
+    "is_dev": true,
+    "view": null,
+    "detail_mode": null,
+    "schedule_order": null,
+    "work_start": null,
+    "work_end": null,
+    "work_days": null,
+    "integrations": {}
+  },
+  "alex.carter@comley.local": {
+    "display_name": "Alex Carter",
+    "image": null,
+    "is_dev": true,
+    "work_start": 9,
+    "work_end": 17,
+    "work_days": [1, 2, 3, 4, 5],
+    "integrations": {}
+  },
+  "bri.nguyen@comley.local": {
+    "display_name": "Bri Nguyen",
+    "image": null,
+    "is_dev": true,
+    "work_start": 8,
+    "work_end": 16,
+    "work_days": [1, 2, 3, 4, 5],
+    "integrations": {}
+  },
+  "chris.dale@comley.local": {
+    "display_name": "Chris Dale",
+    "image": null,
+    "is_dev": true,
+    "work_start": 10,
+    "work_end": 18,
+    "work_days": [1, 2, 3, 4, 5],
+    "integrations": {}
+  },
+  "dev.patel@comley.local": {
+    "display_name": "Dev Patel",
+    "image": null,
+    "is_dev": true,
+    "work_start": 9,
+    "work_end": 17,
+    "work_days": [1, 2, 3, 4, 5],
+    "integrations": {}
+  },
+  "erin.shaw@comley.local": {
+    "display_name": "Erin Shaw",
+    "image": null,
+    "is_dev": true,
+    "work_start": 9,
+    "work_end": 17,
+    "work_days": [1, 2, 3, 4],
+    "integrations": {}
+  }
+}

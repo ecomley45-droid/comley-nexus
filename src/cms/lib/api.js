@@ -3,6 +3,7 @@
 // header the backend's requireRole() middleware expects (see server.js —
 // there's no real auth here, it's a trust-based role gate by design).
 const ROLE_KEY = 'cms_role';
+const VIEWER_KEY = 'cms_viewer';
 
 export function getRole() {
   return localStorage.getItem(ROLE_KEY) || 'admin';
@@ -12,12 +13,32 @@ export function setRole(role) {
   localStorage.setItem(ROLE_KEY, role);
 }
 
+// Local viewer identity for the ops endpoints (assignee/comments/prefs/stats).
+// Falls back to a single "Local Dev" identity so the ops surfaces work out of
+// the box without wiring Clerk. Once Clerk is plumbed in, set this from
+// useUser() at layout time.
+export function getViewer() {
+  try {
+    return JSON.parse(localStorage.getItem(VIEWER_KEY)) || { email: 'local@comley-builder', name: 'Local Dev', image: null };
+  } catch {
+    return { email: 'local@comley-builder', name: 'Local Dev', image: null };
+  }
+}
+
+export function setViewer(viewer) {
+  localStorage.setItem(VIEWER_KEY, JSON.stringify(viewer));
+}
+
 async function request(path, options = {}) {
+  const viewer = getViewer();
   const res = await fetch(`/api${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
       'X-User-Role': getRole(),
+      'X-User-Email': viewer.email || '',
+      'X-User-Name': viewer.name || '',
+      'X-User-Image': viewer.image || '',
       ...options.headers,
     },
   });
@@ -79,3 +100,39 @@ export const getFeedback = () => request('/feedback');
 export const submitFeedback = (payload) => request('/feedback', { method: 'POST', body: JSON.stringify(payload) });
 export const updateFeedbackStatus = (id, status) =>
   request(`/feedback/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+
+// ---- Ops: feedback assignments + system tagging ----
+export const getAssignees = () => request('/feedback/assignees');
+export const assignFeedback = (id, email) =>
+  request(`/feedback/${id}/assignee`, { method: 'PATCH', body: JSON.stringify({ email }) });
+export const tagFeedbackSystem = (id, systemId) =>
+  request(`/feedback/${id}/system`, { method: 'PATCH', body: JSON.stringify({ system_id: systemId }) });
+
+// ---- Ops: threaded comments (author-only edit/delete within 60s) ----
+export const getFeedbackComments = (id) => request(`/feedback/${id}/comments`);
+export const addFeedbackComment = (id, body) =>
+  request(`/feedback/${id}/comments`, { method: 'POST', body: JSON.stringify({ body }) });
+export const editFeedbackComment = (commentId, body) =>
+  request(`/feedback/comments/${commentId}`, { method: 'PATCH', body: JSON.stringify({ body }) });
+export const deleteFeedbackComment = (commentId) =>
+  request(`/feedback/comments/${commentId}`, { method: 'DELETE' });
+
+// ---- Ops: systems (status board + feature-requests view) ----
+export const getSystems = () => request('/systems');
+export const getFeatureRequests = () => request('/systems/feature-requests');
+
+// ---- Ops: dashboard aggregate + schedule roster ----
+export const getOpsDashboard = () => request('/ops/dashboard');
+export const getSchedule = () => request('/ops/schedule');
+
+// ---- Ops: user preferences + personal stats ----
+export const getPreferences = () => request('/user/preferences');
+export const savePreferences = (patch) =>
+  request('/user/preferences', { method: 'PATCH', body: JSON.stringify(patch) });
+export const getUserStats = (period = 'month') =>
+  request(`/user/stats?period=${encodeURIComponent(period)}`);
+
+// ---- Ops: git-pull tracker ----
+export const getGitPulls = () => request('/git-pulls');
+export const recordGitPull = (branchId) =>
+  request('/git-pulls', { method: 'POST', body: JSON.stringify({ branch_id: branchId }) });

@@ -1,0 +1,10 @@
+[
+  { "id": "br-cb-main",     "repo_id": "repo-comley-builder", "name": "main",                       "zip_bytes": 8600000,  "last_pulled_by_email": "alex.carter@comley.local",  "last_pulled_by_name": "Alex Carter",  "last_pulled_at": 1751394000000, "display_order": 1 },
+  { "id": "br-cb-feedback", "repo_id": "repo-comley-builder", "name": "feature/feedback-assignees", "zip_bytes": 8800000,  "last_pulled_by_email": "local@comley-builder",       "last_pulled_by_name": "Local Dev",    "last_pulled_at": 1751411000000, "display_order": 2 },
+  { "id": "br-cb-hotfix",   "repo_id": "repo-comley-builder", "name": "hotfix/import-export-crash", "zip_bytes": 8700000,  "last_pulled_by_email": null,                        "last_pulled_by_name": null,           "last_pulled_at": null,          "display_order": 3 },
+  { "id": "br-sf-main",     "repo_id": "repo-storefront",     "name": "main",                       "zip_bytes": 22400000, "last_pulled_by_email": "bri.nguyen@comley.local",   "last_pulled_by_name": "Bri Nguyen",   "last_pulled_at": 1751370000000, "display_order": 1 },
+  { "id": "br-sf-search",   "repo_id": "repo-storefront",     "name": "feature/pdp-search-facets",  "zip_bytes": 22700000, "last_pulled_by_email": "chris.dale@comley.local",   "last_pulled_by_name": "Chris Dale",   "last_pulled_at": 1751338000000, "display_order": 2 },
+  { "id": "br-co-main",     "repo_id": "repo-checkout",       "name": "main",                       "zip_bytes": 14200000, "last_pulled_by_email": "dev.patel@comley.local",    "last_pulled_by_name": "Dev Patel",    "last_pulled_at": 1751276000000, "display_order": 1 },
+  { "id": "br-co-3ds",      "repo_id": "repo-checkout",       "name": "feature/3ds-fallback",       "zip_bytes": 14400000, "last_pulled_by_email": "alex.carter@comley.local",  "last_pulled_by_name": "Alex Carter",  "last_pulled_at": 1751224000000, "display_order": 2 },
+  { "id": "br-an-main",     "repo_id": "repo-analytics",      "name": "main",                       "zip_bytes": 6800000,  "last_pulled_by_email": "erin.shaw@comley.local",    "last_pulled_by_name": "Erin Shaw",    "last_pulled_at": 1750800000000, "display_order": 1 }
+]
