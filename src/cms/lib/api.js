@@ -1,27 +1,19 @@
-// Fetch wrapper for the /api/* CMS routes in server.js. Mirrors the pattern
-// already used by src/commerce/lib/api.js. Sends the simulated X-User-Role
-// header the backend's requireRole() middleware expects (see server.js —
-// there's no real auth here, it's a trust-based role gate by design).
-const ROLE_KEY = 'cms_role';
+// Fetch wrapper for the /api/* CMS routes in server.js. Sends the Clerk
+// session JWT in Authorization: Bearer so the server can identify the
+// user and enforce the role recorded in Clerk publicMetadata. Viewer
+// identity (email/name/image) is not sent by the client any more — the
+// server derives it from the verified Clerk user record.
+import { getAuthToken } from './authToken.js';
+
 const VIEWER_KEY = 'cms_viewer';
 
-export function getRole() {
-  return localStorage.getItem(ROLE_KEY) || 'admin';
-}
-
-export function setRole(role) {
-  localStorage.setItem(ROLE_KEY, role);
-}
-
-// Local viewer identity for the ops endpoints (assignee/comments/prefs/stats).
-// Falls back to a single "Local Dev" identity so the ops surfaces work out of
-// the box without wiring Clerk. Once Clerk is plumbed in, set this from
-// useUser() at layout time.
+// Kept only as a client-side cache to render name/avatar in the UI without
+// waiting on Clerk. Never trusted server-side — the server reads from Clerk.
 export function getViewer() {
   try {
-    return JSON.parse(localStorage.getItem(VIEWER_KEY)) || { email: 'local@comley-builder', name: 'Local Dev', image: null };
+    return JSON.parse(localStorage.getItem(VIEWER_KEY)) || { email: '', name: '', image: null };
   } catch {
-    return { email: 'local@comley-builder', name: 'Local Dev', image: null };
+    return { email: '', name: '', image: null };
   }
 }
 
@@ -30,15 +22,13 @@ export function setViewer(viewer) {
 }
 
 async function request(path, options = {}) {
-  const viewer = getViewer();
+  const token = await getAuthToken();
   const res = await fetch(`/api${path}`, {
     ...options,
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      'X-User-Role': getRole(),
-      'X-User-Email': viewer.email || '',
-      'X-User-Name': viewer.name || '',
-      'X-User-Image': viewer.image || '',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   });

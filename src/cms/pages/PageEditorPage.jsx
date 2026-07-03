@@ -112,10 +112,17 @@ function BlockRow({ section, index, total, expanded, onToggle, onDragStart, onDr
       onDragOver={(e) => { e.preventDefault(); onDragOver(index); }}
       onDrop={() => onDrop(index)}
     >
-      <GlassPanel className="p-3 mb-2 cursor-grab active:cursor-grabbing">
-        <div className="flex items-center gap-2">
+      <GlassPanel className="p-4 mb-2 cursor-grab active:cursor-grabbing">
+        <div className="flex items-center gap-2 min-h-[2.25rem]">
+          <button
+            onClick={onToggle}
+            aria-label={expanded ? 'Collapse section' : 'Expand section'}
+            className="w-6 h-6 shrink-0 rounded-md text-zinc-400 hover:text-white hover:bg-white/10 grid place-items-center text-xs"
+          >
+            {expanded ? '▾' : '▸'}
+          </button>
           <span className="text-xs text-zinc-500 w-5 text-center shrink-0">{index + 1}</span>
-          <button onClick={onToggle} className="flex-1 text-left">
+          <button onClick={onToggle} className="flex-1 text-left py-2 -my-2">
             <input
               value={section.name}
               onClick={(e) => e.stopPropagation()}
@@ -142,6 +149,65 @@ function BlockRow({ section, index, total, expanded, onToggle, onDragStart, onDr
   );
 }
 
+// Per-page Layout controls: whether this page inherits the site-global
+// header/footer, plus optional inline override HTML. Precedence rules live
+// in resolveGlobalContent() in src/shared/compilePage.js.
+function LayoutPanel({ layout, globals, onChange }) {
+  const [open, setOpen] = useState(false);
+  const useHeader = layout.useGlobalHeader !== false;
+  const useFooter = layout.useGlobalFooter !== false;
+  const hasHeaderOverride = !!(layout.headerOverride && layout.headerOverride.trim());
+  const hasFooterOverride = !!(layout.footerOverride && layout.footerOverride.trim());
+
+  const summary = [
+    hasHeaderOverride ? 'Header: override' : useHeader && globals.header?.html ? 'Header: global' : 'Header: off',
+    hasFooterOverride ? 'Footer: override' : useFooter && globals.footer?.html ? 'Footer: global' : 'Footer: off',
+  ].join(' · ');
+
+  return (
+    <GlassPanel className="p-3 mb-3">
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between text-left">
+        <div>
+          <div className="text-sm font-medium text-zinc-200">Layout</div>
+          <div className="text-xs text-zinc-500">{summary}</div>
+        </div>
+        <span className="text-zinc-400 text-xs">{open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <div className="mt-3 space-y-3 border-t border-white/10 pt-3">
+          {['header', 'footer'].map((which) => {
+            const flagKey = which === 'header' ? 'useGlobalHeader' : 'useGlobalFooter';
+            const overrideKey = which === 'header' ? 'headerOverride' : 'footerOverride';
+            const inheriting = layout[flagKey] !== false;
+            const globalHtml = globals[which]?.html || '';
+            return (
+              <div key={which}>
+                <label className="flex items-center gap-2 text-xs text-zinc-300 mb-1 capitalize">
+                  <input
+                    type="checkbox"
+                    checked={inheriting}
+                    onChange={(e) => onChange({ [flagKey]: e.target.checked })}
+                    className="w-3.5 h-3.5"
+                  />
+                  Inherit site {which}
+                  {!globalHtml && <span className="text-zinc-500 normal-case">(none set)</span>}
+                </label>
+                <GlassTextarea
+                  value={layout[overrideKey] || ''}
+                  onChange={(e) => onChange({ [overrideKey]: e.target.value })}
+                  rows={3}
+                  placeholder={`Optional per-page ${which} HTML (overrides global)`}
+                  className="w-full font-mono text-xs"
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </GlassPanel>
+  );
+}
+
 export default function PageEditorPage() {
   const { id } = useParams();
   const { pages, setPages, loading, error, save, saving, saveMessage, globalSettings } = usePagesStore();
@@ -165,6 +231,7 @@ export default function PageEditorPage() {
 
   const updatePage = (patch) => setPages(pages.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   const updateSections = (content) => updatePage({ content });
+  const updateLayout = (patch) => updatePage({ layout: { ...(page.layout || {}), ...patch } });
 
   const addSection = () => updateSections([...page.content, newSection()]);
   const addFromLibrary = (libId) => {
@@ -229,6 +296,11 @@ export default function PageEditorPage() {
 
       <div className="flex gap-4 items-start">
         <div className="w-80 shrink-0">
+          <LayoutPanel
+            layout={page.layout || {}}
+            globals={globalSettings?.globals || {}}
+            onChange={updateLayout}
+          />
           <div className="flex justify-between items-center mb-2">
             <h2 className="font-medium text-zinc-300">Blocks</h2>
             <div className="flex gap-2">

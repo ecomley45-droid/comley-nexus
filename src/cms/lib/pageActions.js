@@ -12,6 +12,14 @@ export function blankPage() {
     status: 'draft',
     scheduledPublishAt: null,
     analytics: { headSnippet: '', bodySnippet: '' },
+    // Inherits site-global header/footer by default. Toggle off or provide
+    // an override string in the Page Editor's Layout panel to break out.
+    layout: {
+      useGlobalHeader: true,
+      useGlobalFooter: true,
+      headerOverride: '',
+      footerOverride: '',
+    },
   };
 }
 

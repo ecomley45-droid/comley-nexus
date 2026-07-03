@@ -6,6 +6,7 @@ import { createPage } from '../lib/pageActions.js';
 import { getAudit } from '../lib/api.js';
 import { getFullPath } from '../../shared/compilePage.js';
 import { GlassPanel, GlassSelect, Badge } from '../lib/ui/Glass.jsx';
+import AiPromptBar from '../lib/AiPromptBar.jsx';
 
 const SHOW_OPTIONS = [25, 50, 100];
 
@@ -90,6 +91,8 @@ export default function DashboardPage() {
   return (
     <div>
       <h1 className="text-2xl font-semibold mb-4">Dashboard</h1>
+
+      <AiPromptBar />
 
       <h2 className="font-medium mb-2 text-zinc-300">Quick Start</h2>
       <div className="grid grid-cols-6 gap-3 mb-6">

@@ -30,3 +30,4 @@ dist_site
 *.njsproj
 *.sln
 *.sw?
+.vercel

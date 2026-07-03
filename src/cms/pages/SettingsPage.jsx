@@ -18,6 +18,14 @@ export default function SettingsPage() {
   const update = (patch) => setGlobalSettings({ ...globalSettings, ...patch });
   const updateTheme = (patch) => setGlobalSettings({ ...globalSettings, theme: { ...globalSettings.theme, ...patch } });
   const updateAnalytics = (patch) => setGlobalSettings({ ...globalSettings, analytics: { ...globalSettings.analytics, ...patch } });
+  const updateGlobals = (which, patch) => setGlobalSettings({
+    ...globalSettings,
+    globals: {
+      ...(globalSettings.globals || {}),
+      [which]: { ...((globalSettings.globals || {})[which] || {}), ...patch },
+    },
+  });
+  const globals = globalSettings.globals || {};
 
   const handleSave = () => save(pages, globalSettings);
   const images = media.filter((m) => m.mimeType?.startsWith('image/'));
@@ -49,6 +57,30 @@ export default function SettingsPage() {
             </div>
           ))}
         </div>
+      </GlassPanel>
+
+      <GlassPanel className="p-4 mb-4">
+        <h2 className="font-medium mb-1">Global content</h2>
+        <p className="text-xs text-zinc-500 mb-3">
+          Header and footer HTML that every new page inherits. Pages can opt out
+          or override in their own Layout panel.
+        </p>
+        <label className="text-xs text-zinc-400 block mb-1">Header HTML</label>
+        <GlassTextarea
+          value={globals.header?.html || ''}
+          onChange={(e) => updateGlobals('header', { html: e.target.value })}
+          rows={4}
+          className="w-full mb-3 font-mono text-xs"
+          placeholder="<nav>…</nav>"
+        />
+        <label className="text-xs text-zinc-400 block mb-1">Footer HTML</label>
+        <GlassTextarea
+          value={globals.footer?.html || ''}
+          onChange={(e) => updateGlobals('footer', { html: e.target.value })}
+          rows={4}
+          className="w-full font-mono text-xs"
+          placeholder="<footer>…</footer>"
+        />
       </GlassPanel>
 
       <GlassPanel className="p-4 mb-4">

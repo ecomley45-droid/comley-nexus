@@ -1,5 +1,13 @@
+// Sentry is initialized via `node --import ./instrument.mjs server.js`
+// (see package.json scripts). That runs BEFORE the ESM module graph is
+// resolved, so http/express get patched correctly. Do NOT `import
+// ./instrument.mjs` here — ESM hoisting would defeat the ordering.
+import * as Sentry from '@sentry/node';
+
 import express from 'express';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -7,6 +15,10 @@ import { compilePageHtml, getFullPath, pickWeightedVariant } from './src/shared/
 import { mountCommerceWebhooks, mountCommerceApi } from './lib/commerce/routes.js';
 import { mountOpsApi } from './lib/ops/routes.js';
 import { rowsToCsv, csvToRows } from './lib/csv.js';
+import { attachClerk, resolveViewer, requireRole, assertProductionAuth } from './lib/auth.js';
+import { sanitizePage, sanitizeGlobalSettings, sanitizeContentHtml, sanitizeAnalyticsHtml } from './lib/sanitize.js';
+
+assertProductionAuth();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,35 +30,49 @@ const PORT = process.env.PORT || 5000;
 // mounted before the global express.json() parser below.
 mountCommerceWebhooks(app);
 
-app.use(express.json({ limit: '15mb' }));
+// Baseline body parser is small; per-route parsers override for /api/media
+// and /api/feedback which legitimately accept base64 images.
+app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 
-// Enable CORS for development
+// Trust one hop of proxy (Vercel/Cloudflare) so rate-limit keys off real IP.
+app.set('trust proxy', 1);
+
+// Helmet: sensible security headers on ALL responses. CSP for the rendered-
+// page middleware is set inline where those responses are built.
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
+
+// CORS: allowlist driven by env. Empty allowlist = same-origin only.
+const CORS_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:5173')
+  .split(',').map((s) => s.trim()).filter(Boolean);
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, X-User-Role');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
+  const origin = req.headers.origin;
+  if (origin && CORS_ORIGINS.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Vary', 'Origin');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Headers', 'Origin, Content-Type, Accept, Authorization');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   }
+  if (req.method === 'OPTIONS') return res.sendStatus(origin && CORS_ORIGINS.includes(origin) ? 200 : 403);
   next();
 });
 
-// Lightweight role gate: this app has no login/session system, so this is a
-// trust-based simulation (the client picks its own role) rather than real
-// security — useful for keeping casual collaborators on a shared local
-// instance from accidentally nuking settings, not for protecting secrets.
-const ROLE_RANK = { viewer: 0, editor: 1, admin: 2 };
-app.use((req, res, next) => {
-  req.userRole = req.header('X-User-Role') || 'admin';
-  next();
-});
-const requireRole = (minRole) => (req, res, next) => {
-  if ((ROLE_RANK[req.userRole] ?? 0) < ROLE_RANK[minRole]) {
-    return res.status(403).json({ error: `This action requires the "${minRole}" role (you are "${req.userRole}").` });
-  }
-  next();
-};
+// Coarse global rate limit — blunts scraping/enumeration on /api.
+app.use('/api', rateLimit({
+  windowMs: 60_000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+}));
+
+// Real auth: attach Clerk (no-op if unconfigured for dev) and resolve
+// req.viewer for every route. requireRole is imported from lib/auth.js.
+attachClerk(app);
+app.use(resolveViewer);
 
 // Paths to database files
 const PAGES_FILE = path.join(__dirname, 'data', 'pages.json');
@@ -68,6 +94,15 @@ app.use('/feedback-files', express.static(FEEDBACK_FILES_DIR));
 
 const MAX_VERSIONS_PER_PAGE = 20;
 const MAX_AUDIT_ENTRIES = 500;
+
+// Per-route parsers for the two endpoints that legitimately need to accept
+// base64 image payloads. Kept small enough to prevent trivial disk-fill DoS.
+const mediaJson = express.json({ limit: '8mb' });
+const feedbackJson = express.json({ limit: '8mb' });
+
+// Rate limits for the two unauth'd write paths.
+const feedbackLimit = rateLimit({ windowMs: 60_000, max: 5, standardHeaders: true, legacyHeaders: false });
+const abTrackLimit = rateLimit({ windowMs: 60_000, max: 60, standardHeaders: true, legacyHeaders: false });
 
 // Global Settings (In-memory, but could be saved to a file)
 let globalSettings = {
@@ -255,18 +290,23 @@ app.post('/api/pages', requireRole('editor'), (req, res) => {
     return res.status(400).json({ error: 'Invalid pages data structure' });
   }
 
+  // Sanitize every page's HTML fields before it hits disk. Persistent XSS
+  // is the highest-impact risk on a builder like this — a compromised admin
+  // must not be able to write <script> that runs on every published page.
+  const cleanPages = pages.map(sanitizePage);
+
   const oldPages = readPagesFile();
   const oldIds = new Set(oldPages.map(p => p.id));
-  const newIds = new Set(pages.map(p => p.id));
-  const createdCount = pages.filter(p => !oldIds.has(p.id)).length;
+  const newIds = new Set(cleanPages.map(p => p.id));
+  const createdCount = cleanPages.filter(p => !oldIds.has(p.id)).length;
   const deletedCount = oldPages.filter(p => !newIds.has(p.id)).length;
-  const changedCount = snapshotChangedPages(oldPages, pages);
+  const changedCount = snapshotChangedPages(oldPages, cleanPages);
 
-  writeJsonFile(PAGES_FILE, pages);
+  writeJsonFile(PAGES_FILE, cleanPages);
   // Global theme/site settings are admin-only — editors can still save page
   // content/structure in the same request, but their settings changes are dropped.
-  if (incomingGlobalSettings && req.userRole === 'admin') {
-    globalSettings = incomingGlobalSettings;
+  if (incomingGlobalSettings && req.viewer?.role === 'admin') {
+    globalSettings = sanitizeGlobalSettings(incomingGlobalSettings);
   }
 
   if (createdCount || deletedCount || changedCount) {
@@ -277,7 +317,7 @@ app.post('/api/pages', requireRole('editor'), (req, res) => {
     appendAudit('Saved pages', parts.join(', '));
   }
 
-  res.json({ success: true, pages, globalSettings });
+  res.json({ success: true, pages: cleanPages, globalSettings });
 });
 
 // 1b. Version history API
@@ -326,8 +366,14 @@ app.post('/api/library', requireRole('editor'), (req, res) => {
   if (!library || !Array.isArray(library)) {
     return res.status(400).json({ error: 'Invalid library data structure' });
   }
-  writeJsonFile(LIBRARY_FILE, library);
-  res.json({ success: true, library });
+  // Library entries are inserted as-is into pages, so their HTML flows to
+  // rendered output the same way section HTML does — sanitize on write.
+  const cleanLibrary = library.map((entry) => ({
+    ...entry,
+    html: sanitizeContentHtml(entry?.html || ''),
+  }));
+  writeJsonFile(LIBRARY_FILE, cleanLibrary);
+  res.json({ success: true, library: cleanLibrary });
 });
 
 // 2b. Media / Asset Library API
@@ -335,7 +381,7 @@ app.get('/api/media', (req, res) => {
   res.json(readJsonFile(MEDIA_FILE));
 });
 
-app.post('/api/media', requireRole('editor'), (req, res) => {
+app.post('/api/media', mediaJson, requireRole('editor'), (req, res) => {
   const { name, mimeType, dataBase64 } = req.body;
   if (!name || !dataBase64) {
     return res.status(400).json({ error: 'name and dataBase64 are required' });
@@ -437,7 +483,7 @@ app.post('/api/comments', requireRole('editor'), (req, res) => {
     id: 'comment-' + Date.now() + '-' + Math.floor(Math.random() * 1e6),
     pageId, sectionId,
     text: text.trim(),
-    author: author || req.userRole,
+    author: author || req.viewer?.email || 'anonymous',
     resolved: false,
     createdAt: Date.now()
   };
@@ -463,7 +509,7 @@ app.delete('/api/comments/:id', requireRole('editor'), (req, res) => {
 });
 
 // 2e. A/B Testing API
-app.post('/api/ab-track', (req, res) => {
+app.post('/api/ab-track', abTrackLimit, (req, res) => {
   const { sectionId, variantId, event } = req.body;
   if (!sectionId || !variantId || event !== 'click') {
     return res.status(400).json({ error: 'sectionId, variantId, and event="click" are required' });
@@ -521,7 +567,7 @@ app.get('/api/feedback', (req, res) => {
   res.json(readJsonFile(FEEDBACK_FILE));
 });
 
-app.post('/api/feedback', (req, res) => {
+app.post('/api/feedback', feedbackLimit, feedbackJson, (req, res) => {
   const { type, description, expectedBehavior, currentBehavior, urgent, area, path: reportPath, screenshotBase64, images } = req.body;
   const VALID_TYPES = ['bug', 'non_functioning', 'critical', 'feature_request'];
   if (!VALID_TYPES.includes(type) || !description?.trim()) {
@@ -545,7 +591,8 @@ app.post('/api/feedback', (req, res) => {
       status: 'open',
       area: area === 'commerce' ? 'commerce' : 'cms',
       path: reportPath || '',
-      reportedRole: req.userRole,
+      reportedRole: req.viewer?.role || 'anonymous',
+      reportedBy: req.viewer?.email || null,
       screenshotUrl,
       imageUrls,
       createdAt: now,
@@ -836,6 +883,26 @@ app.use((req, res, next) => {
 
   const abChoices = resolveAbChoicesForRequest(page, req, res);
   const renderedHtml = compilePageHtml(page, pages, library, globalSettings, abChoices);
+
+  // CSP for public rendered pages. Section HTML is already sanitized on
+  // write (no inline handlers, no <script>), so we can disallow inline
+  // execution here. Analytics snippets are allowed as-is via the
+  // sanitizeAnalyticsHtml profile — if you use GA/PostHog set
+  // ANALYTICS_HOSTS in env with a space-separated allowlist.
+  const analyticsHosts = process.env.ANALYTICS_HOSTS || '';
+  res.setHeader('Content-Security-Policy', [
+    `default-src 'self'`,
+    `script-src 'self' ${analyticsHosts}`,
+    `style-src 'self' 'unsafe-inline'`,
+    `img-src 'self' data: https:`,
+    `font-src 'self' data:`,
+    `connect-src 'self' ${analyticsHosts}`,
+    `frame-ancestors 'none'`,
+    `base-uri 'self'`,
+    `form-action 'self'`,
+  ].join('; '));
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.send(renderedHtml);
 });
 
@@ -843,6 +910,11 @@ app.use((req, res, next) => {
 // applies due schedules on every request, but this catches the case where
 // the scheduled time passes with no incoming requests at all.
 setInterval(() => { readPagesFile(); }, 30000);
+
+// Sentry's Express error handler must sit AFTER all routes but BEFORE any
+// other error-handling middleware. It reports the error then delegates to
+// Express's default handler.
+Sentry.setupExpressErrorHandler(app);
 
 app.listen(PORT, () => {
   console.log(`CMS Backend running on port ${PORT}`);
