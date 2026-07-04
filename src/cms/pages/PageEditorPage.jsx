@@ -6,10 +6,13 @@ import { compilePageHtml, getFullPath } from '../../shared/compilePage.js';
 import { getLibrary, getAbStats, getComments, addComment, resolveComment, getNexusPages, saveNexusPages, getNexusLibrary } from '../lib/api.js';
 import { GlassPanel, GlassButton, GlassInput, GlassTextarea, GlassSelect } from '../lib/ui/Glass.jsx';
 import { useOrgBase } from '../lib/useMe.jsx';
+import PasteInModal from '../lib/pasteIn/PasteInModal.jsx';
+import StructuredBlockEditor from '../lib/pasteIn/StructuredBlockEditor.jsx';
 
 const newSection = () => ({ id: 'sec-' + Date.now() + '-' + Math.floor(Math.random() * 1e6), name: 'New section', html: '<div class="p-8">New section</div>' });
 
 const DEVICE_WIDTHS = { 'Desktop - Large': 1440, 'Tablet': 768, 'Mobile': 390 };
+const EDIT_VIEWS = ['Structured', 'Raw HTML'];
 
 function AbVariantsEditor({ section, onChange }) {
   const [stats, setStats] = useState({});
@@ -105,7 +108,7 @@ function CollapsibleSection({ title, defaultOpen = false, children }) {
 // One row in the left block list. Drag-and-drop reorder uses native HTML5
 // DnD (draggable + onDragStart/onDragOver/onDrop) — no DnD library needed
 // for a flat list.
-function BlockRow({ section, index, total, expanded, onToggle, onDragStart, onDragOver, onDrop, onRename, onMove, onDuplicate, onRemove, onChange, pageId, nexus }) {
+function BlockRow({ section, index, total, expanded, onToggle, onDragStart, onDragOver, onDrop, onRename, onMove, onDuplicate, onRemove, onChange, pageId, nexus, editView }) {
   return (
     <div
       draggable
@@ -140,7 +143,9 @@ function BlockRow({ section, index, total, expanded, onToggle, onDragStart, onDr
         </div>
         {expanded && (
           <div className="mt-3">
-            <GlassTextarea value={section.html} onChange={(e) => onChange({ html: e.target.value })} rows={6} className="w-full" />
+            {editView === 'Structured'
+              ? <StructuredBlockEditor section={section} onChange={onChange} />
+              : <GlassTextarea value={section.html} onChange={(e) => onChange({ html: e.target.value })} rows={6} className="w-full" />}
             {!nexus && <AbVariantsEditor section={section} onChange={onChange} />}
             {!nexus && <CommentsPanel pageId={pageId} sectionId={section.id} />}
           </div>
@@ -220,6 +225,8 @@ export default function PageEditorPage({ nexus = false }) {
   const [expandedId, setExpandedId] = useState(null);
   const [dragIndex, setDragIndex] = useState(null);
   const [deviceWidth, setDeviceWidth] = useState('Desktop - Large');
+  const [editView, setEditView] = useState('Raw HTML');
+  const [pasteInOpen, setPasteInOpen] = useState(false);
 
   useEffect(() => { (nexus ? getNexusLibrary() : getLibrary()).then(setLibrary).catch(() => {}); }, [nexus]);
 
@@ -243,6 +250,10 @@ export default function PageEditorPage({ nexus = false }) {
     const entry = library.find((l) => l.id === libId);
     if (!entry) return;
     updateSections([...page.content, { id: 'sec-' + Date.now(), name: entry.name, html: entry.html }]);
+  };
+  const importPastedBlocks = (sections) => {
+    updateSections([...page.content, ...sections]);
+    setPasteInOpen(false);
   };
   const updateSection = (secId, patch) => updateSections(page.content.map((s) => (s.id === secId ? { ...s, ...patch } : s)));
   const removeSection = (secId) => updateSections(page.content.filter((s) => s.id !== secId));
@@ -315,8 +326,23 @@ export default function PageEditorPage({ nexus = false }) {
                   {library.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
                 </GlassSelect>
               )}
+              <button onClick={() => setPasteInOpen(true)} className="text-xs text-glass-sky hover:underline">Paste in…</button>
               <button onClick={addSection} className="text-xs text-glass-sky hover:underline">Add</button>
             </div>
+          </div>
+
+          <div className="flex items-center gap-1 mb-3 p-0.5 rounded-lg bg-white/[0.04] border border-white/10 w-fit">
+            {EDIT_VIEWS.map((v) => (
+              <button
+                key={v}
+                onClick={() => setEditView(v)}
+                className={`text-xs px-2.5 py-1 rounded-md transition ${
+                  editView === v ? 'bg-white/10 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                {v}
+              </button>
+            ))}
           </div>
 
           {page.content.length === 0 && <p className="text-zinc-500 text-sm">No sections yet.</p>}
@@ -339,6 +365,7 @@ export default function PageEditorPage({ nexus = false }) {
               onChange={(patch) => updateSection(section.id, patch)}
               pageId={page.id}
               nexus={nexus}
+              editView={editView}
             />
           ))}
         </div>
@@ -404,6 +431,8 @@ export default function PageEditorPage({ nexus = false }) {
           </CollapsibleSection>
         </div>
       </div>
+
+      {pasteInOpen && <PasteInModal onClose={() => setPasteInOpen(false)} onImport={importPastedBlocks} />}
     </div>
   );
 }

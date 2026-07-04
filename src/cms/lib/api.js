@@ -63,6 +63,9 @@ export const restoreVersion = (pageId, versionId) =>
 
 export const getAudit = () => request('/audit');
 
+// ---- AI (paste-in block classification; 501s if ANTHROPIC_API_KEY isn't set) ----
+export const classifyBlock = (html) => request('/ai/classify-block', { method: 'POST', body: JSON.stringify({ html }) });
+
 // ---- Library ----
 export const getLibrary = () => request('/library');
 export const saveLibrary = (library) => request('/library', { method: 'POST', body: JSON.stringify(library) });

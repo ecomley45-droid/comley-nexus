@@ -21,6 +21,7 @@ import {
 import { sanitizePage, sanitizeGlobalSettings, sanitizeContentHtml } from './lib/sanitize.js';
 import * as storage from './lib/storage.js';
 import * as nexus from './lib/nexus.js';
+import { classifyBlock, hasAnthropicKey } from './lib/ai.js';
 
 assertProductionAuth();
 
@@ -66,6 +67,10 @@ app.use(resolveViewer);
 const feedbackJson = express.json({ limit: '4mb' });
 const feedbackLimit = rateLimit({ windowMs: 60_000, max: 5, standardHeaders: true, legacyHeaders: false });
 const abTrackLimit = rateLimit({ windowMs: 60_000, max: 60, standardHeaders: true, legacyHeaders: false });
+// Real per-call cost (Anthropic API), so this is capped tighter than most
+// content-writing routes -- one paste-in import can trigger several calls
+// (one per low-confidence block), but not unbounded ones.
+const aiClassifyLimit = rateLimit({ windowMs: 60_000, max: 20, standardHeaders: true, legacyHeaders: false });
 
 // ================= HELPERS =================
 
@@ -187,6 +192,28 @@ app.post('/api/versions/:pageId/:versionId/restore', requireOrg, requireRole('ed
     const written = await storage.pages.bulkReplace(req.org.id, next);
     await auditFor(req.org.id, req.viewer)('Restored version', `Page "${version.snapshot.name}" restored from ${new Date(version.timestamp).toLocaleString()}`);
     res.json({ success: true, pages: written });
+  } catch (e) { next(e); }
+});
+
+// ================= AI (paste-in block classification) =================
+
+// Classifies one pasted HTML block for the page editor's "Paste in" import
+// flow (see segment.js on the client). Only called for blocks the
+// deterministic heuristics couldn't confidently label. Costs real money per
+// call, so it's rate-limited on top of the normal editor role gate. Returns
+// 501 (matches the deferred501 pattern below) when ANTHROPIC_API_KEY isn't
+// configured -- the client falls back to importing the block as `unknown`.
+app.post('/api/ai/classify-block', requireOrg, requireRole('editor'), aiClassifyLimit, async (req, res, next) => {
+  try {
+    if (!hasAnthropicKey()) {
+      return res.status(501).json({ error: 'AI classification is not configured on this deployment.' });
+    }
+    const { html } = req.body;
+    if (typeof html !== 'string' || !html.trim()) {
+      return res.status(400).json({ error: 'html is required' });
+    }
+    const result = await classifyBlock(html);
+    res.json(result);
   } catch (e) { next(e); }
 });
 
