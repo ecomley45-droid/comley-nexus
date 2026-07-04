@@ -38,8 +38,28 @@ const escapeHtml = (str) =>
 // Renders one page to a full HTML document: theme CSS variables from global
 // settings, each section's html (swapped for its chosen A/B variant's html
 // when present), and any per-page/global analytics snippets.
+// Resolves the header/footer HTML that should wrap the page's own sections.
+// Precedence: per-page override (non-empty string) > global content (if the
+// page opts in via layout flags — default is opt-in) > empty string.
+export function resolveGlobalContent(page, globalSettings) {
+  const layout = page?.layout || {};
+  const globals = globalSettings?.globals || {};
+
+  const pickHtml = (which) => {
+    const flagKey = which === 'header' ? 'useGlobalHeader' : 'useGlobalFooter';
+    const overrideKey = which === 'header' ? 'headerOverride' : 'footerOverride';
+    const override = layout[overrideKey];
+    if (typeof override === 'string' && override.trim() !== '') return override;
+    if (layout[flagKey] === false) return '';
+    return globals[which]?.html || '';
+  };
+
+  return { headerHtml: pickHtml('header'), footerHtml: pickHtml('footer') };
+}
+
 export function compilePageHtml(page, pages, library, globalSettings, abChoices = {}) {
   const theme = globalSettings?.theme || {};
+  const { headerHtml, footerHtml } = resolveGlobalContent(page, globalSettings);
   const sectionsHtml = (page.content || [])
     .map((section) => {
       if (Array.isArray(section.abVariants) && section.abVariants.length > 0) {
@@ -76,7 +96,9 @@ ${globalAnalytics.headSnippet || ''}
 ${pageAnalytics.headSnippet || ''}
 </head>
 <body>
+${headerHtml ? `<header data-global="header">${headerHtml}</header>` : ''}
 ${sectionsHtml}
+${footerHtml ? `<footer data-global="footer">${footerHtml}</footer>` : ''}
 ${globalAnalytics.bodySnippet || ''}
 ${pageAnalytics.bodySnippet || ''}
 </body>

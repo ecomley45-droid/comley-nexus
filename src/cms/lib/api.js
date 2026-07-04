@@ -1,23 +1,34 @@
-// Fetch wrapper for the /api/* CMS routes in server.js. Mirrors the pattern
-// already used by src/commerce/lib/api.js. Sends the simulated X-User-Role
-// header the backend's requireRole() middleware expects (see server.js —
-// there's no real auth here, it's a trust-based role gate by design).
-const ROLE_KEY = 'cms_role';
+// Fetch wrapper for the /api/* CMS routes in server.js. Sends the Clerk
+// session JWT in Authorization: Bearer so the server can identify the
+// user and enforce the role recorded in Clerk publicMetadata. Viewer
+// identity (email/name/image) is not sent by the client any more — the
+// server derives it from the verified Clerk user record.
+import { getAuthToken } from './authToken.js';
 
-export function getRole() {
-  return localStorage.getItem(ROLE_KEY) || 'admin';
+const VIEWER_KEY = 'cms_viewer';
+
+// Kept only as a client-side cache to render name/avatar in the UI without
+// waiting on Clerk. Never trusted server-side — the server reads from Clerk.
+export function getViewer() {
+  try {
+    return JSON.parse(localStorage.getItem(VIEWER_KEY)) || { email: '', name: '', image: null };
+  } catch {
+    return { email: '', name: '', image: null };
+  }
 }
 
-export function setRole(role) {
-  localStorage.setItem(ROLE_KEY, role);
+export function setViewer(viewer) {
+  localStorage.setItem(VIEWER_KEY, JSON.stringify(viewer));
 }
 
 async function request(path, options = {}) {
+  const token = await getAuthToken();
   const res = await fetch(`/api${path}`, {
     ...options,
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      'X-User-Role': getRole(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   });
@@ -26,6 +37,20 @@ async function request(path, options = {}) {
   if (!res.ok) throw new Error(data?.error || `Request to ${path} failed (${res.status})`);
   return data;
 }
+
+// ---- Identity / org (server-derived) ----
+export const getMe = () => request('/me');
+
+// ---- Orgs (super-admin) ----
+export const listOrgs = () => request('/orgs');
+export const createOrg = (payload) => request('/orgs', { method: 'POST', body: JSON.stringify(payload) });
+export const updateOrg = (id, patch) => request(`/orgs/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+export const deleteOrg = (id) => request(`/orgs/${id}`, { method: 'DELETE' });
+export const listOrgMembers = (id) => request(`/orgs/${id}/members`);
+export const addOrgMember = (id, email, role) =>
+  request(`/orgs/${id}/members`, { method: 'POST', body: JSON.stringify({ email, role }) });
+export const removeOrgMember = (id, email) =>
+  request(`/orgs/${id}/members/${encodeURIComponent(email)}`, { method: 'DELETE' });
 
 // ---- Pages ----
 export const getPages = () => request('/pages');
@@ -79,3 +104,39 @@ export const getFeedback = () => request('/feedback');
 export const submitFeedback = (payload) => request('/feedback', { method: 'POST', body: JSON.stringify(payload) });
 export const updateFeedbackStatus = (id, status) =>
   request(`/feedback/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+
+// ---- Ops: feedback assignments + system tagging ----
+export const getAssignees = () => request('/feedback/assignees');
+export const assignFeedback = (id, email) =>
+  request(`/feedback/${id}/assignee`, { method: 'PATCH', body: JSON.stringify({ email }) });
+export const tagFeedbackSystem = (id, systemId) =>
+  request(`/feedback/${id}/system`, { method: 'PATCH', body: JSON.stringify({ system_id: systemId }) });
+
+// ---- Ops: threaded comments (author-only edit/delete within 60s) ----
+export const getFeedbackComments = (id) => request(`/feedback/${id}/comments`);
+export const addFeedbackComment = (id, body) =>
+  request(`/feedback/${id}/comments`, { method: 'POST', body: JSON.stringify({ body }) });
+export const editFeedbackComment = (commentId, body) =>
+  request(`/feedback/comments/${commentId}`, { method: 'PATCH', body: JSON.stringify({ body }) });
+export const deleteFeedbackComment = (commentId) =>
+  request(`/feedback/comments/${commentId}`, { method: 'DELETE' });
+
+// ---- Ops: systems (status board + feature-requests view) ----
+export const getSystems = () => request('/systems');
+export const getFeatureRequests = () => request('/systems/feature-requests');
+
+// ---- Ops: dashboard aggregate + schedule roster ----
+export const getOpsDashboard = () => request('/ops/dashboard');
+export const getSchedule = () => request('/ops/schedule');
+
+// ---- Ops: user preferences + personal stats ----
+export const getPreferences = () => request('/user/preferences');
+export const savePreferences = (patch) =>
+  request('/user/preferences', { method: 'PATCH', body: JSON.stringify(patch) });
+export const getUserStats = (period = 'month') =>
+  request(`/user/stats?period=${encodeURIComponent(period)}`);
+
+// ---- Ops: git-pull tracker ----
+export const getGitPulls = () => request('/git-pulls');
+export const recordGitPull = (branchId) =>
+  request('/git-pulls', { method: 'POST', body: JSON.stringify({ branch_id: branchId }) });

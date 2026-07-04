@@ -1,0 +1,94 @@
+[
+    {
+        "id":  "feedback-seed-06",
+        "type":  "bug",
+        "description":  "CSV import for redirects rejects any row whose \u0027to\u0027 path starts with a slash.",
+        "expectedBehavior":  "Leading slash should be normalized, not treated as a validation error.",
+        "currentBehavior":  "Row rejected with \u0027invalid path\u0027 even though it\u0027s valid.",
+        "urgent":  false,
+        "status":  "resolved",
+        "area":  "cms",
+        "path":  "/admin/import-export",
+        "reportedRole":  "editor",
+        "screenshotUrl":  null,
+        "imageUrls":  [
+
+                      ],
+        "createdAt":  1782604800000,
+        "updatedAt":  1782950400000,
+        "system_id":  "sys-import",
+        "assignee_email":  "local@comley-builder",
+        "assignee_name":  "Local Dev",
+        "assignee_image":  null,
+        "resolved_at":  1782950400000
+    },
+    {
+        "id":  "feedback-seed-07",
+        "type":  "critical",
+        "description":  "Cart total occasionally drops to $0 after applying a percent-off code.",
+        "expectedBehavior":  "Applying a code recalculates the total against the item subtotal.",
+        "currentBehavior":  "For carts with 3+ line items the total zeroes out until a page refresh.",
+        "urgent":  true,
+        "status":  "resolved",
+        "area":  "commerce",
+        "path":  "/cart",
+        "reportedRole":  "admin",
+        "screenshotUrl":  null,
+        "imageUrls":  [
+
+                      ],
+        "createdAt":  1782345600000,
+        "updatedAt":  1782777600000,
+        "system_id":  "sys-cart",
+        "assignee_email":  "bri.nguyen@comley.local",
+        "assignee_name":  "Bri Nguyen",
+        "assignee_image":  null,
+        "resolved_at":  1782777600000
+    },
+    {
+        "id":  "feedback-seed-09",
+        "type":  "bug",
+        "description":  "Auto-published pages emit two audit entries: one for \u0027draft\u0027 and one for \u0027published\u0027.",
+        "expectedBehavior":  "One audit entry summarizing the scheduled publish.",
+        "currentBehavior":  "Two entries per page, cluttering the audit log.",
+        "urgent":  false,
+        "status":  "resolved",
+        "area":  "cms",
+        "path":  "/admin/audit",
+        "reportedRole":  "admin",
+        "screenshotUrl":  null,
+        "imageUrls":  [
+
+                      ],
+        "createdAt":  1781308800000,
+        "updatedAt":  1782000000000,
+        "system_id":  "sys-editor",
+        "assignee_email":  "local@comley-builder",
+        "assignee_name":  "Local Dev",
+        "assignee_image":  null,
+        "resolved_at":  1782000000000
+    },
+    {
+        "id":  "feedback-seed-10",
+        "type":  "feature_request",
+        "description":  "Product page needs a variant swatch preview so shoppers see all colors up front.",
+        "expectedBehavior":  "Color swatches render below the price with a preview image on hover.",
+        "currentBehavior":  "Only the primary image shows; you have to drop the variant dropdown.",
+        "urgent":  false,
+        "status":  "closed",
+        "area":  "commerce",
+        "path":  "/shop/:id",
+        "reportedRole":  "admin",
+        "screenshotUrl":  null,
+        "imageUrls":  [
+
+                      ],
+        "createdAt":  1780876800000,
+        "updatedAt":  1782000000000,
+        "system_id":  "sys-catalog",
+        "assignee_email":  "alex.carter@comley.local",
+        "assignee_name":  "Alex Carter",
+        "assignee_image":  null,
+        "resolved_at":  1782000000000
+    }
+]

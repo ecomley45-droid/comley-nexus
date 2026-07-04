@@ -1,7 +1,10 @@
-import { getRole } from './api.js';
 import { commerceAuthHeaders } from '../../commerce/lib/api.js';
+import { getAuthToken } from './authToken.js';
 
-const cmsHeaders = () => ({ 'X-User-Role': getRole() });
+const cmsHeaders = async () => {
+  const token = await getAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 // GET /api/export/csv/:type routes require the same auth headers as any
 // other admin route, which a plain <a href> navigation can't send — so
@@ -31,17 +34,17 @@ async function upload(pathname, headers, csvText) {
   return data;
 }
 
-export function exportCsv(scope, type, filename) {
+export async function exportCsv(scope, type, filename) {
   const base = scope === 'commerce' ? `/api/commerce/export/csv/${type}` : `/api/export/csv/${type}`;
-  return download(base, scope === 'commerce' ? commerceAuthHeaders : cmsHeaders(), filename);
+  return download(base, scope === 'commerce' ? commerceAuthHeaders : await cmsHeaders(), filename);
 }
 
-export function downloadTemplate(scope, type, filename) {
+export async function downloadTemplate(scope, type, filename) {
   const base = scope === 'commerce' ? `/api/commerce/export/csv/${type}/template` : `/api/export/csv/${type}/template`;
-  return download(base, scope === 'commerce' ? commerceAuthHeaders : cmsHeaders(), filename);
+  return download(base, scope === 'commerce' ? commerceAuthHeaders : await cmsHeaders(), filename);
 }
 
-export function importCsv(scope, type, csvText) {
+export async function importCsv(scope, type, csvText) {
   const base = scope === 'commerce' ? `/api/commerce/import/csv/${type}` : `/api/import/csv/${type}`;
-  return upload(base, scope === 'commerce' ? commerceAuthHeaders : cmsHeaders(), csvText);
+  return upload(base, scope === 'commerce' ? commerceAuthHeaders : await cmsHeaders(), csvText);
 }

@@ -6,16 +6,19 @@ import { createPage } from '../lib/pageActions.js';
 import { getAudit } from '../lib/api.js';
 import { getFullPath } from '../../shared/compilePage.js';
 import { GlassPanel, GlassSelect, Badge } from '../lib/ui/Glass.jsx';
+import AiPromptBar from '../lib/AiPromptBar.jsx';
+import WelcomeCards from '../lib/WelcomeCards.jsx';
+import { useOrgBase } from '../lib/useMe.jsx';
 
 const SHOW_OPTIONS = [25, 50, 100];
 
-const QUICK_START = [
+const buildQuickStart = (base) => [
   { icon: FileText, label: 'New page', action: 'createPage' },
-  { icon: LayoutTemplate, label: 'Library template', to: '/admin/library' },
-  { icon: Upload, label: 'Upload media', to: '/admin/media' },
-  { icon: Link2, label: 'New redirect', to: '/admin/redirects' },
-  { icon: Tag, label: 'Discount code', to: '/admin/commerce/discounts' },
-  { icon: UserPlus, label: 'Team member', to: '/admin/team' },
+  { icon: LayoutTemplate, label: 'Library template', to: `${base}/library` },
+  { icon: Upload, label: 'Upload media', to: `${base}/media` },
+  { icon: Link2, label: 'New redirect', to: `${base}/redirects` },
+  { icon: Tag, label: 'Discount code', to: `${base}/commerce/discounts` },
+  { icon: UserPlus, label: 'Team member', to: `${base}/team` },
 ];
 
 function QuickStartTile({ icon: Icon, label, onClick }) {
@@ -67,6 +70,8 @@ export default function DashboardPage() {
   const [draftsCount, setDraftsCount] = useState(25);
   const [draftsParentFilter, setDraftsParentFilter] = useState('');
   const navigate = useNavigate();
+  const base = useOrgBase() || '/admin';
+  const QUICK_START = buildQuickStart(base);
 
   useEffect(() => { getAudit().then(setAudit); }, []);
 
@@ -74,7 +79,7 @@ export default function DashboardPage() {
   if (error) return <p className="text-red-400">{error}</p>;
 
   const handleQuickStart = (item) => {
-    if (item.action === 'createPage') return createPage(pages, setPages, save, navigate);
+    if (item.action === 'createPage') return createPage(pages, setPages, save, navigate, base);
     navigate(item.to);
   };
 
@@ -90,6 +95,10 @@ export default function DashboardPage() {
   return (
     <div>
       <h1 className="text-2xl font-semibold mb-4">Dashboard</h1>
+
+      <WelcomeCards pages={pages} />
+
+      <AiPromptBar />
 
       <h2 className="font-medium mb-2 text-zinc-300">Quick Start</h2>
       <div className="grid grid-cols-6 gap-3 mb-6">
@@ -127,7 +136,7 @@ export default function DashboardPage() {
             {scheduled.length === 0 && <p className="text-zinc-500 text-sm">Nothing scheduled.</p>}
             {scheduled.map((p) => (
               <div key={p.id} className="flex justify-between text-sm">
-                <Link to={`/admin/pages/${p.id}`} className="text-zinc-200 hover:text-glass-sky">{p.name}</Link>
+                <Link to={`${base}/pages/${p.id}`} className="text-zinc-200 hover:text-glass-sky">{p.name}</Link>
                 <span className="text-zinc-500">{new Date(p.scheduledPublishAt).toLocaleString()}</span>
               </div>
             ))}
@@ -154,7 +163,7 @@ export default function DashboardPage() {
             {drafts.slice(0, draftsCount).map((p) => (
               <tr key={p.id} className="border-b border-white/5 last:border-0">
                 <td className="py-2">
-                  <Link to={`/admin/pages/${p.id}`} className="text-zinc-100 hover:text-glass-sky">{p.name}</Link>
+                  <Link to={`${base}/pages/${p.id}`} className="text-zinc-100 hover:text-glass-sky">{p.name}</Link>
                 </td>
                 <td className="text-zinc-500">/{getFullPath(p, pages)}</td>
                 <td className="text-right"><Badge tone="draft">draft</Badge></td>

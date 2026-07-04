@@ -1,66 +1,113 @@
-import { Outlet } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { getRole, setRole, getPages } from './api.js';
+import { Outlet, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { getPages, getPreferences } from './api.js';
 import { GlassShell } from './ui/Glass.jsx';
 import TopBar from './ui/TopBar.jsx';
 import FeedbackWidget from './FeedbackWidget.jsx';
+import AuthTokenBridge from './AuthTokenBridge.jsx';
+import { useMe, useIsSuperAdmin } from './useMe.jsx';
 
+// Nav item definitions live as relative paths so they can be rebased onto
+// /:orgSlug at render time. That keeps the component agnostic to which
+// org is active — for Ethan it's "/admin/*", for future clients it'll be
+// "/{their-slug}/*".
 const NAV_ITEMS = [
-  { to: '/admin', label: 'Dashboard', end: true },
-  { to: '/admin/pages', label: 'Pages' },
-  { to: '/admin/library', label: 'Library' },
-  { to: '/admin/media', label: 'Media' },
-  { to: '/admin/redirects', label: 'Redirects' },
-  { to: '/admin/comments', label: 'Comments' },
-  { to: '/admin/feedback', label: 'Feedback' },
-  { to: '/admin/import-export', label: 'Import / Export' },
+  { to: '', label: 'Dashboard', end: true },
+  { to: 'pages', label: 'Pages' },
+  { to: 'library', label: 'Library' },
+  { to: 'media', label: 'Media' },
+  { to: 'redirects', label: 'Redirects' },
+  { to: 'comments', label: 'Comments' },
+  { to: 'import-export', label: 'Import / Export' },
   {
-    to: '/admin/settings',
+    to: 'ops/dashboard',
+    label: 'Ops',
+    children: [
+      { to: 'ops/dashboard', label: 'Dashboard', end: true },
+      { to: 'feedback', label: 'Feedback' },
+      { to: 'ops/system-status', label: 'System Status' },
+      { to: 'ops/feature-requests', label: 'Feature Requests' },
+      { to: 'ops/schedule', label: 'Schedule' },
+      { to: 'ops/git-pull', label: 'Git Pull' },
+      { to: 'ops/profile', label: 'Profile' },
+    ],
+  },
+  {
+    to: 'settings',
     label: 'Settings',
     children: [
-      { to: '/admin/settings', label: 'General', end: true },
-      { to: '/admin/connections', label: 'Connections' },
-      { to: '/admin/team', label: 'Team & Permissions' },
-      { to: '/admin/audit', label: 'Audit Log' },
+      { to: 'settings', label: 'Overview', end: true },
+      { to: 'settings/workspace', label: 'Workspace' },
+      { to: 'settings/design', label: 'Design' },
+      { to: 'team', label: 'Team & Permissions' },
+      { to: 'connections', label: 'Integrations' },
+      { to: 'settings/billing', label: 'Billing' },
+      { to: 'import-export', label: 'Import / Export' },
+      { to: 'audit', label: 'Audit Log' },
     ],
   },
 ];
 
-function RoleSwitcher() {
-  const [role, setRoleState] = useState(getRole());
-  const changeRole = (e) => {
-    setRole(e.target.value);
-    setRoleState(e.target.value);
-  };
-  return (
-    <select
-      value={role}
-      onChange={changeRole}
-      title="Simulated role — no real auth exists yet"
-      className="backdrop-blur-xl bg-white/[0.06] border border-white/15 rounded-lg px-2 py-1.5 text-sm text-zinc-100 outline-none focus:border-glass-indigo/60"
-    >
-      <option value="viewer">viewer</option>
-      <option value="editor">editor</option>
-      <option value="admin">admin</option>
-    </select>
-  );
+// Rebase every "to" onto the current org slug so <NavLink> gets absolute
+// paths. Recurses one level for children menus.
+function rebaseNav(items, base) {
+  return items.map((item) => {
+    const to = item.to === '' ? base : `${base}/${item.to}`;
+    const rebased = { ...item, to };
+    if (Array.isArray(item.children)) rebased.children = rebaseNav(item.children, base);
+    return rebased;
+  });
 }
 
 export default function CmsLayout() {
+  const { orgSlug } = useParams();
+  const base = `/${orgSlug}`;
+  const { me } = useMe();
+  const isSuperAdmin = useIsSuperAdmin();
   const [pages, setPages] = useState([]);
+  const [commerceEnabled, setCommerceEnabled] = useState(false);
 
   useEffect(() => { getPages().then((d) => setPages(d.pages)).catch(() => {}); }, []);
 
+  // Commerce is per-org opt-in. The flag lives in the signed-in user's
+  // preferences under `integrations.commerce_enabled` — flip it on from
+  // Settings (or via the admin API) to unlock the commerce nav item.
+  useEffect(() => {
+    getPreferences()
+      .then((p) => setCommerceEnabled(!!p?.integrations?.commerce_enabled))
+      .catch(() => {});
+  }, []);
+
+  const navItems = useMemo(() => {
+    const rebased = rebaseNav(NAV_ITEMS, base);
+    // Slot the super-admin "Client workspaces" item into the Settings menu
+    // when the viewer has the right (server-derived) role. Non-super-admins
+    // never see the entry, and the server also enforces the check on the
+    // underlying /api/orgs* routes.
+    if (isSuperAdmin) {
+      const settings = rebased.find((n) => n.label === 'Settings');
+      if (settings) {
+        settings.children = [
+          ...settings.children,
+          { to: `${base}/settings/orgs`, label: 'Client workspaces' },
+        ];
+      }
+    }
+    return rebased;
+  }, [base, isSuperAdmin]);
+
+  const logoLabel = me?.org?.name ? `Nexus · ${me.org.name}` : 'Nexus';
+
   return (
     <GlassShell>
+      <AuthTokenBridge />
       <TopBar
-        logoTo="/admin"
-        logoLabel="Nexus CMS"
-        navItems={NAV_ITEMS}
-        extraNavItem={{ to: '/admin/commerce', label: 'Commerce dashboard →' }}
-        searchItems={pages.map((p) => ({ label: p.name, to: `/admin/pages/${p.id}` }))}
+        logoTo={base}
+        logoLabel={logoLabel}
+        navItems={navItems}
+        extraNavItem={commerceEnabled ? { to: `${base}/commerce`, label: 'Commerce dashboard →' } : null}
+        searchItems={pages.map((p) => ({ label: p.name, to: `${base}/pages/${p.id}` }))}
         searchPlaceholder="Search pages…"
-        rightSlot={<RoleSwitcher />}
       />
       <main className="p-6">
         <Outlet />

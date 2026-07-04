@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { GlassPanel, GlassInput } from './Glass.jsx';
+import ProfileChip from '../ProfileChip.jsx';
 
 // Shared top-bar chrome for CmsLayout and CommerceLayout: logo, a hamburger
 // that opens a slide-over drawer with the full nav list (replacing a
@@ -48,19 +49,23 @@ export default function TopBar({ logoTo, logoLabel, navItems, extraNavItem, sear
           )}
         </div>
 
-        <div className="shrink-0">{rightSlot}</div>
+        <div className="shrink-0 flex items-center gap-2">
+          {rightSlot}
+          <ProfileChip variant="compact" />
+        </div>
       </GlassPanel>
 
       {drawerOpen && (
         <div className="fixed inset-0 z-30 flex">
           <div className="absolute inset-0 bg-black/50" onClick={() => setDrawerOpen(false)} />
-          <GlassPanel className="relative w-72 h-full rounded-none p-4 flex flex-col gap-1 animate-panel-in">
+          <GlassPanel className="relative w-72 h-full rounded-none p-4 flex flex-col gap-1 animate-panel-in overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <span className="font-semibold text-zinc-100">Menu</span>
               <button onClick={() => setDrawerOpen(false)} className="text-zinc-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
+            <div className="flex flex-col gap-1 flex-1 min-h-0">
             {navItems.map((item) =>
               item.children ? (
                 <div key={item.label}>
@@ -125,6 +130,10 @@ export default function TopBar({ logoTo, logoLabel, navItems, extraNavItem, sear
                 {extraNavItem.label}
               </Link>
             )}
+            </div>
+            <div className="mt-3 pt-3 border-t border-white/10">
+              <ProfileChip variant="wide" onClick={() => setDrawerOpen(false)} />
+            </div>
           </GlassPanel>
         </div>
       )}

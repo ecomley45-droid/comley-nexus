@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { domToPng } from 'modern-screenshot';
 import { MessageSquarePlus, X } from 'lucide-react';
-import { getRole, submitFeedback } from './api.js';
+import { submitFeedback, getViewer } from './api.js';
 import { GlassPanel, GlassButton, GlassTextarea, GlassSelect } from './ui/Glass.jsx';
 
 const TYPES = [
@@ -166,7 +166,7 @@ export default function FeedbackWidget({ area }) {
 
           {error && <p className="text-xs text-red-400">{error}</p>}
           <GlassButton type="submit" disabled={submitting} className="w-full">{submitting ? 'Submitting…' : 'Submit report'}</GlassButton>
-          <p className="text-[10px] text-zinc-600">Filed as {getRole()} from {location.pathname}</p>
+          <p className="text-[10px] text-zinc-600">Filed as {getViewer().email || 'anonymous'} from {location.pathname}</p>
         </form>
       )}
     </GlassPanel>

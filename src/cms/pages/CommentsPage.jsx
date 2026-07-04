@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getComments, resolveComment, deleteComment } from '../lib/api.js';
 import { usePagesStore } from '../lib/usePagesStore.js';
+import { useOrgBase } from '../lib/useMe.jsx';
 import { GlassPanel, GlassSelect } from '../lib/ui/Glass.jsx';
 
 export default function CommentsPage() {
   const [comments, setComments] = useState([]);
   const [filter, setFilter] = useState('unresolved');
   const { pages } = usePagesStore();
+  const base = useOrgBase() || '/admin';
 
   const load = () => getComments().then(setComments);
   useEffect(() => { load(); }, []);
@@ -33,7 +35,7 @@ export default function CommentsPage() {
           <p className="text-sm text-zinc-100">{c.text}</p>
           <div className="flex justify-between text-xs text-zinc-500 mt-2">
             <span>
-              <Link to={`/admin/pages/${c.pageId}`} className="hover:underline text-glass-sky">{pageName(c.pageId)}</Link> · {c.author}
+              <Link to={`${base}/pages/${c.pageId}`} className="hover:underline text-glass-sky">{pageName(c.pageId)}</Link> · {c.author}
             </span>
             <div className="flex gap-2">
               <button onClick={async () => { await resolveComment(c.id, !c.resolved); load(); }} className="hover:underline">
