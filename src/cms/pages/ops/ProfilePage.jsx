@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useUser } from '@clerk/clerk-react';
+import { useUser, useReverification } from '@clerk/clerk-react';
+import { isReverificationCancelledError } from '@clerk/clerk-react/errors';
 import { getPreferences, savePreferences, getUserStats, getViewer, getApiKeyStatus, removeApiKey } from '../../lib/api.js';
 import { GlassPanel, GlassSelect, GlassTextarea } from '../../lib/ui/Glass.jsx';
 import { Avatar } from '../../lib/AssigneePicker.jsx';
@@ -205,6 +206,21 @@ function IntegrationsSection({ initial, initialAiSettings }) {
   const clerkUser = clerkConfigured ? useUser() : { user: null };
   const user = clerkUser.user;
 
+  // Linking a new external account is a sensitive mutation, so Clerk
+  // requires "reverification" (step-up auth) before allowing it -- without
+  // this wrapper, user.createExternalAccount() rejects with "You need to
+  // provide additional verification to perform this operation" and nothing
+  // visibly happens. useReverification() intercepts that specific error,
+  // shows Clerk's own verification modal, and retries automatically once
+  // the user completes it.
+  const createExternalAccount = clerkConfigured
+    ? useReverification((args) => user.createExternalAccount(args))
+    : async () => { throw new Error('Clerk is not configured.'); };
+  // Removing a linked account is the same kind of sensitive mutation.
+  const destroyExternalAccount = clerkConfigured
+    ? useReverification((account) => account.destroy())
+    : async () => { throw new Error('Clerk is not configured.'); };
+
   useEffect(() => {
     getApiKeyStatus().then(setApiKeyStatus).catch(() => {});
   }, []);
@@ -231,12 +247,16 @@ function IntegrationsSection({ initial, initialAiSettings }) {
   const connectOAuth = async (id) => {
     setOauthError('');
     try {
-      const externalAccount = await user.createExternalAccount({
+      const externalAccount = await createExternalAccount({
         strategy: OAUTH_STRATEGIES[id], redirectUrl: window.location.href,
       });
       const url = externalAccount?.verification?.externalVerificationRedirectURL;
       if (url) window.location.href = url;
     } catch (e) {
+      if (isReverificationCancelledError(e)) {
+        setOauthError('Verification was cancelled.');
+        return;
+      }
       setOauthError(e?.errors?.[0]?.longMessage || e.message || `Could not start the ${id} connection.`);
     }
   };
@@ -247,9 +267,13 @@ function IntegrationsSection({ initial, initialAiSettings }) {
     if (id === 'google' && !window.confirm("Disconnecting Google may sign you out if it's your only sign-in method. Continue?")) return;
     setOauthError('');
     try {
-      await account.destroy();
+      await destroyExternalAccount(account);
       await user.reload();
     } catch (e) {
+      if (isReverificationCancelledError(e)) {
+        setOauthError('Verification was cancelled.');
+        return;
+      }
       setOauthError(e?.errors?.[0]?.longMessage || e.message || `Could not disconnect ${id}.`);
     }
   };
