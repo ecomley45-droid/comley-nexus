@@ -39,7 +39,14 @@ const client = new pg.Client({
   ssl: { rejectUnauthorized: false },
 });
 
-const files = ['schema.sql', 'schema_cms.sql'];
+const files = [
+  'schema.sql',
+  'schema_cms.sql',
+  'migrations/001_prefs_jsonb.sql',
+  'migrations/002_ops_columns.sql',
+];
+// If you add a new migration, add it here so `node db/apply.mjs` picks
+// it up. Order matters — migrations must remain idempotent.
 
 try {
   await client.connect();
