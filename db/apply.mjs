@@ -44,6 +44,7 @@ const files = [
   'schema_cms.sql',
   'migrations/001_prefs_jsonb.sql',
   'migrations/002_ops_columns.sql',
+  'migrations/003_multi_tenant.sql',
 ];
 // If you add a new migration, add it here so `node db/apply.mjs` picks
 // it up. Order matters — migrations must remain idempotent.
