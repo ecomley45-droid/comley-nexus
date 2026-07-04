@@ -6,6 +6,7 @@ import SuperAdminLayout from './cms/lib/SuperAdminLayout.jsx';
 import SuperAdminDashboardPage from './cms/pages/super-admin/SuperAdminDashboardPage.jsx';
 import OrgsPage from './cms/pages/super-admin/OrgsPage.jsx';
 import NexusSettingsPage from './cms/pages/super-admin/NexusSettingsPage.jsx';
+import SuperAdminBillingPage from './cms/pages/super-admin/BillingPage.jsx';
 
 // --- CMS ---
 import CmsLayout from './cms/lib/CmsLayout.jsx';
@@ -75,6 +76,7 @@ export default function App() {
           <Route path="orgs" element={<OrgsPage />} />
           <Route path="pages" element={<PagesListPage nexus />} />
           <Route path="pages/:id" element={<PageEditorPage nexus />} />
+          <Route path="billing" element={<SuperAdminBillingPage />} />
           <Route path="settings" element={<NexusSettingsPage />} />
         </Route>
 

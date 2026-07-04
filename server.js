@@ -434,37 +434,40 @@ app.post('/api/export', deferred501('Static site export is temporarily disabled 
 
 // ================= DYNAMIC PAGE RENDER =================
 
+const nexusSite = () => ({
+  findRedirect: (p) => nexus.redirects.findMatch(p),
+  applySchedules: () => nexus.pages.applyScheduledPublishes(),
+  loadPages: () => nexus.pages.list(),
+  loadLibrary: () => nexus.library.list(),
+  loadSettings: () => nexus.settings.get(),
+  recordImpression: async () => {}, // no A/B wiring for Nexus's own site in v1
+});
+
+const orgSite = (orgId) => ({
+  findRedirect: (p) => storage.redirects.findMatch(orgId, p),
+  applySchedules: () => applyDueSchedules(orgId),
+  loadPages: () => storage.pages.list(orgId),
+  loadLibrary: () => storage.library.list(orgId),
+  loadSettings: () => storage.settings.get(orgId),
+  recordImpression: (sectionId, variantId) => storage.abStats.record(orgId, sectionId, variantId, 'impressions'),
+});
+
 // Resolves which site's content to render for an incoming public request:
-//   - Host === NEXUS_DOMAIN -> Nexus's own site (lib/nexus.js), which lives
-//     outside the orgs system entirely.
-//   - Host matches an org's `domain` column -> that org's content.
-//   - No match -> DEFAULT_PUBLIC_ORG_ID (falls back to 'comley-creative'),
-//     so the primary domain works without per-org DNS configuration yet.
+//   - Host matches an org's `domain` column -> that org's own content (a
+//     client only takes over a hostname once they've configured a domain).
+//   - Host === DEFAULT_PUBLIC_ORG_ID's explicit override -> that org, if set.
+//   - Otherwise -> Nexus's own site (lib/nexus.js). This is the front door
+//     everyone lands on before signing up for a workspace, including on
+//     the bare nexus.comleycreative.com host until a client claims it.
 async function resolvePublicSite(host) {
-  if (process.env.NEXUS_DOMAIN && host === process.env.NEXUS_DOMAIN) {
-    return {
-      findRedirect: (p) => nexus.redirects.findMatch(p),
-      applySchedules: () => nexus.pages.applyScheduledPublishes(),
-      loadPages: () => nexus.pages.list(),
-      loadLibrary: () => nexus.library.list(),
-      loadSettings: () => nexus.settings.get(),
-      recordImpression: async () => {}, // no A/B wiring for Nexus's own site in v1
-    };
-  }
   const orgs = await storage.orgs.list();
   const matched = orgs.find((o) => o.domain && o.domain === host);
-  const orgId = matched?.id
-    || process.env.DEFAULT_PUBLIC_ORG_ID
-    || process.env.PUBLIC_ORG_ID
-    || 'comley-creative';
-  return {
-    findRedirect: (p) => storage.redirects.findMatch(orgId, p),
-    applySchedules: () => applyDueSchedules(orgId),
-    loadPages: () => storage.pages.list(orgId),
-    loadLibrary: () => storage.library.list(orgId),
-    loadSettings: () => storage.settings.get(orgId),
-    recordImpression: (sectionId, variantId) => storage.abStats.record(orgId, sectionId, variantId, 'impressions'),
-  };
+  if (matched) return orgSite(matched.id);
+
+  const explicitDefault = process.env.DEFAULT_PUBLIC_ORG_ID || process.env.PUBLIC_ORG_ID;
+  if (explicitDefault) return orgSite(explicitDefault);
+
+  return nexusSite();
 }
 
 app.use(async (req, res, next) => {
