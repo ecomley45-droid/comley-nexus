@@ -3,20 +3,21 @@ import {
   listOrgs, createOrg, updateOrg, deleteOrg,
   listOrgMembers, addOrgMember, removeOrgMember,
 } from '../../lib/api.js';
-import { useIsSuperAdmin } from '../../lib/useMe.jsx';
 import { GlassPanel, GlassButton, GlassInput, GlassSelect } from '../../lib/ui/Glass.jsx';
 
-// Super-admin-only: create and manage every workspace in Nexus. This is
-// how you onboard a real client. The corresponding server-side auth check
-// (requireSuperAdmin) also gates the underlying /api/orgs* routes, so
-// non-super-admins can't reach these actions even if they type the URL.
+// Create and manage every client workspace in Nexus. This is how you
+// onboard a real client — Comley Creative is the first one. The route
+// this page is mounted on (/super-admin/orgs) is already gated by
+// RequireSuperAdmin, and the underlying /api/orgs* routes independently
+// enforce requireSuperAdmin server-side.
 //
 // After creating an org here, you still need to send a Clerk invitation
 // from the Clerk dashboard using the same email you added below — that's
 // how the new user actually gets to sign in.
 
-export default function OrgsSettingsPage() {
-  const isSuperAdmin = useIsSuperAdmin();
+const PROTECTED_ORG_ID = 'comley-creative';
+
+export default function OrgsPage() {
   const [orgs, setOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
@@ -28,19 +29,7 @@ export default function OrgsSettingsPage() {
     listOrgs().then((data) => { setOrgs(data); setLoading(false); }).catch((e) => { setError(e.message); setLoading(false); });
   };
 
-  useEffect(() => { if (isSuperAdmin) refresh(); }, [isSuperAdmin]);
-
-  if (!isSuperAdmin) {
-    return (
-      <div className="max-w-md">
-        <h1 className="text-2xl font-semibold mb-3">Client workspaces</h1>
-        <p className="text-sm text-zinc-400">
-          Only super-admins can manage client workspaces. If you think you should
-          have access, ask your account owner.
-        </p>
-      </div>
-    );
-  }
+  useEffect(refresh, []);
 
   return (
     <div className="max-w-4xl">
@@ -73,7 +62,7 @@ export default function OrgsSettingsPage() {
 
 function OrgRow({ org, onSelect, onDeleted }) {
   const handleDelete = async () => {
-    if (org.id === 'admin') return alert('The bootstrap "admin" workspace cannot be deleted.');
+    if (org.id === PROTECTED_ORG_ID) return alert(`"${org.name}" is Nexus's first client and can't be deleted here.`);
     if (!confirm(`Delete workspace "${org.name}" and all its data? This can't be undone.`)) return;
     try { await deleteOrg(org.id); onDeleted(); } catch (e) { alert(e.message); }
   };
@@ -92,7 +81,7 @@ function OrgRow({ org, onSelect, onDeleted }) {
         </div>
       </div>
       <GlassButton onClick={onSelect} variant="secondary" className="text-xs">Members</GlassButton>
-      {org.id !== 'admin' && (
+      {org.id !== PROTECTED_ORG_ID && (
         <button onClick={handleDelete} className="text-xs text-red-400 hover:text-red-300 px-2">Delete</button>
       )}
     </GlassPanel>

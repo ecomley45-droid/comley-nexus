@@ -1,6 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from './marketing/LandingPage.jsx';
 import RequireOrg from './cms/lib/RequireOrg.jsx';
+import RequireSuperAdmin from './cms/lib/RequireSuperAdmin.jsx';
+import SuperAdminLayout from './cms/lib/SuperAdminLayout.jsx';
+import SuperAdminDashboardPage from './cms/pages/super-admin/SuperAdminDashboardPage.jsx';
+import OrgsPage from './cms/pages/super-admin/OrgsPage.jsx';
+import NexusSettingsPage from './cms/pages/super-admin/NexusSettingsPage.jsx';
 
 // --- CMS ---
 import CmsLayout from './cms/lib/CmsLayout.jsx';
@@ -17,7 +22,6 @@ import SettingsPage from './cms/pages/SettingsPage.jsx';
 import WorkspaceSettingsPage from './cms/pages/settings/WorkspaceSettingsPage.jsx';
 import DesignSettingsPage from './cms/pages/settings/DesignSettingsPage.jsx';
 import BillingSettingsPage from './cms/pages/settings/BillingSettingsPage.jsx';
-import OrgsSettingsPage from './cms/pages/settings/OrgsSettingsPage.jsx';
 import AuditLogPage from './cms/pages/AuditLogPage.jsx';
 import ImportExportPage from './cms/pages/ImportExportPage.jsx';
 import FeedbackPage from './cms/pages/FeedbackPage.jsx';
@@ -43,10 +47,14 @@ import MarketsPage from './commerce/pages/admin/MarketsPage.jsx';
 import FinancePage from './commerce/pages/admin/FinancePage.jsx';
 import AnalyticsPage from './commerce/pages/admin/AnalyticsPage.jsx';
 
-// The /:orgSlug route param is the workspace's slug. For Ethan's account
-// that resolves to "admin" via the ADMIN_EMAILS bootstrap, so his URLs
-// remain /admin/*. For future clients it'll be their own slug. RequireOrg
+// The /:orgSlug route param is a client workspace's slug — e.g. Comley
+// Creative (Nexus's first client) is /comley-creative/*. RequireOrg
 // enforces sign-in + org-match on every child route.
+//
+// /super-admin/* is a separate, sibling tree: operating the Nexus platform
+// itself (every client workspace, plus Nexus's own site pages). It is NOT
+// nested under any :orgSlug and is gated by RequireSuperAdmin (ADMIN_EMAILS),
+// independent of org membership.
 
 export default function App() {
   return (
@@ -60,8 +68,18 @@ export default function App() {
             Wildcard-preserving redirect. */}
         <Route path="/admin/commerce/*" element={<Navigate to="/admin/commerce" replace />} />
 
-        {/* CMS (org-scoped). Ethan lands here at /admin because that's the
-            bootstrap slug — future orgs land at /their-slug. */}
+        {/* Nexus Super Admin: operates the platform, not any single
+            workspace. Client onboarding + Nexus's own site pages live here. */}
+        <Route path="/super-admin" element={<RequireSuperAdmin><SuperAdminLayout /></RequireSuperAdmin>}>
+          <Route index element={<SuperAdminDashboardPage />} />
+          <Route path="orgs" element={<OrgsPage />} />
+          <Route path="pages" element={<PagesListPage nexus />} />
+          <Route path="pages/:id" element={<PageEditorPage nexus />} />
+          <Route path="settings" element={<NexusSettingsPage />} />
+        </Route>
+
+        {/* CMS (org-scoped). Comley Creative, Nexus's first client, lives
+            at /comley-creative — future clients land at /their-slug. */}
         <Route path="/:orgSlug" element={<RequireOrg><CmsLayout /></RequireOrg>}>
           <Route index element={<DashboardPage />} />
           <Route path="pages" element={<PagesListPage />} />
@@ -77,7 +95,6 @@ export default function App() {
           <Route path="settings/workspace" element={<WorkspaceSettingsPage />} />
           <Route path="settings/design" element={<DesignSettingsPage />} />
           <Route path="settings/billing" element={<BillingSettingsPage />} />
-          <Route path="settings/orgs" element={<OrgsSettingsPage />} />
           <Route path="import-export" element={<ImportExportPage />} />
           <Route path="audit" element={<AuditLogPage />} />
           <Route path="ops/dashboard" element={<OpsDashboardPage />} />

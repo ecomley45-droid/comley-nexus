@@ -67,6 +67,12 @@ export const getAudit = () => request('/audit');
 export const getLibrary = () => request('/library');
 export const saveLibrary = (library) => request('/library', { method: 'POST', body: JSON.stringify(library) });
 
+// ---- Nexus (super-admin only: the platform's own site, not any client org's) ----
+export const getNexusPages = () => request('/nexus/pages');
+export const saveNexusPages = (pages, globalSettings) =>
+  request('/nexus/pages', { method: 'POST', body: JSON.stringify({ pages, globalSettings }) });
+export const getNexusLibrary = () => request('/nexus/library');
+
 // ---- Media ----
 export const getMedia = () => request('/media');
 export const uploadMedia = (name, mimeType, dataBase64) =>

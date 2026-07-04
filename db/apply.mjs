@@ -45,6 +45,7 @@ const files = [
   'migrations/001_prefs_jsonb.sql',
   'migrations/002_ops_columns.sql',
   'migrations/003_multi_tenant.sql',
+  'migrations/004_split_nexus_platform.sql',
 ];
 // If you add a new migration, add it here so `node db/apply.mjs` picks
 // it up. Order matters — migrations must remain idempotent.

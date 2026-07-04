@@ -13,8 +13,10 @@
     { "source": "/feedback-files/(.*)", "destination": "/api/index" },
     { "source": "/admin", "destination": "/index.html" },
     { "source": "/admin/(.*)", "destination": "/index.html" },
+    { "source": "/super-admin", "destination": "/index.html" },
+    { "source": "/super-admin/(.*)", "destination": "/index.html" },
     { "source": "/", "destination": "/api/index" },
-    { "source": "/:slug((?!api|admin|assets|_next|feedback-files|favicon\\.ico|vite\\.svg|robots\\.txt|sitemap\\.xml).*)", "destination": "/api/index" }
+    { "source": "/:slug((?!api|admin|super-admin|assets|_next|feedback-files|favicon\\.ico|vite\\.svg|robots\\.txt|sitemap\\.xml).*)", "destination": "/api/index" }
   ],
   "headers": [
     {

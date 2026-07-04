@@ -78,25 +78,14 @@ export default function CmsLayout() {
       .catch(() => {});
   }, []);
 
-  const navItems = useMemo(() => {
-    const rebased = rebaseNav(NAV_ITEMS, base);
-    // Slot the super-admin "Client workspaces" item into the Settings menu
-    // when the viewer has the right (server-derived) role. Non-super-admins
-    // never see the entry, and the server also enforces the check on the
-    // underlying /api/orgs* routes.
-    if (isSuperAdmin) {
-      const settings = rebased.find((n) => n.label === 'Settings');
-      if (settings) {
-        settings.children = [
-          ...settings.children,
-          { to: `${base}/settings/orgs`, label: 'Client workspaces' },
-        ];
-      }
-    }
-    return rebased;
-  }, [base, isSuperAdmin]);
+  const navItems = useMemo(() => rebaseNav(NAV_ITEMS, base), [base]);
 
   const logoLabel = me?.org?.name ? `Nexus · ${me.org.name}` : 'Nexus';
+
+  // Client workspace management and Nexus's own site now live at
+  // /super-admin, outside this org-scoped console entirely — this link is
+  // just a jump point, visible only to platform super-admins.
+  const superAdminExtra = isSuperAdmin ? { to: '/super-admin', label: 'Nexus Super Admin →' } : null;
 
   return (
     <GlassShell>
@@ -105,7 +94,7 @@ export default function CmsLayout() {
         logoTo={base}
         logoLabel={logoLabel}
         navItems={navItems}
-        extraNavItem={commerceEnabled ? { to: `${base}/commerce`, label: 'Commerce dashboard →' } : null}
+        extraNavItem={superAdminExtra || (commerceEnabled ? { to: `${base}/commerce`, label: 'Commerce dashboard →' } : null)}
         searchItems={pages.map((p) => ({ label: p.name, to: `${base}/pages/${p.id}` }))}
         searchPlaceholder="Search pages…"
       />

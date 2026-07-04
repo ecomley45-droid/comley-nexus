@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { usePagesStore } from '../lib/usePagesStore.js';
 import { useDebouncedValue } from '../lib/useDebouncedValue.js';
 import { compilePageHtml, getFullPath } from '../../shared/compilePage.js';
-import { getLibrary, getAbStats, getComments, addComment, resolveComment } from '../lib/api.js';
+import { getLibrary, getAbStats, getComments, addComment, resolveComment, getNexusPages, saveNexusPages, getNexusLibrary } from '../lib/api.js';
 import { GlassPanel, GlassButton, GlassInput, GlassTextarea, GlassSelect } from '../lib/ui/Glass.jsx';
 import { useOrgBase } from '../lib/useMe.jsx';
 
@@ -105,7 +105,7 @@ function CollapsibleSection({ title, defaultOpen = false, children }) {
 // One row in the left block list. Drag-and-drop reorder uses native HTML5
 // DnD (draggable + onDragStart/onDragOver/onDrop) — no DnD library needed
 // for a flat list.
-function BlockRow({ section, index, total, expanded, onToggle, onDragStart, onDragOver, onDrop, onRename, onMove, onDuplicate, onRemove, onChange, pageId }) {
+function BlockRow({ section, index, total, expanded, onToggle, onDragStart, onDragOver, onDrop, onRename, onMove, onDuplicate, onRemove, onChange, pageId, nexus }) {
   return (
     <div
       draggable
@@ -141,8 +141,8 @@ function BlockRow({ section, index, total, expanded, onToggle, onDragStart, onDr
         {expanded && (
           <div className="mt-3">
             <GlassTextarea value={section.html} onChange={(e) => onChange({ html: e.target.value })} rows={6} className="w-full" />
-            <AbVariantsEditor section={section} onChange={onChange} />
-            <CommentsPanel pageId={pageId} sectionId={section.id} />
+            {!nexus && <AbVariantsEditor section={section} onChange={onChange} />}
+            {!nexus && <CommentsPanel pageId={pageId} sectionId={section.id} />}
           </div>
         )}
       </GlassPanel>
@@ -209,16 +209,19 @@ function LayoutPanel({ layout, globals, onChange }) {
   );
 }
 
-export default function PageEditorPage() {
+export default function PageEditorPage({ nexus = false }) {
   const { id } = useParams();
-  const base = useOrgBase() || '/admin';
-  const { pages, setPages, loading, error, save, saving, saveMessage, globalSettings } = usePagesStore();
+  const orgBase = useOrgBase();
+  const base = nexus ? '/super-admin' : (orgBase || '/admin');
+  const { pages, setPages, loading, error, save, saving, saveMessage, globalSettings } = usePagesStore(
+    nexus ? { fetchPages: getNexusPages, savePages: saveNexusPages } : undefined
+  );
   const [library, setLibrary] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
   const [dragIndex, setDragIndex] = useState(null);
   const [deviceWidth, setDeviceWidth] = useState('Desktop - Large');
 
-  useEffect(() => { getLibrary().then(setLibrary).catch(() => {}); }, []);
+  useEffect(() => { (nexus ? getNexusLibrary() : getLibrary()).then(setLibrary).catch(() => {}); }, [nexus]);
 
   const page = useMemo(() => pages?.find((p) => p.id === id), [pages, id]);
   const debouncedPage = useDebouncedValue(page, 250);
@@ -335,6 +338,7 @@ export default function PageEditorPage() {
               onRemove={() => removeSection(section.id)}
               onChange={(patch) => updateSection(section.id, patch)}
               pageId={page.id}
+              nexus={nexus}
             />
           ))}
         </div>

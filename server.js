@@ -13,12 +13,14 @@ import { fileURLToPath } from 'url';
 import { compilePageHtml, getFullPath, pickWeightedVariant } from './src/shared/compilePage.js';
 import { mountCommerceWebhooks, mountCommerceApi } from './lib/commerce/routes.js';
 import { mountOpsApi } from './lib/ops/routes.js';
+import { mountNexusApi } from './lib/nexusRoutes.js';
 import {
   attachClerk, resolveViewer, requireRole, requireOrgMatch, requireSuperAdmin,
-  assertProductionAuth,
+  isSuperAdminViewer, assertProductionAuth,
 } from './lib/auth.js';
 import { sanitizePage, sanitizeGlobalSettings, sanitizeContentHtml } from './lib/sanitize.js';
 import * as storage from './lib/storage.js';
+import * as nexus from './lib/nexus.js';
 
 assertProductionAuth();
 
@@ -108,6 +110,7 @@ app.get('/api/me', (req, res) => {
       image: req.viewer.image,
       role: req.viewer.role,
     },
+    isSuperAdmin: isSuperAdminViewer(req.viewer),
     org: req.org ? {
       id: req.org.id,
       slug: req.org.slug,
@@ -122,6 +125,7 @@ app.get('/api/me', (req, res) => {
 
 mountCommerceApi(app);
 mountOpsApi(app);
+mountNexusApi(app);
 
 // ================= PAGES =================
 
@@ -430,11 +434,38 @@ app.post('/api/export', deferred501('Static site export is temporarily disabled 
 
 // ================= DYNAMIC PAGE RENDER =================
 
-// Public rendered pages live under the 'admin' org for now — that's Ethan's
-// public site. Once we wire per-org custom domains, this middleware
-// resolves the org from the incoming Host header instead.
-
-const PUBLIC_ORG_ID = process.env.PUBLIC_ORG_ID || 'admin';
+// Resolves which site's content to render for an incoming public request:
+//   - Host === NEXUS_DOMAIN -> Nexus's own site (lib/nexus.js), which lives
+//     outside the orgs system entirely.
+//   - Host matches an org's `domain` column -> that org's content.
+//   - No match -> DEFAULT_PUBLIC_ORG_ID (falls back to 'comley-creative'),
+//     so the primary domain works without per-org DNS configuration yet.
+async function resolvePublicSite(host) {
+  if (process.env.NEXUS_DOMAIN && host === process.env.NEXUS_DOMAIN) {
+    return {
+      findRedirect: (p) => nexus.redirects.findMatch(p),
+      applySchedules: () => nexus.pages.applyScheduledPublishes(),
+      loadPages: () => nexus.pages.list(),
+      loadLibrary: () => nexus.library.list(),
+      loadSettings: () => nexus.settings.get(),
+      recordImpression: async () => {}, // no A/B wiring for Nexus's own site in v1
+    };
+  }
+  const orgs = await storage.orgs.list();
+  const matched = orgs.find((o) => o.domain && o.domain === host);
+  const orgId = matched?.id
+    || process.env.DEFAULT_PUBLIC_ORG_ID
+    || process.env.PUBLIC_ORG_ID
+    || 'comley-creative';
+  return {
+    findRedirect: (p) => storage.redirects.findMatch(orgId, p),
+    applySchedules: () => applyDueSchedules(orgId),
+    loadPages: () => storage.pages.list(orgId),
+    loadLibrary: () => storage.library.list(orgId),
+    loadSettings: () => storage.settings.get(orgId),
+    recordImpression: (sectionId, variantId) => storage.abStats.record(orgId, sectionId, variantId, 'impressions'),
+  };
+}
 
 app.use(async (req, res, next) => {
   try {
@@ -442,17 +473,19 @@ app.use(async (req, res, next) => {
     const requestPath = req.path.split('/').filter(Boolean).join('/');
     if (requestPath.startsWith('api') || requestPath.includes('.')) return next();
 
-    const redirect = await storage.redirects.findMatch(PUBLIC_ORG_ID, requestPath);
+    const site = await resolvePublicSite(req.headers.host);
+
+    const redirect = await site.findRedirect(requestPath);
     if (redirect) {
       const isAbsoluteOrRooted = /^https?:\/\//i.test(redirect.to) || redirect.to.startsWith('/');
       return res.redirect(redirect.type || 302, isAbsoluteOrRooted ? redirect.to : '/' + redirect.to);
     }
 
-    await applyDueSchedules(PUBLIC_ORG_ID);
+    await site.applySchedules();
     const [pages, library, globalSettings] = await Promise.all([
-      storage.pages.list(PUBLIC_ORG_ID),
-      storage.library.list(PUBLIC_ORG_ID),
-      storage.settings.get(PUBLIC_ORG_ID),
+      site.loadPages(),
+      site.loadLibrary(),
+      site.loadSettings(),
     ]);
 
     const page = requestPath === ''
@@ -476,7 +509,7 @@ app.use(async (req, res, next) => {
       const variant = existing || pickWeightedVariant(section.abVariants);
       abChoices[section.id] = variant.id;
       if (!existing) res.cookie(cookieKey, variant.id, { maxAge: 30 * 24 * 60 * 60 * 1000 });
-      await storage.abStats.record(PUBLIC_ORG_ID, section.id, variant.id, 'impressions');
+      await site.recordImpression(section.id, variant.id);
     }
 
     const renderedHtml = compilePageHtml(page, pages, library, globalSettings, abChoices);

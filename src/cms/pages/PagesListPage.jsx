@@ -4,11 +4,18 @@ import { getFullPath } from '../../shared/compilePage.js';
 import { createPage as createPageAction } from '../lib/pageActions.js';
 import { GlassPanel, GlassButton, Badge } from '../lib/ui/Glass.jsx';
 import { useOrgBase } from '../lib/useMe.jsx';
+import { getNexusPages, saveNexusPages } from '../lib/api.js';
 
-export default function PagesListPage() {
-  const { pages, setPages, loading, error, save, saving } = usePagesStore();
+// `nexus`: when true, this renders Nexus's own site pages (super-admin
+// only, /super-admin/pages) instead of the signed-in org's pages. Same UI,
+// different backing store — see usePagesStore's fetch/save overrides.
+export default function PagesListPage({ nexus = false }) {
+  const { pages, setPages, loading, error, save, saving } = usePagesStore(
+    nexus ? { fetchPages: getNexusPages, savePages: saveNexusPages } : undefined
+  );
   const navigate = useNavigate();
-  const base = useOrgBase() || '/admin';
+  const orgBase = useOrgBase();
+  const base = nexus ? '/super-admin' : (orgBase || '/admin');
 
   if (loading) return <p className="text-zinc-300">Loading…</p>;
   if (error) return <p className="text-red-400">{error}</p>;

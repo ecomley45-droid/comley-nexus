@@ -1,17 +1,20 @@
 import { Link } from 'react-router-dom';
 import {
   Building2, Palette, Users, Plug, CreditCard, ScrollText, Database,
-  Layers, Globe2,
+  Globe2,
 } from 'lucide-react';
 import { GlassShell, GlassPanel } from '../lib/ui/Glass.jsx';
-import { useOrgBase, useIsSuperAdmin, useMe } from '../lib/useMe.jsx';
+import { useOrgBase, useMe } from '../lib/useMe.jsx';
 
 // Settings landing. Categorized so it doesn't feel overwhelming.
 // Every card is also directly reachable from the top nav's Settings
 // dropdown — this landing is a discoverability surface for the whole
 // settings surface area, not the only way to reach any subpage.
+//
+// Client-workspace management lives at /super-admin/orgs, not here — it's
+// a platform-operator concern, not a per-workspace setting.
 
-const CATEGORIES = ({ base, isSuperAdmin }) => [
+const CATEGORIES = ({ base }) => [
   {
     group: 'Workspace',
     items: [
@@ -28,9 +31,7 @@ const CATEGORIES = ({ base, isSuperAdmin }) => [
     items: [
       { icon: Users, label: 'Team & permissions', to: `${base}/team`,
         blurb: 'Add and manage viewers, editors, admins.' },
-      isSuperAdmin && { icon: Layers, label: 'Client workspaces', to: `${base}/settings/orgs`,
-        blurb: 'Create and manage every client workspace.' },
-    ].filter(Boolean),
+    ],
   },
   {
     group: 'Integrations & billing',
@@ -66,9 +67,8 @@ function CategoryCard({ icon: Icon, label, blurb, to }) {
 
 export default function SettingsPage() {
   const base = useOrgBase() || '/admin';
-  const isSuperAdmin = useIsSuperAdmin();
   const { me } = useMe();
-  const groups = CATEGORIES({ base, isSuperAdmin });
+  const groups = CATEGORIES({ base });
 
   return (
     <div className="max-w-5xl">

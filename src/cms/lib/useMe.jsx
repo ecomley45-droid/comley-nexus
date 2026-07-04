@@ -68,11 +68,13 @@ export function useIsAdmin() {
 }
 
 // True if the viewer's email is in ADMIN_EMAILS on the server -- lets us
-// gate super-admin surfaces (org creation UI) that transcend a single org.
-// Derived by checking whether the user got the bootstrap 'admin' org role
-// AND belongs to the 'admin' workspace. Cheap heuristic; server enforces
-// the real check via requireSuperAdmin.
+// gate super-admin surfaces (org creation UI, /super-admin, Nexus's own
+// site pages) that transcend, and are independent of, any single org.
+// Server-derived (GET /api/me) rather than inferred from org membership,
+// since super-admin status has nothing to do with which client workspace,
+// if any, the viewer belongs to. Server enforces the real check via
+// requireSuperAdmin on every underlying route.
 export function useIsSuperAdmin() {
   const { me } = useMe();
-  return me?.org?.slug === 'admin' && me?.org?.role === 'admin';
+  return !!me?.isSuperAdmin;
 }
