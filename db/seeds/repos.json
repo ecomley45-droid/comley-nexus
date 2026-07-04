@@ -1,5 +1,5 @@
 [
-  { "id": "repo-comley-builder", "name": "comley-builder", "platform": "CMS", "display_order": 1 },
+  { "id": "repo-comley-nexus", "name": "comley-nexus", "platform": "CMS", "display_order": 1 },
   { "id": "repo-storefront", "name": "storefront-web", "platform": "Commerce", "display_order": 2 },
   { "id": "repo-checkout", "name": "checkout-service", "platform": "Commerce", "display_order": 3 },
   { "id": "repo-analytics", "name": "analytics-pipeline", "platform": "Platform", "display_order": 4 }

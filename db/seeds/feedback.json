@@ -17,7 +17,7 @@
         "createdAt":  1782604800000,
         "updatedAt":  1782950400000,
         "system_id":  "sys-import",
-        "assignee_email":  "local@comley-builder",
+        "assignee_email":  "local@comley-nexus",
         "assignee_name":  "Local Dev",
         "assignee_image":  null,
         "resolved_at":  1782950400000
@@ -63,7 +63,7 @@
         "createdAt":  1781308800000,
         "updatedAt":  1782000000000,
         "system_id":  "sys-editor",
-        "assignee_email":  "local@comley-builder",
+        "assignee_email":  "local@comley-nexus",
         "assignee_name":  "Local Dev",
         "assignee_image":  null,
         "resolved_at":  1782000000000

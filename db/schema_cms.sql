@@ -1,4 +1,4 @@
--- CMS schema for comley-builder. Replaces the file-based storage in
+-- CMS schema for comley-nexus. Replaces the file-based storage in
 -- data/*.json so the app can run on Vercel serverless (which has no
 -- persistent filesystem). Apply after schema.sql (commerce tables).
 --

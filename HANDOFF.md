@@ -78,7 +78,7 @@ Only after 1–5. Otherwise the CMS will 401 for signed-in users.
 
 ## Critical facts you shouldn't lose
 
-- **Repo**: `ecomley45-droid/comley-builder`, branch `feature/ops-console-port`. All this work is committed on the branch. Nothing pushed to remote yet from this session.
+- **Repo**: `ecomley45-droid/comley-nexus`, branch `feature/ops-console-port`. All this work is committed on the branch. Nothing pushed to remote yet from this session.
 - **Data layer**: Supabase JS client only. `pg` in `package.json` is just for `db/apply.mjs` local schema application — do NOT try to use it from the runtime; Vercel serverless can't reach the Supabase pooler over TCP.
 - **Sentry**: server-side wired. Frontend DSN never got set (`VITE_SENTRY_DSN` is empty). Ethan chose to reuse the backend DSN for the browser too — just paste it in Vercel env when ready.
 - **Fly.io / Render / Railway**: user explicitly ruled these out for the backend. Stay on Vercel + Supabase JS.

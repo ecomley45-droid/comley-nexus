@@ -1,5 +1,5 @@
 {
-  "local@comley-builder": {
+  "local@comley-nexus": {
     "display_name": "Local Dev",
     "image": null,
     "is_dev": true,
