@@ -1,8 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getPreferences, savePreferences, getUserStats, getViewer } from '../../lib/api.js';
+import { useUser } from '@clerk/clerk-react';
+import { getPreferences, savePreferences, getUserStats, getViewer, getApiKeyStatus, removeApiKey } from '../../lib/api.js';
 import { GlassPanel, GlassSelect, GlassTextarea } from '../../lib/ui/Glass.jsx';
 import { Avatar } from '../../lib/AssigneePicker.jsx';
 import { AI_PROVIDERS, isAiProvider } from '../../lib/aiProviders.js';
+import ApiKeyModal from '../../lib/ApiKeyModal.jsx';
+
+// Only wrap in ClerkProvider when a publishable key exists (see main.jsx) --
+// useUser() throws without it, so it's gated the same way useCommerceUser.js
+// gates its own Clerk usage. clerkConfigured is static for the app's whole
+// lifetime, so this conditional hook call never actually toggles at runtime.
+const clerkConfigured = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
+
+// Google/GitHub/Slack are OAuth logins -- handled entirely via Clerk's own
+// account-linking (real redirect to that provider's login screen, token
+// held by Clerk, never touches this app's server). Claude/ChatGPT have no
+// login screen at all -- see ApiKeyModal.jsx for that flow instead.
+const OAUTH_STRATEGIES = { google: 'oauth_google', github: 'oauth_github', slack: 'oauth_slack' };
 
 const PERIODS = [
   { value: 'today', label: 'Today' },
@@ -178,8 +192,31 @@ function AiSettingsPanel({ providerId, value, onChange }) {
 }
 
 function IntegrationsSection({ initial, initialAiSettings }) {
+  // Gemini is the only id still backed by the plain preference toggle --
+  // it explicitly rides on the Google connection, not its own login.
   const [state, setState] = useState(initial || {});
   const [aiSettings, setAiSettings] = useState(initialAiSettings || {});
+  const [apiKeyStatus, setApiKeyStatus] = useState({});
+  const [modalProvider, setModalProvider] = useState(null);
+  const [oauthError, setOauthError] = useState('');
+
+  // Guarded exactly like useCommerceUser.js -- useUser() throws without a
+  // ClerkProvider, which only mounts when a publishable key exists.
+  const clerkUser = clerkConfigured ? useUser() : { user: null };
+  const user = clerkUser.user;
+
+  useEffect(() => {
+    getApiKeyStatus().then(setApiKeyStatus).catch(() => {});
+  }, []);
+
+  const isOAuthProvider = (id) => id in OAUTH_STRATEGIES;
+  const isApiKeyProvider = (id) => id === 'claude' || id === 'chatgpt';
+
+  const isConnected = (id) => {
+    if (isOAuthProvider(id)) return !!user?.externalAccounts?.some((a) => a.provider === OAUTH_STRATEGIES[id]);
+    if (isApiKeyProvider(id)) return !!apiKeyStatus[id];
+    return !!state[id]; // gemini
+  };
 
   const setOne = async (id, value) => {
     setState((s) => ({ ...s, [id]: value }));
@@ -191,23 +228,60 @@ function IntegrationsSection({ initial, initialAiSettings }) {
     savePreferences({ ai_settings: { [providerId]: patch } }).catch(() => {});
   };
 
-  const disconnect = (id) => {
-    if (id === 'google') {
-      if (!window.confirm('Disconnecting Google will sign you out of the app. Continue?')) return;
-      setOne('google', false);
-      // Real sign-out would go through Clerk; leave it as a state-only stub.
-      return;
+  const connectOAuth = async (id) => {
+    setOauthError('');
+    try {
+      const externalAccount = await user.createExternalAccount({
+        strategy: OAUTH_STRATEGIES[id], redirectUrl: window.location.href,
+      });
+      const url = externalAccount?.verification?.externalVerificationRedirectURL;
+      if (url) window.location.href = url;
+    } catch (e) {
+      setOauthError(e?.errors?.[0]?.longMessage || e.message || `Could not start the ${id} connection.`);
     }
-    setOne(id, false);
+  };
+
+  const disconnectOAuth = async (id) => {
+    const account = user?.externalAccounts?.find((a) => a.provider === OAUTH_STRATEGIES[id]);
+    if (!account) return;
+    if (id === 'google' && !window.confirm("Disconnecting Google may sign you out if it's your only sign-in method. Continue?")) return;
+    setOauthError('');
+    try {
+      await account.destroy();
+      await user.reload();
+    } catch (e) {
+      setOauthError(e?.errors?.[0]?.longMessage || e.message || `Could not disconnect ${id}.`);
+    }
+  };
+
+  const disconnectApiKey = async (id) => {
+    try {
+      await removeApiKey(id);
+      setApiKeyStatus((s) => ({ ...s, [id]: false }));
+    } catch (e) {
+      setOauthError(e.message);
+    }
+  };
+
+  const handleConnect = (id) => {
+    if (isOAuthProvider(id)) return connectOAuth(id);
+    if (isApiKeyProvider(id)) return setModalProvider(id);
+  };
+  const handleDisconnect = (id) => {
+    if (isOAuthProvider(id)) return disconnectOAuth(id);
+    if (isApiKeyProvider(id)) return disconnectApiKey(id);
   };
 
   return (
     <GlassPanel className="p-5">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400 m-0 mb-4">Integrations</h2>
+      {oauthError && <p className="text-sm text-red-400 mb-3">{oauthError}</p>}
       <ul className="flex flex-col">
         {INTEGRATIONS.map((int, i) => {
-          const connected = !!state[int.id];
+          const connected = isConnected(int.id);
           const showAi = connected && isAiProvider(int.id);
+          const isGemini = int.toggle;
+          const geminiLocked = isGemini && !isConnected('google');
           return (
             <li key={int.id} className={`py-3.5 ${i > 0 ? 'border-t border-white/10' : ''}`}>
               <div className="flex items-center gap-4">
@@ -217,14 +291,16 @@ function IntegrationsSection({ initial, initialAiSettings }) {
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold text-zinc-100">{int.name}</div>
                   {int.note && <div className="text-xs text-zinc-500 mt-0.5">{int.note}</div>}
+                  {geminiLocked && <div className="text-xs text-amber-400 mt-0.5">Connect Google first</div>}
                 </div>
-                {int.toggle ? (
+                {isGemini ? (
                   <button
                     type="button"
                     role="switch"
                     aria-checked={connected}
+                    disabled={geminiLocked}
                     onClick={() => setOne(int.id, !connected)}
-                    className={`relative inline-block w-11 h-6 rounded-full transition-colors shrink-0 ${connected ? 'bg-emerald-500' : 'bg-zinc-600'}`}
+                    className={`relative inline-block w-11 h-6 rounded-full transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${connected ? 'bg-emerald-500' : 'bg-zinc-600'}`}
                   >
                     <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${connected ? 'translate-x-5' : ''}`} />
                   </button>
@@ -233,7 +309,7 @@ function IntegrationsSection({ initial, initialAiSettings }) {
                     <button
                       type="button"
                       disabled={connected}
-                      onClick={() => setOne(int.id, true)}
+                      onClick={() => handleConnect(int.id)}
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-lg border transition-colors ${
                         connected
                           ? 'bg-emerald-500 border-emerald-500 text-white cursor-default'
@@ -250,7 +326,7 @@ function IntegrationsSection({ initial, initialAiSettings }) {
                     <button
                       type="button"
                       disabled={!connected}
-                      onClick={() => disconnect(int.id)}
+                      onClick={() => handleDisconnect(int.id)}
                       className={`inline-flex items-center px-3 py-1.5 text-sm font-semibold rounded-lg border transition-colors ${
                         connected
                           ? 'bg-red-500 border-red-500 text-white hover:bg-red-600'
@@ -271,6 +347,18 @@ function IntegrationsSection({ initial, initialAiSettings }) {
           );
         })}
       </ul>
+
+      {modalProvider && (
+        <ApiKeyModal
+          provider={modalProvider}
+          label={INTEGRATIONS.find((i) => i.id === modalProvider)?.name || modalProvider}
+          onClose={() => setModalProvider(null)}
+          onConnected={() => {
+            setApiKeyStatus((s) => ({ ...s, [modalProvider]: true }));
+            setModalProvider(null);
+          }}
+        />
+      )}
     </GlassPanel>
   );
 }

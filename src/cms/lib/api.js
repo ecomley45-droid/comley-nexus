@@ -142,6 +142,15 @@ export const getSchedule = () => request('/ops/schedule');
 export const getPreferences = () => request('/user/preferences');
 export const savePreferences = (patch) =>
   request('/user/preferences', { method: 'PATCH', body: JSON.stringify(patch) });
+
+// ---- Integrations: API-key-based connections (Claude, ChatGPT) ----
+// Google/GitHub/Slack are handled entirely client-side via Clerk's own
+// account-linking (see ProfilePage.jsx) -- no server call for those.
+export const getApiKeyStatus = () => request('/integrations/api-keys');
+export const setApiKey = (provider, apiKey) =>
+  request('/integrations/api-keys', { method: 'POST', body: JSON.stringify({ provider, apiKey }) });
+export const removeApiKey = (provider) =>
+  request(`/integrations/api-keys/${provider}`, { method: 'DELETE' });
 export const getUserStats = (period = 'month') =>
   request(`/user/stats?period=${encodeURIComponent(period)}`);
 
