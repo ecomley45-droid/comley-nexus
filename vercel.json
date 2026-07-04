@@ -8,22 +8,20 @@
       "maxDuration": 30
     }
   },
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/feedback-files/(.*)", "destination": "/api/index" },
-    { "source": "/admin", "destination": "/index.html" },
-    { "source": "/admin/(.*)", "destination": "/index.html" },
-    { "source": "/super-admin", "destination": "/index.html" },
-    { "source": "/super-admin/(.*)", "destination": "/index.html" },
-    { "source": "/", "destination": "/api/index" },
-    { "source": "/:slug((?!api|admin|super-admin|assets|_next|feedback-files|favicon\\.ico|vite\\.svg|robots\\.txt|sitemap\\.xml).*)", "destination": "/api/index" }
-  ],
-  "headers": [
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/index" },
+    { "src": "/feedback-files/(.*)", "dest": "/api/index" },
+    { "src": "/admin", "dest": "/index.html" },
+    { "src": "/admin/(.*)", "dest": "/index.html" },
+    { "src": "/super-admin", "dest": "/index.html" },
+    { "src": "/super-admin/(.*)", "dest": "/index.html" },
+    { "src": "/", "dest": "/api/index" },
     {
-      "source": "/assets/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    }
+      "src": "/assets/(.*)",
+      "headers": { "Cache-Control": "public, max-age=31536000, immutable" },
+      "continue": true
+    },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/api/index" }
   ]
 }
