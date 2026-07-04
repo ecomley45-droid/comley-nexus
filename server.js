@@ -391,10 +391,14 @@ app.use(async (req, res, next) => {
       ? (pages.find(p => p.slug === 'index') || pages[0])
       : pages.find(p => getFullPath(p, pages) === requestPath);
 
-    if (!page) return next();
+    // No compiled page matches this slug. Rather than 404-ing, bounce to
+    // the marketing landing so stale bookmarks (e.g. old /shop, /cart URLs
+    // that used to exist) end up somewhere sensible. Actual 404 UX still
+    // happens for /api/* which is handled above.
+    if (!page) return res.redirect(302, '/');
 
     const isPreview = req.query.preview === '1' || req.query.preview === 'true';
-    if (page.status !== 'published' && !isPreview) return next();
+    if (page.status !== 'published' && !isPreview) return res.redirect(302, '/');
 
     // Per-visitor A/B choices (impressions recorded in DB).
     const cookies = (req.headers.cookie || '').split(';').reduce((acc, pair) => {
