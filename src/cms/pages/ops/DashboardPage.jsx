@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { getOpsDashboard } from '../../lib/api.js';
 import { GlassPanel, Badge } from '../../lib/ui/Glass.jsx';
 import { Avatar } from '../../lib/AssigneePicker.jsx';
+import { useOrgBase } from '../../lib/useMe.jsx';
 
 const TYPE_LABEL = {
   bug: 'Bug', non_functioning: 'Non-functioning', critical: 'Critical', feature_request: 'Feature',
@@ -114,6 +115,7 @@ function CalendarChart({ data, monthLabel }) {
 }
 
 export default function DashboardPage() {
+  const base = useOrgBase() || '/admin';
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
 
@@ -141,7 +143,7 @@ export default function DashboardPage() {
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-zinc-200 m-0">Systems</h2>
-          <Link to="/admin/ops/system-status" className="text-xs text-glass-indigo hover:underline">See all →</Link>
+          <Link to={`${base}/ops/system-status`} className="text-xs text-glass-indigo hover:underline">See all →</Link>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {data.systems.map((s) => {
@@ -167,7 +169,7 @@ export default function DashboardPage() {
       <GlassPanel className="p-5">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-zinc-200 m-0">Priority tickets</h2>
-          <Link to="/admin/feedback" className="text-xs text-glass-indigo hover:underline">Open Feedback →</Link>
+          <Link to={`${base}/feedback`} className="text-xs text-glass-indigo hover:underline">Open Feedback →</Link>
         </div>
         {data.topTickets.length === 0 ? (
           <p className="text-sm text-zinc-500 py-4 text-center">No open tickets. Nice.</p>
@@ -176,7 +178,7 @@ export default function DashboardPage() {
             {data.topTickets.map((t) => (
               <li key={t.id}>
                 <Link
-                  to={`/admin/feedback?ticket=${t.id}`}
+                  to={`${base}/feedback?ticket=${t.id}`}
                   className="flex items-center gap-3 py-2 hover:bg-white/[0.03] rounded-md px-1"
                 >
                   <Badge tone="default">{TYPE_LABEL[t.type] || t.type}</Badge>

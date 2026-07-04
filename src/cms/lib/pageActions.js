@@ -23,13 +23,14 @@ export function blankPage() {
   };
 }
 
-// pages/setPages/save/navigate are passed in rather than imported so callers
-// keep using their own usePagesStore()/useNavigate() instances.
-export async function createPage(pages, setPages, save, navigate) {
+// pages/setPages/save/navigate/base are passed in rather than imported so
+// callers keep using their own usePagesStore()/useNavigate() instances and
+// their org-scoped nav base (e.g. "/admin").
+export async function createPage(pages, setPages, save, navigate, base = '/admin') {
   const newPage = blankPage();
   const nextPages = [...pages, newPage];
   setPages(nextPages);
   await save(nextPages);
-  navigate(`/admin/pages/${newPage.id}`);
+  navigate(`${base}/pages/${newPage.id}`);
   return newPage;
 }

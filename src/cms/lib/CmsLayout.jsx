@@ -5,6 +5,7 @@ import { GlassShell } from './ui/Glass.jsx';
 import TopBar from './ui/TopBar.jsx';
 import FeedbackWidget from './FeedbackWidget.jsx';
 import AuthTokenBridge from './AuthTokenBridge.jsx';
+import { useMe, useIsSuperAdmin } from './useMe.jsx';
 
 // Nav item definitions live as relative paths so they can be rebased onto
 // /:orgSlug at render time. That keeps the component agnostic to which
@@ -35,9 +36,13 @@ const NAV_ITEMS = [
     to: 'settings',
     label: 'Settings',
     children: [
-      { to: 'settings', label: 'General', end: true },
-      { to: 'connections', label: 'Connections' },
+      { to: 'settings', label: 'Overview', end: true },
+      { to: 'settings/workspace', label: 'Workspace' },
+      { to: 'settings/design', label: 'Design' },
       { to: 'team', label: 'Team & Permissions' },
+      { to: 'connections', label: 'Integrations' },
+      { to: 'settings/billing', label: 'Billing' },
+      { to: 'import-export', label: 'Import / Export' },
       { to: 'audit', label: 'Audit Log' },
     ],
   },
@@ -57,6 +62,8 @@ function rebaseNav(items, base) {
 export default function CmsLayout() {
   const { orgSlug } = useParams();
   const base = `/${orgSlug}`;
+  const { me } = useMe();
+  const isSuperAdmin = useIsSuperAdmin();
   const [pages, setPages] = useState([]);
   const [commerceEnabled, setCommerceEnabled] = useState(false);
 
@@ -71,14 +78,32 @@ export default function CmsLayout() {
       .catch(() => {});
   }, []);
 
-  const navItems = useMemo(() => rebaseNav(NAV_ITEMS, base), [base]);
+  const navItems = useMemo(() => {
+    const rebased = rebaseNav(NAV_ITEMS, base);
+    // Slot the super-admin "Client workspaces" item into the Settings menu
+    // when the viewer has the right (server-derived) role. Non-super-admins
+    // never see the entry, and the server also enforces the check on the
+    // underlying /api/orgs* routes.
+    if (isSuperAdmin) {
+      const settings = rebased.find((n) => n.label === 'Settings');
+      if (settings) {
+        settings.children = [
+          ...settings.children,
+          { to: `${base}/settings/orgs`, label: 'Client workspaces' },
+        ];
+      }
+    }
+    return rebased;
+  }, [base, isSuperAdmin]);
+
+  const logoLabel = me?.org?.name ? `Nexus · ${me.org.name}` : 'Nexus';
 
   return (
     <GlassShell>
       <AuthTokenBridge />
       <TopBar
         logoTo={base}
-        logoLabel="Nexus"
+        logoLabel={logoLabel}
         navItems={navItems}
         extraNavItem={commerceEnabled ? { to: `${base}/commerce`, label: 'Commerce dashboard →' } : null}
         searchItems={pages.map((p) => ({ label: p.name, to: `${base}/pages/${p.id}` }))}

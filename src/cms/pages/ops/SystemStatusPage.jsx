@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { getSystems } from '../../lib/api.js';
 import { GlassPanel, Badge } from '../../lib/ui/Glass.jsx';
 import { Avatar } from '../../lib/AssigneePicker.jsx';
+import { useOrgBase } from '../../lib/useMe.jsx';
 
 const STATE_META = {
   available: { color: '#22c55e', label: 'Available' },
@@ -35,6 +36,7 @@ function ageDHM(ms) {
 }
 
 export default function SystemStatusPage() {
+  const base = useOrgBase() || '/admin';
   const [systems, setSystems] = useState(null);
   const [openId, setOpenId] = useState(null);
   const [error, setError] = useState('');
@@ -122,7 +124,7 @@ export default function SystemStatusPage() {
                       {s.tickets.map((t) => (
                         <li key={t.id} className="border-b border-white/5 last:border-b-0">
                           <Link
-                            to={`/admin/feedback?ticket=${t.id}`}
+                            to={`${base}/feedback?ticket=${t.id}`}
                             className="flex items-center gap-2.5 py-2.5 px-1 hover:bg-white/[0.03] rounded-md"
                           >
                             <Badge tone="default">{TYPE_LABEL[t.type] || t.type}</Badge>

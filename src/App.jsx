@@ -14,6 +14,10 @@ import CommentsPage from './cms/pages/CommentsPage.jsx';
 import ConnectionsPage from './cms/pages/ConnectionsPage.jsx';
 import TeamPage from './cms/pages/TeamPage.jsx';
 import SettingsPage from './cms/pages/SettingsPage.jsx';
+import WorkspaceSettingsPage from './cms/pages/settings/WorkspaceSettingsPage.jsx';
+import DesignSettingsPage from './cms/pages/settings/DesignSettingsPage.jsx';
+import BillingSettingsPage from './cms/pages/settings/BillingSettingsPage.jsx';
+import OrgsSettingsPage from './cms/pages/settings/OrgsSettingsPage.jsx';
 import AuditLogPage from './cms/pages/AuditLogPage.jsx';
 import ImportExportPage from './cms/pages/ImportExportPage.jsx';
 import FeedbackPage from './cms/pages/FeedbackPage.jsx';
@@ -70,6 +74,10 @@ export default function App() {
           <Route path="connections" element={<ConnectionsPage />} />
           <Route path="team" element={<TeamPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="settings/workspace" element={<WorkspaceSettingsPage />} />
+          <Route path="settings/design" element={<DesignSettingsPage />} />
+          <Route path="settings/billing" element={<BillingSettingsPage />} />
+          <Route path="settings/orgs" element={<OrgsSettingsPage />} />
           <Route path="import-export" element={<ImportExportPage />} />
           <Route path="audit" element={<AuditLogPage />} />
           <Route path="ops/dashboard" element={<OpsDashboardPage />} />

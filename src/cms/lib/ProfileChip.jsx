@@ -1,18 +1,24 @@
 import { Link } from 'react-router-dom';
-import { getViewer } from './api.js';
 import { Avatar } from './AssigneePicker.jsx';
+import { useMe, useOrgBase } from './useMe.jsx';
 
 /**
  * Small clickable identity chip. Compact variant is used top-right in the
  * TopBar; the wide variant sits at the bottom of the hamburger drawer where
  * there's room for a subtitle.
+ *
+ * Identity comes from the server-derived /api/me viewer (useMe) so it
+ * matches whatever Clerk/the DB think you are — not from a stale local
+ * cache.
  */
 export default function ProfileChip({ variant = 'compact', onClick }) {
-  const viewer = getViewer();
+  const { me } = useMe();
+  const viewer = me?.viewer || { name: 'Signed out', email: '', image: null };
+  const base = useOrgBase() || '/admin';
   const isWide = variant === 'wide';
   return (
     <Link
-      to="/admin/ops/profile"
+      to={`${base}/ops/profile`}
       onClick={onClick}
       title="Open profile & preferences"
       className={

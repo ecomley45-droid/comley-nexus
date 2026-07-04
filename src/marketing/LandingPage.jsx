@@ -1,8 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { SignedIn, SignedOut, SignInButton, useUser } from '@clerk/clerk-react';
+import { SignedIn, SignedOut, SignInButton } from '@clerk/clerk-react';
 import { Rocket, Layers, Zap, ShieldCheck, GitBranch, Sparkles } from 'lucide-react';
 import { GlassShell, GlassPanel, GlassButton } from '../cms/lib/ui/Glass.jsx';
-import { orgSlugFromUser } from '../cms/lib/orgSlug.js';
+import { useMe } from '../cms/lib/useMe.jsx';
 
 // Public marketing landing at nexus.comleycreative.com/.
 // When a signed-in user arrives here, we send them straight to their org's
@@ -48,10 +48,15 @@ const FEATURES = [
 
 function AutoRedirectSignedIn() {
   const navigate = useNavigate();
-  const { user, isLoaded } = useUser();
-  if (!isLoaded || !user) return null;
-  const slug = orgSlugFromUser(user);
-  // Delay a tick so the initial render doesn't fight React Router.
+  const { me, loading } = useMe();
+  if (loading) return <p className="text-sm text-zinc-400">Loading workspace…</p>;
+  const slug = me?.org?.slug;
+  if (!slug) {
+    // Signed in but not a member of any org — send them to a friendly
+    // "request access" panel rather than a hostile 403.
+    Promise.resolve().then(() => navigate('/no-workspace', { replace: true }));
+    return <p className="text-sm text-zinc-400">Checking workspace access…</p>;
+  }
   Promise.resolve().then(() => navigate(`/${slug}`, { replace: true }));
   return <p className="text-sm text-zinc-400">Taking you to your workspace…</p>;
 }

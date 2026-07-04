@@ -3,15 +3,17 @@ import { usePagesStore } from '../lib/usePagesStore.js';
 import { getFullPath } from '../../shared/compilePage.js';
 import { createPage as createPageAction } from '../lib/pageActions.js';
 import { GlassPanel, GlassButton, Badge } from '../lib/ui/Glass.jsx';
+import { useOrgBase } from '../lib/useMe.jsx';
 
 export default function PagesListPage() {
   const { pages, setPages, loading, error, save, saving } = usePagesStore();
   const navigate = useNavigate();
+  const base = useOrgBase() || '/admin';
 
   if (loading) return <p className="text-zinc-300">Loading…</p>;
   if (error) return <p className="text-red-400">{error}</p>;
 
-  const createPage = () => createPageAction(pages, setPages, save, navigate);
+  const createPage = () => createPageAction(pages, setPages, save, navigate, base);
 
   const deletePage = async (id) => {
     if (!confirm('Delete this page?')) return;
@@ -43,7 +45,7 @@ export default function PagesListPage() {
             {pages.map((page) => (
               <tr key={page.id} className="border-b border-white/5 hover:bg-white/5">
                 <td className="py-2 px-2">
-                  <Link to={`/admin/pages/${page.id}`} className="text-zinc-100 hover:text-glass-sky">{page.name}</Link>
+                  <Link to={`${base}/pages/${page.id}`} className="text-zinc-100 hover:text-glass-sky">{page.name}</Link>
                 </td>
                 <td className="text-zinc-500">/{getFullPath(page, pages)}</td>
                 <td>

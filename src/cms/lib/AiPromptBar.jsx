@@ -4,12 +4,14 @@ import { Sparkles } from 'lucide-react';
 import { getPreferences } from './api.js';
 import { GlassPanel, GlassInput, GlassSelect, GlassButton } from './ui/Glass.jsx';
 import { connectedAiProviders } from './aiProviders.js';
+import { useOrgBase } from './useMe.jsx';
 
 // Prompt bar mounted at the top of the CMS Dashboard. Only shown when at
 // least one AI provider is marked as "connected" in the viewer's profile.
 // Sending isn't wired to a real backend yet — clicking "Send" surfaces a
 // placeholder response so the shape of the interaction is visible.
 export default function AiPromptBar() {
+  const base = useOrgBase() || '/admin';
   const [providers, setProviders] = useState(null);
   const [providerId, setProviderId] = useState('');
   const [modelId, setModelId] = useState('');
@@ -40,7 +42,7 @@ export default function AiPromptBar() {
           Connect an AI provider on your profile to prompt it from the dashboard.
         </p>
         <Link
-          to="/admin/ops/profile"
+          to={`${base}/ops/profile`}
           className="text-sm font-semibold text-glass-indigo hover:underline"
         >
           Manage integrations →

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { getFeatureRequests } from '../../lib/api.js';
 import { GlassPanel, Badge } from '../../lib/ui/Glass.jsx';
 import { Avatar } from '../../lib/AssigneePicker.jsx';
+import { useOrgBase } from '../../lib/useMe.jsx';
 
 function ageDHM(ms) {
   if (!ms) return '—';
@@ -46,7 +47,7 @@ function SystemRow({ s }) {
               {s.tickets.map((t) => (
                 <li key={t.id} className="border-b border-white/5 last:border-b-0">
                   <Link
-                    to={`/admin/feedback?ticket=${t.id}`}
+                    to={`${base}/feedback?ticket=${t.id}`}
                     className="flex items-center gap-2.5 py-2.5 px-1 hover:bg-white/[0.03] rounded-md"
                   >
                     {t.urgent && <span className="text-red-400 text-[10px] font-bold uppercase">Urgent</span>}
@@ -70,6 +71,7 @@ function SystemRow({ s }) {
 }
 
 export default function FeatureRequestsPage() {
+  const base = useOrgBase() || '/admin';
   const [products, setProducts] = useState(null);
   const [error, setError] = useState('');
 

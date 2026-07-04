@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { ClerkProvider } from '@clerk/clerk-react';
 import * as Sentry from '@sentry/react';
 import App from './App.jsx';
+import { MeProvider } from './cms/lib/useMe.jsx';
 import './index.css';
 
 const clerkKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -39,14 +40,22 @@ if (sentryDsn) {
 // Only wrap in ClerkProvider once a publishable key exists — it throws if
 // given an empty key, and local dev mode (see useCommerceUser.js) doesn't
 // need it at all.
+// MeProvider needs Clerk's `useAuth()` so it must sit INSIDE ClerkProvider.
+// Without ClerkProvider (local dev with no Clerk keys), MeProvider still
+// mounts but /api/me will 401 — the dev-bypass in lib/auth.js synthesizes
+// a viewer server-side, so /api/me responds even without a real Clerk JWT.
 const root = (
   <StrictMode>
     {clerkKey ? (
       <ClerkProvider publishableKey={clerkKey}>
-        <App />
+        <MeProvider>
+          <App />
+        </MeProvider>
       </ClerkProvider>
     ) : (
-      <App />
+      <MeProvider>
+        <App />
+      </MeProvider>
     )}
   </StrictMode>
 );

@@ -38,6 +38,20 @@ async function request(path, options = {}) {
   return data;
 }
 
+// ---- Identity / org (server-derived) ----
+export const getMe = () => request('/me');
+
+// ---- Orgs (super-admin) ----
+export const listOrgs = () => request('/orgs');
+export const createOrg = (payload) => request('/orgs', { method: 'POST', body: JSON.stringify(payload) });
+export const updateOrg = (id, patch) => request(`/orgs/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+export const deleteOrg = (id) => request(`/orgs/${id}`, { method: 'DELETE' });
+export const listOrgMembers = (id) => request(`/orgs/${id}/members`);
+export const addOrgMember = (id, email, role) =>
+  request(`/orgs/${id}/members`, { method: 'POST', body: JSON.stringify({ email, role }) });
+export const removeOrgMember = (id, email) =>
+  request(`/orgs/${id}/members/${encodeURIComponent(email)}`, { method: 'DELETE' });
+
 // ---- Pages ----
 export const getPages = () => request('/pages');
 export const savePages = (pages, globalSettings) =>

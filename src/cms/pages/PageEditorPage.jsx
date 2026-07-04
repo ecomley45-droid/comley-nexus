@@ -5,6 +5,7 @@ import { useDebouncedValue } from '../lib/useDebouncedValue.js';
 import { compilePageHtml, getFullPath } from '../../shared/compilePage.js';
 import { getLibrary, getAbStats, getComments, addComment, resolveComment } from '../lib/api.js';
 import { GlassPanel, GlassButton, GlassInput, GlassTextarea, GlassSelect } from '../lib/ui/Glass.jsx';
+import { useOrgBase } from '../lib/useMe.jsx';
 
 const newSection = () => ({ id: 'sec-' + Date.now() + '-' + Math.floor(Math.random() * 1e6), name: 'New section', html: '<div class="p-8">New section</div>' });
 
@@ -210,6 +211,7 @@ function LayoutPanel({ layout, globals, onChange }) {
 
 export default function PageEditorPage() {
   const { id } = useParams();
+  const base = useOrgBase() || '/admin';
   const { pages, setPages, loading, error, save, saving, saveMessage, globalSettings } = usePagesStore();
   const [library, setLibrary] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
@@ -227,7 +229,7 @@ export default function PageEditorPage() {
 
   if (loading) return <p className="text-zinc-300">Loading…</p>;
   if (error) return <p className="text-red-400">{error}</p>;
-  if (!page) return <p className="text-zinc-300">Page not found. <Link to="/admin/pages" className="underline">Back to pages</Link></p>;
+  if (!page) return <p className="text-zinc-300">Page not found. <Link to={`${base}/pages`} className="underline">Back to pages</Link></p>;
 
   const updatePage = (patch) => setPages(pages.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   const updateSections = (content) => updatePage({ content });
