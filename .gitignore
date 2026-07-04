@@ -31,3 +31,6 @@ dist_site
 *.sln
 *.sw?
 .vercel
+
+# Claude Code harness runtime state
+.claude/scheduled_tasks.lock
