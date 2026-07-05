@@ -8,6 +8,7 @@ import { GlassPanel, GlassButton, GlassInput, GlassTextarea, GlassSelect } from 
 import { useOrgBase } from '../lib/useMe.jsx';
 import PasteInModal from '../lib/pasteIn/PasteInModal.jsx';
 import StructuredBlockEditor from '../lib/pasteIn/StructuredBlockEditor.jsx';
+import BlockCatalogPicker from '../lib/blocks/BlockCatalogPicker.jsx';
 
 const newSection = () => ({ id: 'sec-' + Date.now() + '-' + Math.floor(Math.random() * 1e6), name: 'New section', html: '<div class="p-8">New section</div>' });
 
@@ -227,6 +228,7 @@ export default function PageEditorPage({ nexus = false }) {
   const [deviceWidth, setDeviceWidth] = useState('Desktop - Large');
   const [editView, setEditView] = useState('Raw HTML');
   const [pasteInOpen, setPasteInOpen] = useState(false);
+  const [catalogOpen, setCatalogOpen] = useState(false);
 
   useEffect(() => { (nexus ? getNexusLibrary() : getLibrary()).then(setLibrary).catch(() => {}); }, [nexus]);
 
@@ -254,6 +256,10 @@ export default function PageEditorPage({ nexus = false }) {
   const importPastedBlocks = (sections) => {
     updateSections([...page.content, ...sections]);
     setPasteInOpen(false);
+  };
+  const insertCatalogBlock = (section) => {
+    updateSections([...page.content, section]);
+    setCatalogOpen(false);
   };
   const updateSection = (secId, patch) => updateSections(page.content.map((s) => (s.id === secId ? { ...s, ...patch } : s)));
   const removeSection = (secId) => updateSections(page.content.filter((s) => s.id !== secId));
@@ -327,9 +333,13 @@ export default function PageEditorPage({ nexus = false }) {
                 </GlassSelect>
               )}
               <button onClick={() => setPasteInOpen(true)} className="text-xs text-glass-sky hover:underline">Paste in…</button>
-              <button onClick={addSection} className="text-xs text-glass-sky hover:underline">Add</button>
+              <button onClick={addSection} className="text-xs text-glass-sky hover:underline">Blank</button>
             </div>
           </div>
+
+          <GlassButton onClick={() => setCatalogOpen(true)} className="w-full mb-3 justify-center">
+            Add Block +
+          </GlassButton>
 
           <div className="flex items-center gap-1 mb-3 p-0.5 rounded-lg bg-white/[0.04] border border-white/10 w-fit">
             {EDIT_VIEWS.map((v) => (
@@ -433,6 +443,7 @@ export default function PageEditorPage({ nexus = false }) {
       </div>
 
       {pasteInOpen && <PasteInModal onClose={() => setPasteInOpen(false)} onImport={importPastedBlocks} />}
+      {catalogOpen && <BlockCatalogPicker onClose={() => setCatalogOpen(false)} onInsert={insertCatalogBlock} />}
     </div>
   );
 }

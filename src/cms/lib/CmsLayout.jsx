@@ -14,6 +14,7 @@ import { useMe, useIsSuperAdmin } from './useMe.jsx';
 const NAV_ITEMS = [
   { to: '', label: 'Dashboard', end: true },
   { to: 'pages', label: 'Pages' },
+  { to: 'blocks', label: 'Blocks' },
   { to: 'library', label: 'Library' },
   { to: 'media', label: 'Media' },
   { to: 'redirects', label: 'Redirects' },

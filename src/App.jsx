@@ -13,6 +13,7 @@ import CmsLayout from './cms/lib/CmsLayout.jsx';
 import DashboardPage from './cms/pages/DashboardPage.jsx';
 import PagesListPage from './cms/pages/PagesListPage.jsx';
 import PageEditorPage from './cms/pages/PageEditorPage.jsx';
+import BlocksCatalogPage from './cms/pages/BlocksCatalogPage.jsx';
 import LibraryPage from './cms/pages/LibraryPage.jsx';
 import MediaPage from './cms/pages/MediaPage.jsx';
 import RedirectsPage from './cms/pages/RedirectsPage.jsx';
@@ -76,6 +77,7 @@ export default function App() {
           <Route path="orgs" element={<OrgsPage />} />
           <Route path="pages" element={<PagesListPage nexus />} />
           <Route path="pages/:id" element={<PageEditorPage nexus />} />
+          <Route path="blocks" element={<BlocksCatalogPage />} />
           <Route path="billing" element={<SuperAdminBillingPage />} />
           <Route path="settings" element={<NexusSettingsPage />} />
         </Route>
@@ -86,6 +88,7 @@ export default function App() {
           <Route index element={<DashboardPage />} />
           <Route path="pages" element={<PagesListPage />} />
           <Route path="pages/:id" element={<PageEditorPage />} />
+          <Route path="blocks" element={<BlocksCatalogPage />} />
           <Route path="library" element={<LibraryPage />} />
           <Route path="media" element={<MediaPage />} />
           <Route path="redirects" element={<RedirectsPage />} />

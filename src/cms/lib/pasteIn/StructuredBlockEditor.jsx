@@ -11,7 +11,7 @@ import { renderBlock } from './blockRenderers.js';
 // plain `unknown` content) have no structured representation to edit --
 // callers should fall back to the raw HTML view for those.
 
-const COLLECTION_TYPES = ['card-grid', 'scrolling-cards', 'list'];
+const COLLECTION_TYPES = ['card-grid', 'scrolling-cards', 'list', 'stats', 'testimonials', 'team', 'faq', 'tabs'];
 
 function StringListEditor({ label, items, onChange, multiline = false, placeholder }) {
   const Field = multiline ? GlassTextarea : GlassInput;
@@ -91,7 +91,7 @@ function LinksEditor({ links, onChange }) {
 function ItemsEditor({ items, onChange }) {
   const update = (i, patch) => onChange(items.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
   const remove = (i) => onChange(items.filter((_, idx) => idx !== i));
-  const add = () => onChange([...items, { heading: '', body: '', image: '', link: '' }]);
+  const add = () => onChange([...items, { heading: '', meta: '', body: '', image: '', link: '' }]);
 
   return (
     <div className="mb-3">
@@ -105,7 +105,8 @@ function ItemsEditor({ items, onChange }) {
             <span className="text-xs text-zinc-500">Item {i + 1}</span>
             <button onClick={() => remove(i)} className="text-red-400 hover:text-red-300 text-xs">Remove</button>
           </div>
-          <GlassInput value={it.heading || ''} onChange={(e) => update(i, { heading: e.target.value })} placeholder="Heading" className="w-full mb-1.5" />
+          <GlassInput value={it.heading || ''} onChange={(e) => update(i, { heading: e.target.value })} placeholder="Heading (e.g. name, question, tab label)" className="w-full mb-1.5" />
+          <GlassInput value={it.meta || ''} onChange={(e) => update(i, { meta: e.target.value })} placeholder="Subtitle (e.g. role/title) -- optional" className="w-full mb-1.5" />
           <GlassTextarea value={it.body || ''} onChange={(e) => update(i, { body: e.target.value })} placeholder="Body" rows={2} className="w-full mb-1.5" />
           <div className="flex gap-1.5">
             <GlassInput value={it.image || ''} onChange={(e) => update(i, { image: e.target.value })} placeholder="Image URL" className="flex-1" />
@@ -114,6 +115,56 @@ function ItemsEditor({ items, onChange }) {
         </div>
       ))}
       {items.length === 0 && <p className="text-xs text-zinc-600">None</p>}
+    </div>
+  );
+}
+
+function PlansEditor({ plans, onChange }) {
+  const update = (i, patch) => onChange(plans.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
+  const remove = (i) => onChange(plans.filter((_, idx) => idx !== i));
+  const add = () => onChange([...plans, { name: '', price: '', period: '/mo', features: [], ctaLabel: 'Get started', ctaHref: '#', highlighted: false }]);
+  const updateFeature = (i, fi, value) => update(i, { features: plans[i].features.map((f, idx) => (idx === fi ? value : f)) });
+  const removeFeature = (i, fi) => update(i, { features: plans[i].features.filter((_, idx) => idx !== fi) });
+  const addFeature = (i) => update(i, { features: [...(plans[i].features || []), ''] });
+
+  return (
+    <div className="mb-3">
+      <div className="flex justify-between items-center mb-1">
+        <label className="text-xs text-zinc-400">Plans ({plans.length})</label>
+        <button onClick={add} className="text-xs text-glass-sky hover:underline">Add plan</button>
+      </div>
+      {plans.map((p, i) => (
+        <div key={i} className="rounded-lg border border-white/10 bg-white/[0.03] p-2 mb-2">
+          <div className="flex justify-between items-center mb-1.5">
+            <span className="text-xs text-zinc-500">Plan {i + 1}</span>
+            <button onClick={() => remove(i)} className="text-red-400 hover:text-red-300 text-xs">Remove</button>
+          </div>
+          <GlassInput value={p.name || ''} onChange={(e) => update(i, { name: e.target.value })} placeholder="Plan name" className="w-full mb-1.5" />
+          <div className="flex gap-1.5 mb-1.5">
+            <GlassInput value={p.price || ''} onChange={(e) => update(i, { price: e.target.value })} placeholder="$49" className="flex-1" />
+            <GlassInput value={p.period || ''} onChange={(e) => update(i, { period: e.target.value })} placeholder="/mo" className="w-20" />
+          </div>
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-xs text-zinc-500">Features</span>
+            <button onClick={() => addFeature(i)} className="text-xs text-glass-sky hover:underline">Add feature</button>
+          </div>
+          {(p.features || []).map((f, fi) => (
+            <div key={fi} className="flex gap-1.5 mb-1">
+              <GlassInput value={f} onChange={(e) => updateFeature(i, fi, e.target.value)} className="flex-1 py-1" />
+              <button onClick={() => removeFeature(i, fi)} className="text-red-400 hover:text-red-300 text-xs px-1">✕</button>
+            </div>
+          ))}
+          <div className="flex gap-1.5 mt-1.5">
+            <GlassInput value={p.ctaLabel || ''} onChange={(e) => update(i, { ctaLabel: e.target.value })} placeholder="Button label" className="flex-1" />
+            <GlassInput value={p.ctaHref || ''} onChange={(e) => update(i, { ctaHref: e.target.value })} placeholder="Button URL" className="flex-1" />
+          </div>
+          <label className="flex items-center gap-2 text-xs text-zinc-300 mt-2">
+            <input type="checkbox" checked={!!p.highlighted} onChange={(e) => update(i, { highlighted: e.target.checked })} className="w-3.5 h-3.5" />
+            Highlight this plan
+          </label>
+        </div>
+      ))}
+      {plans.length === 0 && <p className="text-xs text-zinc-600">None</p>}
     </div>
   );
 }
@@ -141,6 +192,32 @@ export default function StructuredBlockEditor({ section, onChange }) {
       <LinksEditor links={fields.links || []} onChange={(links) => setFields({ links })} />
       {COLLECTION_TYPES.includes(section.blockType) && (
         <ItemsEditor items={fields.items || []} onChange={(items) => setFields({ items })} />
+      )}
+      {section.blockType === 'pricing-table' && (
+        <PlansEditor plans={fields.plans || []} onChange={(plans) => setFields({ plans })} />
+      )}
+      {section.blockType === 'video' && (
+        <div className="mb-3">
+          <label className="text-xs text-zinc-400 block mb-1">Video URL (YouTube or Vimeo)</label>
+          <GlassInput value={fields.videoUrl || ''} onChange={(e) => setFields({ videoUrl: e.target.value })} placeholder="https://www.youtube.com/watch?v=…" className="w-full" />
+        </div>
+      )}
+      {section.blockType === 'newsletter' && (
+        <div className="mb-3">
+          <label className="text-xs text-zinc-400 block mb-1">Button label</label>
+          <GlassInput value={fields.buttonLabel || ''} onChange={(e) => setFields({ buttonLabel: e.target.value })} placeholder="Subscribe" className="w-full" />
+        </div>
+      )}
+      {section.blockType === 'countdown' && (
+        <div className="mb-3">
+          <label className="text-xs text-zinc-400 block mb-1">Target date</label>
+          <GlassInput
+            type="date"
+            value={fields.targetDate ? fields.targetDate.slice(0, 10) : ''}
+            onChange={(e) => setFields({ targetDate: e.target.value ? new Date(e.target.value).toISOString() : '' })}
+            className="w-full"
+          />
+        </div>
       )}
     </div>
   );
