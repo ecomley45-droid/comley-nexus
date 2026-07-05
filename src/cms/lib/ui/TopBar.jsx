@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { NavLink, Link } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { NavLink, Link, useLocation } from 'react-router-dom';
+import { Menu, X, ChevronDown } from 'lucide-react';
 import { GlassPanel, GlassInput } from './Glass.jsx';
 import ProfileChip from '../ProfileChip.jsx';
 
@@ -11,6 +11,21 @@ import ProfileChip from '../ProfileChip.jsx';
 export default function TopBar({ logoTo, logoLabel, navItems, extraNavItem, searchItems = [], searchPlaceholder = 'Search…', rightSlot }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const { pathname } = useLocation();
+
+  // Sections with children (Ops, Settings) start collapsed unless the
+  // current page is inside them, so opening the drawer never hides where
+  // you already are. Toggling is a separate control from the label itself,
+  // which still navigates to the section's own landing page.
+  const [openSections, setOpenSections] = useState(() =>
+    new Set(navItems.filter((i) => i.children?.some((c) => c.to === pathname)).map((i) => i.label))
+  );
+  const toggleSection = (label) =>
+    setOpenSections((prev) => {
+      const next = new Set(prev);
+      next.has(label) ? next.delete(label) : next.add(label);
+      return next;
+    });
 
   const matches = query.trim()
     ? searchItems.filter((item) => item.label.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 8)
@@ -58,50 +73,62 @@ export default function TopBar({ logoTo, logoLabel, navItems, extraNavItem, sear
       {drawerOpen && (
         <div className="fixed inset-0 z-30 flex">
           <div className="absolute inset-0 bg-black/50" onClick={() => setDrawerOpen(false)} />
-          <GlassPanel className="relative w-72 h-full rounded-none p-4 flex flex-col gap-1 animate-panel-in overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
+          <GlassPanel className="relative w-72 h-full rounded-none p-4 flex flex-col gap-1 animate-panel-in">
+            <div className="flex justify-between items-center mb-4 shrink-0">
               <span className="font-semibold text-zinc-100">Menu</span>
               <button onClick={() => setDrawerOpen(false)} className="text-zinc-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="flex flex-col gap-1 flex-1 min-h-0">
+            <div className="flex flex-col gap-1 flex-1 min-h-0 overflow-y-auto">
             {navItems.map((item) =>
               item.children ? (
                 <div key={item.label}>
-                  <NavLink
-                    to={item.to}
-                    end={item.end}
-                    onClick={() => setDrawerOpen(false)}
-                    className={({ isActive }) =>
-                      `px-3 py-2 rounded-xl text-sm transition block ${
-                        isActive
-                          ? 'bg-gradient-to-tr from-glass-indigo to-glass-fuchsia text-white shadow-lg shadow-glass-fuchsia/20'
-                          : 'text-zinc-300 hover:text-white hover:bg-white/10'
-                      }`
-                    }
-                  >
-                    {item.label}
-                  </NavLink>
-                  <div className="ml-3 pl-3 border-l border-white/10 flex flex-col gap-1 mt-1">
-                    {item.children.map((child) => (
-                      <NavLink
-                        key={child.to}
-                        to={child.to}
-                        end={child.end}
-                        onClick={() => setDrawerOpen(false)}
-                        className={({ isActive }) =>
-                          `px-3 py-1.5 rounded-lg text-sm transition ${
-                            isActive
-                              ? 'bg-gradient-to-tr from-glass-indigo to-glass-fuchsia text-white shadow-lg shadow-glass-fuchsia/20'
-                              : 'text-zinc-400 hover:text-white hover:bg-white/10'
-                          }`
-                        }
-                      >
-                        {child.label}
-                      </NavLink>
-                    ))}
+                  <div className="flex items-center gap-1">
+                    <NavLink
+                      to={item.to}
+                      end={item.end}
+                      onClick={() => setDrawerOpen(false)}
+                      className={({ isActive }) =>
+                        `flex-1 px-3 py-2 rounded-xl text-sm transition block ${
+                          isActive
+                            ? 'bg-gradient-to-tr from-glass-indigo to-glass-fuchsia text-white shadow-lg shadow-glass-fuchsia/20'
+                            : 'text-zinc-300 hover:text-white hover:bg-white/10'
+                        }`
+                      }
+                    >
+                      {item.label}
+                    </NavLink>
+                    <button
+                      type="button"
+                      onClick={() => toggleSection(item.label)}
+                      aria-label={openSections.has(item.label) ? `Collapse ${item.label}` : `Expand ${item.label}`}
+                      className="w-8 h-8 shrink-0 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 grid place-items-center"
+                    >
+                      <ChevronDown className={`w-4 h-4 transition-transform ${openSections.has(item.label) ? 'rotate-180' : ''}`} />
+                    </button>
                   </div>
+                  {openSections.has(item.label) && (
+                    <div className="ml-3 pl-3 border-l border-white/10 flex flex-col gap-1 mt-1">
+                      {item.children.map((child) => (
+                        <NavLink
+                          key={child.to}
+                          to={child.to}
+                          end={child.end}
+                          onClick={() => setDrawerOpen(false)}
+                          className={({ isActive }) =>
+                            `px-3 py-1.5 rounded-lg text-sm transition ${
+                              isActive
+                                ? 'bg-gradient-to-tr from-glass-indigo to-glass-fuchsia text-white shadow-lg shadow-glass-fuchsia/20'
+                                : 'text-zinc-400 hover:text-white hover:bg-white/10'
+                            }`
+                          }
+                        >
+                          {child.label}
+                        </NavLink>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <NavLink
@@ -131,7 +158,7 @@ export default function TopBar({ logoTo, logoLabel, navItems, extraNavItem, sear
               </Link>
             )}
             </div>
-            <div className="mt-3 pt-3 border-t border-white/10">
+            <div className="mt-3 pt-3 border-t border-white/10 shrink-0">
               <ProfileChip variant="wide" onClick={() => setDrawerOpen(false)} />
             </div>
           </GlassPanel>
