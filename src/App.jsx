@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from './marketing/LandingPage.jsx';
+import PausedGate from './cms/lib/PausedGate.jsx';
 import RequireOrg from './cms/lib/RequireOrg.jsx';
 import RequireSuperAdmin from './cms/lib/RequireSuperAdmin.jsx';
 import SuperAdminLayout from './cms/lib/SuperAdminLayout.jsx';
@@ -61,6 +62,7 @@ import AnalyticsPage from './commerce/pages/admin/AnalyticsPage.jsx';
 export default function App() {
   return (
     <BrowserRouter>
+      <PausedGate>
       <Routes>
         {/* Public marketing */}
         <Route path="/" element={<LandingPage />} />
@@ -132,6 +134,7 @@ export default function App() {
             typos) redirects back to the marketing landing. */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </PausedGate>
     </BrowserRouter>
   );
 }

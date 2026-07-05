@@ -14,6 +14,8 @@ import { compilePageHtml, getFullPath, pickWeightedVariant } from './src/shared/
 import { mountCommerceWebhooks, mountCommerceApi } from './lib/commerce/routes.js';
 import { mountOpsApi } from './lib/ops/routes.js';
 import { mountNexusApi } from './lib/nexusRoutes.js';
+import { mountSuperAdminApi } from './lib/superAdminRoutes.js';
+import { mountBlockCatalogApi } from './lib/blockCatalogRoutes.js';
 import {
   attachClerk, resolveViewer, requireRole, requireOrgMatch, requireSuperAdmin,
   isSuperAdminViewer, assertProductionAuth,
@@ -77,10 +79,16 @@ const aiClassifyLimit = rateLimit({ windowMs: 60_000, max: 20, standardHeaders: 
 // Guard used on every route that reads/writes tenant-scoped data. Ensures
 // req.org is populated before we hit the storage layer. Unauthenticated
 // requests get 401; authenticated but org-less users get 403 with an
-// actionable message.
+// actionable message. A paused workspace (Super Admin lifecycle control,
+// see OrgsPage.jsx) gets a deliberately generic 423 -- no forced sign-out,
+// but every further org-scoped call fails from here on until resumed. The
+// client's api.js request() wrapper turns this into a full-page "something
+// went wrong" takeover rather than a normal error, and never reveals that
+// the workspace was paused.
 const requireOrg = (req, res, next) => {
   if (!req.viewer) return res.status(401).json({ error: 'Authentication required' });
   if (!req.org) return res.status(403).json({ error: 'No workspace on this account' });
+  if (req.org.paused) return res.status(423).json({ error: 'Something went wrong. Please contact support.' });
   next();
 };
 
@@ -122,6 +130,7 @@ app.get('/api/me', (req, res) => {
       name: req.org.name,
       role: req.org.role,
       feature_flags: req.org.feature_flags || {},
+      viewingAs: !!req.org.viewingAs,
     } : null,
   });
 });
@@ -131,6 +140,8 @@ app.get('/api/me', (req, res) => {
 mountCommerceApi(app);
 mountOpsApi(app);
 mountNexusApi(app);
+mountSuperAdminApi(app);
+mountBlockCatalogApi(app);
 
 // ================= PAGES =================
 
@@ -441,6 +452,39 @@ app.post('/api/orgs/:id/members', requireSuperAdmin, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// JSON export of everything content-shaped for one workspace -- a data
+// backup, not a rebuildable static site (no rendered HTML). Serves the
+// same "get my data out" need the stubbed/disabled POST /api/export
+// below was meant for, before it was shelved during the Supabase
+// migration and never finished.
+app.get('/api/orgs/:id/backup', requireSuperAdmin, async (req, res, next) => {
+  try {
+    const orgId = req.params.id;
+    const org = await storage.orgs.get(orgId);
+    if (!org) return res.status(404).json({ error: 'Workspace not found' });
+    const [pages, library, redirects, settings] = await Promise.all([
+      storage.pages.list(orgId),
+      storage.library.list(orgId),
+      storage.redirects.list(orgId),
+      storage.settings.get(orgId),
+    ]);
+    const backup = {
+      exportedAt: new Date().toISOString(),
+      org: { id: org.id, name: org.name, domain: org.domain, plan: org.plan },
+      pages, library, redirects, settings,
+    };
+    res.setHeader('Content-Disposition', `attachment; filename="${orgId}-backup-${Date.now()}.json"`);
+    res.json(backup);
+  } catch (e) { next(e); }
+});
+
+// Usage counts for the Billing page -- see storage.usageForOrg's own
+// comment on why this is a counts proxy, not real bandwidth metering.
+app.get('/api/orgs/:id/usage', requireSuperAdmin, async (req, res, next) => {
+  try { res.json(await storage.usageForOrg(req.params.id)); }
+  catch (e) { next(e); }
+});
+
 app.delete('/api/orgs/:id/members/:email', requireSuperAdmin, async (req, res, next) => {
   try {
     await storage.orgMembers.remove(req.params.id, req.params.email);
@@ -470,7 +514,8 @@ const nexusSite = () => ({
   recordImpression: async () => {}, // no A/B wiring for Nexus's own site in v1
 });
 
-const orgSite = (orgId) => ({
+const orgSite = (orgId, paused) => ({
+  paused: !!paused,
   findRedirect: (p) => storage.redirects.findMatch(orgId, p),
   applySchedules: () => applyDueSchedules(orgId),
   loadPages: () => storage.pages.list(orgId),
@@ -478,6 +523,18 @@ const orgSite = (orgId) => ({
   loadSettings: () => storage.settings.get(orgId),
   recordImpression: (sectionId, variantId) => storage.abStats.record(orgId, sectionId, variantId, 'impressions'),
 });
+
+// Deliberately generic -- never reveals that the underlying reason is a
+// paused workspace, matching the same client-facing takeover used for
+// paused API calls (see requireOrg in this file / lib/ops/routes.js).
+const PAUSED_SITE_HTML = `<!doctype html>
+<html><head><meta charset="utf-8"><title>Unavailable</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>body{background:#070a13;color:#e2e8f0;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;}
+.box{max-width:420px;padding:24px;}
+h1{font-size:22px;margin-bottom:8px;}
+p{color:#a1a1aa;font-size:14px;}</style></head>
+<body><div class="box"><h1>Something went wrong</h1><p>This site is temporarily unavailable. Please contact support if you believe this is an error.</p></div></body></html>`;
 
 // Resolves which site's content to render for an incoming public request:
 //   - Host matches an org's `domain` column -> that org's own content (a
@@ -489,10 +546,13 @@ const orgSite = (orgId) => ({
 async function resolvePublicSite(host) {
   const orgs = await storage.orgs.list();
   const matched = orgs.find((o) => o.domain && o.domain === host);
-  if (matched) return orgSite(matched.id);
+  if (matched) return orgSite(matched.id, matched.paused);
 
   const explicitDefault = process.env.DEFAULT_PUBLIC_ORG_ID || process.env.PUBLIC_ORG_ID;
-  if (explicitDefault) return orgSite(explicitDefault);
+  if (explicitDefault) {
+    const org = orgs.find((o) => o.id === explicitDefault);
+    return orgSite(explicitDefault, org?.paused);
+  }
 
   return nexusSite();
 }
@@ -504,6 +564,7 @@ app.use(async (req, res, next) => {
     if (requestPath.startsWith('api') || requestPath.includes('.')) return next();
 
     const site = await resolvePublicSite(req.headers.host);
+    if (site.paused) return res.status(423).send(PAUSED_SITE_HTML);
 
     const redirect = await site.findRedirect(requestPath);
     if (redirect) {

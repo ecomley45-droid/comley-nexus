@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   listOrgs, createOrg, updateOrg, deleteOrg,
-  listOrgMembers, addOrgMember, removeOrgMember,
+  listOrgMembers, addOrgMember, removeOrgMember, viewAsOrg,
 } from '../../lib/api.js';
 import { GlassPanel, GlassButton, GlassInput, GlassSelect } from '../../lib/ui/Glass.jsx';
+import { useMe } from '../../lib/useMe.jsx';
 
 // Create and manage every client workspace in Nexus. This is how you
 // onboard a real client — Comley Creative is the first one. The route
@@ -50,7 +52,7 @@ export default function OrgsPage() {
 
       <div className="space-y-2">
         {orgs.map((o) => (
-          <OrgRow key={o.id} org={o} onSelect={() => setSelected(o)} onDeleted={refresh} />
+          <OrgRow key={o.id} org={o} onSelect={() => setSelected(o)} onDeleted={refresh} onUpdated={refresh} />
         ))}
       </div>
 
@@ -60,12 +62,51 @@ export default function OrgsPage() {
   );
 }
 
-function OrgRow({ org, onSelect, onDeleted }) {
+function OrgRow({ org, onSelect, onDeleted, onUpdated }) {
+  const navigate = useNavigate();
+  const { refresh } = useMe();
+  const [opening, setOpening] = useState(false);
+  const [editingDomain, setEditingDomain] = useState(false);
+  const [domainValue, setDomainValue] = useState(org.domain || '');
+  const [busy, setBusy] = useState(false);
+
   const handleDelete = async () => {
     if (org.id === PROTECTED_ORG_ID) return alert(`"${org.name}" is Nexus's first client and can't be deleted here.`);
     if (!confirm(`Delete workspace "${org.name}" and all its data? This can't be undone.`)) return;
     try { await deleteOrg(org.id); onDeleted(); } catch (e) { alert(e.message); }
   };
+
+  const openWorkspace = async () => {
+    setOpening(true);
+    try {
+      await viewAsOrg(org.id);
+      await refresh();
+      navigate(`/${org.id}`);
+    } catch (e) {
+      alert(e.message);
+      setOpening(false);
+    }
+  };
+
+  const saveDomain = async () => {
+    setBusy(true);
+    try {
+      await updateOrg(org.id, { domain: domainValue.trim() || null });
+      setEditingDomain(false);
+      onUpdated();
+    } catch (e) { alert(e.message); }
+    finally { setBusy(false); }
+  };
+
+  const togglePause = async () => {
+    const next = !org.paused;
+    if (next && !confirm(`Pause "${org.name}"? Their team will see a generic error instead of the workspace, and their public site will show the same until you resume.`)) return;
+    setBusy(true);
+    try { await updateOrg(org.id, { paused: next }); onUpdated(); } catch (e) { alert(e.message); }
+    finally { setBusy(false); }
+  };
+
+  const downloadBackup = () => window.open(`/api/orgs/${org.id}/backup`, '_blank');
 
   return (
     <GlassPanel className="p-3 flex items-center gap-3">
@@ -73,14 +114,38 @@ function OrgRow({ org, onSelect, onDeleted }) {
         <div className="flex items-baseline gap-2">
           <div className="font-medium text-zinc-100">{org.name}</div>
           <div className="text-xs text-zinc-500">/{org.id}</div>
+          {org.paused && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/30">Paused</span>}
         </div>
-        <div className="text-xs text-zinc-500 flex gap-3 mt-1">
+        <div className="text-xs text-zinc-500 flex items-center gap-3 mt-1 flex-wrap">
           <span>Plan: {org.plan}</span>
-          {org.domain && <span>Domain: {org.domain}</span>}
+          {editingDomain ? (
+            <span className="flex items-center gap-1">
+              <GlassInput
+                value={domainValue}
+                onChange={(e) => setDomainValue(e.target.value)}
+                placeholder="acmeco.com"
+                className="text-xs py-0.5 px-1.5 w-36"
+              />
+              <button onClick={saveDomain} disabled={busy} className="text-glass-sky hover:underline">Save</button>
+              <button onClick={() => { setEditingDomain(false); setDomainValue(org.domain || ''); }} className="hover:text-zinc-300">Cancel</button>
+            </span>
+          ) : (
+            <span>
+              Domain: {org.domain || '—'}{' '}
+              <button onClick={() => setEditingDomain(true)} className="text-glass-sky hover:underline">Edit</button>
+            </span>
+          )}
           <span>Created: {new Date(org.created_at).toLocaleDateString()}</span>
         </div>
       </div>
+      <GlassButton onClick={openWorkspace} disabled={opening} className="text-xs">
+        {opening ? 'Opening…' : 'Open workspace'}
+      </GlassButton>
       <GlassButton onClick={onSelect} variant="secondary" className="text-xs">Members</GlassButton>
+      <button onClick={downloadBackup} className="text-xs text-zinc-400 hover:text-zinc-100 px-2">Backup</button>
+      <button onClick={togglePause} disabled={busy} className={`text-xs px-2 ${org.paused ? 'text-emerald-400 hover:text-emerald-300' : 'text-amber-400 hover:text-amber-300'}`}>
+        {org.paused ? 'Resume' : 'Pause'}
+      </button>
       {org.id !== PROTECTED_ORG_ID && (
         <button onClick={handleDelete} className="text-xs text-red-400 hover:text-red-300 px-2">Delete</button>
       )}

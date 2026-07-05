@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useUser, useReverification } from '@clerk/clerk-react';
+import { useUser, useClerk, useReverification } from '@clerk/clerk-react';
 import { isReverificationCancelledError } from '@clerk/clerk-react/errors';
 import { getPreferences, savePreferences, getUserStats, getViewer, getApiKeyStatus, removeApiKey } from '../../lib/api.js';
-import { GlassPanel, GlassSelect, GlassTextarea } from '../../lib/ui/Glass.jsx';
+import { GlassPanel, GlassSelect, GlassTextarea, GlassInput, GlassButton } from '../../lib/ui/Glass.jsx';
 import { Avatar } from '../../lib/AssigneePicker.jsx';
 import { AI_PROVIDERS, isAiProvider } from '../../lib/aiProviders.js';
 import ApiKeyModal from '../../lib/ApiKeyModal.jsx';
+import { useMe } from '../../lib/useMe.jsx';
 
 // Only wrap in ClerkProvider when a publishable key exists (see main.jsx) --
 // useUser() throws without it, so it's gated the same way useCommerceUser.js
@@ -18,6 +19,8 @@ const clerkConfigured = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
 // held by Clerk, never touches this app's server). Claude/ChatGPT have no
 // login screen at all -- see ApiKeyModal.jsx for that flow instead.
 const OAUTH_STRATEGIES = { google: 'oauth_google', github: 'oauth_github', slack: 'oauth_slack' };
+const isOAuthProviderId = (id) => id in OAUTH_STRATEGIES;
+const isApiKeyProviderId = (id) => id === 'claude' || id === 'chatgpt';
 
 const PERIODS = [
   { value: 'today', label: 'Today' },
@@ -198,13 +201,22 @@ function IntegrationsSection({ initial, initialAiSettings }) {
   const [state, setState] = useState(initial || {});
   const [aiSettings, setAiSettings] = useState(initialAiSettings || {});
   const [apiKeyStatus, setApiKeyStatus] = useState({});
+  const [apiKeyStatusLoaded, setApiKeyStatusLoaded] = useState(false);
   const [modalProvider, setModalProvider] = useState(null);
   const [oauthError, setOauthError] = useState('');
 
   // Guarded exactly like useCommerceUser.js -- useUser() throws without a
   // ClerkProvider, which only mounts when a publishable key exists.
-  const clerkUser = clerkConfigured ? useUser() : { user: null };
+  const clerkUser = clerkConfigured ? useUser() : { user: null, isLoaded: true };
   const user = clerkUser.user;
+  // Both external-account status (Clerk) and API-key status (our own
+  // endpoint) load asynchronously after mount. Without tracking this, a
+  // freshly-loaded page briefly reads `user` as undefined / apiKeyStatus as
+  // {} and renders every integration as "disconnected" for a moment, even
+  // when it's actually connected -- this is the "integrations don't stay
+  // connected" flash. Render a neutral state instead of a wrong one while
+  // either is still loading.
+  const statusLoaded = (id) => (isOAuthProviderId(id) ? clerkUser.isLoaded : isApiKeyProviderId(id) ? apiKeyStatusLoaded : true);
 
   // Linking a new external account is a sensitive mutation, so Clerk
   // requires "reverification" (step-up auth) before allowing it -- without
@@ -222,11 +234,14 @@ function IntegrationsSection({ initial, initialAiSettings }) {
     : async () => { throw new Error('Clerk is not configured.'); };
 
   useEffect(() => {
-    getApiKeyStatus().then(setApiKeyStatus).catch(() => {});
+    getApiKeyStatus()
+      .then(setApiKeyStatus)
+      .catch(() => {})
+      .finally(() => setApiKeyStatusLoaded(true));
   }, []);
 
-  const isOAuthProvider = (id) => id in OAUTH_STRATEGIES;
-  const isApiKeyProvider = (id) => id === 'claude' || id === 'chatgpt';
+  const isOAuthProvider = isOAuthProviderId;
+  const isApiKeyProvider = isApiKeyProviderId;
 
   const isConnected = (id) => {
     if (isOAuthProvider(id)) return !!user?.externalAccounts?.some((a) => a.provider === OAUTH_STRATEGIES[id]);
@@ -302,7 +317,8 @@ function IntegrationsSection({ initial, initialAiSettings }) {
       {oauthError && <p className="text-sm text-red-400 mb-3">{oauthError}</p>}
       <ul className="flex flex-col">
         {INTEGRATIONS.map((int, i) => {
-          const connected = isConnected(int.id);
+          const loaded = statusLoaded(int.id);
+          const connected = loaded && isConnected(int.id);
           const showAi = connected && isAiProvider(int.id);
           const isGemini = int.toggle;
           const geminiLocked = isGemini && !isConnected('google');
@@ -317,7 +333,9 @@ function IntegrationsSection({ initial, initialAiSettings }) {
                   {int.note && <div className="text-xs text-zinc-500 mt-0.5">{int.note}</div>}
                   {geminiLocked && <div className="text-xs text-amber-400 mt-0.5">Connect Google first</div>}
                 </div>
-                {isGemini ? (
+                {!loaded ? (
+                  <span className="text-xs text-zinc-500 px-3 py-1.5 shrink-0">Checking…</span>
+                ) : isGemini ? (
                   <button
                     type="button"
                     role="switch"
@@ -515,8 +533,104 @@ function DisplayScheduleSection({ initial }) {
   );
 }
 
+// Full IANA list where the runtime supports it (evergreen browsers), a
+// short fallback otherwise -- avoids hand-maintaining a timezone list.
+const TIMEZONES = (() => {
+  try { return Intl.supportedValuesOf('timeZone'); }
+  catch { return ['UTC', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'Europe/London']; }
+})();
+
+function ProfileDetailsSection({ initial, orgName }) {
+  const clerk = clerkConfigured ? useClerk() : null;
+  const [bio, setBio] = useState(initial.bio || '');
+  const [timezone, setTimezone] = useState(initial.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+  const [jobTitle, setJobTitle] = useState(initial.job_title || '');
+  const [companyName, setCompanyName] = useState(initial.company_name || '');
+  const [status, setStatus] = useState('idle');
+  const timer = useRef(null);
+
+  const flash = useCallback((s) => {
+    setStatus(s);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setStatus('idle'), 1800);
+  }, []);
+
+  const save = async (patch) => {
+    setStatus('saving');
+    try { await savePreferences(patch); flash('saved'); }
+    catch { flash('error'); }
+  };
+
+  return (
+    <GlassPanel className="p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400 m-0">Profile details</h2>
+        <div className="flex items-center gap-3">
+          {status === 'saving' && <span className="text-xs text-zinc-500">Saving…</span>}
+          {status === 'saved' && <span className="text-xs text-emerald-400">Saved</span>}
+          {status === 'error' && <span className="text-xs text-red-400">Could not save</span>}
+          {clerk && (
+            <GlassButton variant="secondary" className="text-xs py-1.5" onClick={() => clerk.openUserProfile()}>
+              Edit photo &amp; account
+            </GlassButton>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="text-xs text-zinc-400 block mb-1">Job title</label>
+          <GlassInput
+            value={jobTitle}
+            onChange={(e) => setJobTitle(e.target.value)}
+            onBlur={() => save({ job_title: jobTitle })}
+            placeholder="e.g. Marketing Lead"
+            className="w-full"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-zinc-400 block mb-1">Company name</label>
+          <GlassInput
+            value={companyName}
+            onChange={(e) => setCompanyName(e.target.value)}
+            onBlur={() => save({ company_name: companyName })}
+            placeholder="e.g. Acme Co"
+            className="w-full"
+          />
+        </div>
+        <div className="md:col-span-2">
+          <label className="text-xs text-zinc-400 block mb-1">Bio</label>
+          <GlassTextarea
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            onBlur={() => save({ bio })}
+            rows={3}
+            placeholder="A short line about you"
+            className="w-full"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-zinc-400 block mb-1">Timezone</label>
+          <GlassSelect
+            value={timezone}
+            onChange={(e) => { setTimezone(e.target.value); save({ timezone: e.target.value }); }}
+            className="w-full"
+          >
+            {TIMEZONES.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
+          </GlassSelect>
+        </div>
+        <div>
+          <label className="text-xs text-zinc-400 block mb-1">Workspace</label>
+          <p className="text-sm text-zinc-300 py-2">{orgName || '—'}</p>
+        </div>
+      </div>
+    </GlassPanel>
+  );
+}
+
 export default function ProfilePage() {
   const viewer = getViewer();
+  const { me } = useMe();
   const [prefs, setPrefs] = useState(null);
   const [error, setError] = useState('');
 
@@ -540,6 +654,7 @@ export default function ProfilePage() {
         </div>
       </header>
 
+      <ProfileDetailsSection initial={prefs} orgName={me?.org?.name} />
       <StatsSection />
       <IntegrationsSection initial={prefs.integrations} initialAiSettings={prefs.ai_settings || {}} />
       <DisplayScheduleSection initial={prefs} />

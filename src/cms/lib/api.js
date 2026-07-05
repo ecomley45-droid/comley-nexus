@@ -21,6 +21,13 @@ export function setViewer(viewer) {
   localStorage.setItem(VIEWER_KEY, JSON.stringify(viewer));
 }
 
+// A paused workspace (Super Admin lifecycle control) makes the server
+// return 423 for every org-scoped call. Set by PausedGate.jsx at the app
+// root; request() calls it so any component's fetch can trigger the same
+// full-page takeover without each caller wiring it up individually.
+let pausedHandler = null;
+export function setPausedHandler(fn) { pausedHandler = fn; }
+
 async function request(path, options = {}) {
   const token = await getAuthToken();
   const res = await fetch(`/api${path}`, {
@@ -34,6 +41,14 @@ async function request(path, options = {}) {
   });
   const isJson = res.headers.get('content-type')?.includes('application/json');
   const data = isJson ? await res.json().catch(() => ({})) : null;
+  if (res.status === 423) {
+    // Deliberately generic message on both ends -- never surfaces that the
+    // real cause is a paused workspace. The page editor's Save flow passes
+    // suppressPausedTakeover so an in-progress edit isn't yanked away by a
+    // full-page overlay; every other caller gets the standard takeover.
+    if (!options.suppressPausedTakeover) pausedHandler?.();
+    throw new Error(data?.error || 'Something went wrong. Please contact support.');
+  }
   if (!res.ok) throw new Error(data?.error || `Request to ${path} failed (${res.status})`);
   return data;
 }
@@ -51,11 +66,20 @@ export const addOrgMember = (id, email, role) =>
   request(`/orgs/${id}/members`, { method: 'POST', body: JSON.stringify({ email, role }) });
 export const removeOrgMember = (id, email) =>
   request(`/orgs/${id}/members/${encodeURIComponent(email)}`, { method: 'DELETE' });
+export const getOrgUsage = (id) => request(`/orgs/${id}/usage`);
+
+// ---- Super admin: jump into a workspace without a real org_members row ----
+export const viewAsOrg = (orgId) => request(`/super-admin/view-as/${orgId}`, { method: 'POST' });
+export const exitViewAs = () => request('/super-admin/view-as/clear', { method: 'POST' });
 
 // ---- Pages ----
 export const getPages = () => request('/pages');
+// suppressPausedTakeover: a paused-workspace 423 here shows as a normal
+// inline save error instead of yanking the editor away with a full-page
+// takeover -- the in-progress edit stays visible even though it can't be
+// saved elsewhere right now.
 export const savePages = (pages, globalSettings) =>
-  request('/pages', { method: 'POST', body: JSON.stringify({ pages, globalSettings }) });
+  request('/pages', { method: 'POST', body: JSON.stringify({ pages, globalSettings }), suppressPausedTakeover: true });
 
 export const getVersions = (pageId) => request(`/versions/${pageId}`);
 export const restoreVersion = (pageId, versionId) =>
@@ -75,6 +99,13 @@ export const getNexusPages = () => request('/nexus/pages');
 export const saveNexusPages = (pages, globalSettings) =>
   request('/nexus/pages', { method: 'POST', body: JSON.stringify({ pages, globalSettings }) });
 export const getNexusLibrary = () => request('/nexus/library');
+
+// ---- Block catalog ("Add Block +") -- platform-wide entries plus (for a
+// caller with a workspace) that workspace's own custom entries ----
+export const getBlockCatalog = () => request('/block-catalog');
+export const createBlockCatalogEntry = (payload) => request('/block-catalog', { method: 'POST', body: JSON.stringify(payload) });
+export const updateBlockCatalogEntry = (id, patch) => request(`/block-catalog/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+export const deleteBlockCatalogEntry = (id) => request(`/block-catalog/${id}`, { method: 'DELETE' });
 
 // ---- Media ----
 export const getMedia = () => request('/media');

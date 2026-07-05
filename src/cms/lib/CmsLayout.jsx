@@ -1,6 +1,6 @@
-import { Outlet, useParams } from 'react-router-dom';
+import { Outlet, useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
-import { getPages, getPreferences } from './api.js';
+import { getPages, getPreferences, exitViewAs } from './api.js';
 import { GlassShell } from './ui/Glass.jsx';
 import TopBar from './ui/TopBar.jsx';
 import FeedbackWidget from './FeedbackWidget.jsx';
@@ -63,10 +63,17 @@ function rebaseNav(items, base) {
 export default function CmsLayout() {
   const { orgSlug } = useParams();
   const base = `/${orgSlug}`;
-  const { me } = useMe();
+  const { me, refresh } = useMe();
   const isSuperAdmin = useIsSuperAdmin();
   const [pages, setPages] = useState([]);
   const [commerceEnabled, setCommerceEnabled] = useState(false);
+  const navigate = useNavigate();
+
+  const exitWorkspaceView = async () => {
+    try { await exitViewAs(); } catch { /* cookie may already be gone */ }
+    await refresh();
+    navigate('/super-admin');
+  };
 
   useEffect(() => { getPages().then((d) => setPages(d.pages)).catch(() => {}); }, []);
 
@@ -91,6 +98,16 @@ export default function CmsLayout() {
   return (
     <GlassShell>
       <AuthTokenBridge />
+      {me?.org?.viewingAs && (
+        <div className="mx-4 mt-4 rounded-xl bg-gradient-to-r from-glass-indigo/30 to-glass-fuchsia/30 border border-white/15 px-4 py-2 flex items-center justify-between gap-3 text-sm">
+          <span className="text-zinc-100">
+            Viewing <strong>{me.org.name}</strong> as Nexus Super Admin
+          </span>
+          <button onClick={exitWorkspaceView} className="text-zinc-200 hover:text-white underline underline-offset-2 shrink-0">
+            Exit
+          </button>
+        </div>
+      )}
       <TopBar
         logoTo={base}
         logoLabel={logoLabel}

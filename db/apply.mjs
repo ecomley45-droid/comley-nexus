@@ -47,6 +47,8 @@ const files = [
   'migrations/003_multi_tenant.sql',
   'migrations/004_split_nexus_platform.sql',
   'migrations/005_integration_api_keys.sql',
+  'migrations/006_block_catalog.sql',
+  'migrations/007_org_paused.sql',
 ];
 // If you add a new migration, add it here so `node db/apply.mjs` picks
 // it up. Order matters — migrations must remain idempotent.
