@@ -31,7 +31,7 @@ function StringListEditor({ label, items, onChange, multiline = false, placehold
             value={v}
             onChange={(e) => update(i, e.target.value)}
             placeholder={placeholder}
-            className="flex-1"
+            className="flex-1 min-w-0"
             rows={multiline ? 2 : undefined}
           />
           <button onClick={() => remove(i)} className="text-red-400 hover:text-red-300 text-xs px-1">✕</button>
@@ -55,7 +55,7 @@ function ImagesEditor({ images, onChange }) {
       </div>
       {images.map((img, i) => (
         <div key={i} className="flex gap-1.5 mb-1.5">
-          <GlassInput value={img.src || ''} onChange={(e) => update(i, { src: e.target.value })} placeholder="Image URL" className="flex-1" />
+          <GlassInput value={img.src || ''} onChange={(e) => update(i, { src: e.target.value })} placeholder="Image URL" className="flex-1 min-w-0" />
           <GlassInput value={img.alt || ''} onChange={(e) => update(i, { alt: e.target.value })} placeholder="Alt text" className="w-32" />
           <button onClick={() => remove(i)} className="text-red-400 hover:text-red-300 text-xs px-1">✕</button>
         </div>
@@ -79,7 +79,7 @@ function LinksEditor({ links, onChange }) {
       {links.map((l, i) => (
         <div key={i} className="flex gap-1.5 mb-1.5">
           <GlassInput value={l.label || ''} onChange={(e) => update(i, { label: e.target.value })} placeholder="Label" className="w-32" />
-          <GlassInput value={l.href || ''} onChange={(e) => update(i, { href: e.target.value })} placeholder="https://…" className="flex-1" />
+          <GlassInput value={l.href || ''} onChange={(e) => update(i, { href: e.target.value })} placeholder="https://…" className="flex-1 min-w-0" />
           <button onClick={() => remove(i)} className="text-red-400 hover:text-red-300 text-xs px-1">✕</button>
         </div>
       ))}
@@ -109,8 +109,8 @@ function ItemsEditor({ items, onChange }) {
           <GlassInput value={it.meta || ''} onChange={(e) => update(i, { meta: e.target.value })} placeholder="Subtitle (e.g. role/title) -- optional" className="w-full mb-1.5" />
           <GlassTextarea value={it.body || ''} onChange={(e) => update(i, { body: e.target.value })} placeholder="Body" rows={2} className="w-full mb-1.5" />
           <div className="flex gap-1.5">
-            <GlassInput value={it.image || ''} onChange={(e) => update(i, { image: e.target.value })} placeholder="Image URL" className="flex-1" />
-            <GlassInput value={it.link || ''} onChange={(e) => update(i, { link: e.target.value })} placeholder="Link URL" className="flex-1" />
+            <GlassInput value={it.image || ''} onChange={(e) => update(i, { image: e.target.value })} placeholder="Image URL" className="flex-1 min-w-0" />
+            <GlassInput value={it.link || ''} onChange={(e) => update(i, { link: e.target.value })} placeholder="Link URL" className="flex-1 min-w-0" />
           </div>
         </div>
       ))}
@@ -141,7 +141,7 @@ function PlansEditor({ plans, onChange }) {
           </div>
           <GlassInput value={p.name || ''} onChange={(e) => update(i, { name: e.target.value })} placeholder="Plan name" className="w-full mb-1.5" />
           <div className="flex gap-1.5 mb-1.5">
-            <GlassInput value={p.price || ''} onChange={(e) => update(i, { price: e.target.value })} placeholder="$49" className="flex-1" />
+            <GlassInput value={p.price || ''} onChange={(e) => update(i, { price: e.target.value })} placeholder="$49" className="flex-1 min-w-0" />
             <GlassInput value={p.period || ''} onChange={(e) => update(i, { period: e.target.value })} placeholder="/mo" className="w-20" />
           </div>
           <div className="flex justify-between items-center mb-1">
@@ -150,13 +150,13 @@ function PlansEditor({ plans, onChange }) {
           </div>
           {(p.features || []).map((f, fi) => (
             <div key={fi} className="flex gap-1.5 mb-1">
-              <GlassInput value={f} onChange={(e) => updateFeature(i, fi, e.target.value)} className="flex-1 py-1" />
+              <GlassInput value={f} onChange={(e) => updateFeature(i, fi, e.target.value)} className="flex-1 min-w-0 py-1" />
               <button onClick={() => removeFeature(i, fi)} className="text-red-400 hover:text-red-300 text-xs px-1">✕</button>
             </div>
           ))}
           <div className="flex gap-1.5 mt-1.5">
-            <GlassInput value={p.ctaLabel || ''} onChange={(e) => update(i, { ctaLabel: e.target.value })} placeholder="Button label" className="flex-1" />
-            <GlassInput value={p.ctaHref || ''} onChange={(e) => update(i, { ctaHref: e.target.value })} placeholder="Button URL" className="flex-1" />
+            <GlassInput value={p.ctaLabel || ''} onChange={(e) => update(i, { ctaLabel: e.target.value })} placeholder="Button label" className="flex-1 min-w-0" />
+            <GlassInput value={p.ctaHref || ''} onChange={(e) => update(i, { ctaHref: e.target.value })} placeholder="Button URL" className="flex-1 min-w-0" />
           </div>
           <label className="flex items-center gap-2 text-xs text-zinc-300 mt-2">
             <input type="checkbox" checked={!!p.highlighted} onChange={(e) => update(i, { highlighted: e.target.checked })} className="w-3.5 h-3.5" />

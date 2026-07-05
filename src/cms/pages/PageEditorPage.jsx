@@ -317,7 +317,7 @@ export default function PageEditorPage({ nexus = false }) {
       </div>
 
       <div className="flex gap-4 items-start">
-        <div className="w-80 shrink-0">
+        <div className="w-2/5 min-w-0 shrink-0">
           <LayoutPanel
             layout={page.layout || {}}
             globals={globalSettings?.globals || {}}
@@ -392,7 +392,7 @@ export default function PageEditorPage({ nexus = false }) {
           </div>
         </GlassPanel>
 
-        <div className="w-80 shrink-0 space-y-3">
+        <div className="w-1/5 min-w-0 shrink-0 space-y-3">
           <GlassPanel className="p-4">
             <span className="text-xs text-zinc-400 block mb-1">URL</span>
             <p className="text-sm text-zinc-200 break-all">/{fullPath}</p>
