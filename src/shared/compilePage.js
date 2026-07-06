@@ -92,6 +92,7 @@ ${seo.ogImage ? `<meta property="og:image" content="${escapeHtml(seo.ogImage)}" 
 }
 body { background: var(--color-bg); color: var(--color-text); font-family: system-ui, sans-serif; margin: 0; }
 </style>
+${theme.customCss ? `<style>\n${theme.customCss}\n</style>` : ''}
 ${globalAnalytics.headSnippet || ''}
 ${pageAnalytics.headSnippet || ''}
 </head>

@@ -130,9 +130,31 @@ app.get('/api/me', (req, res) => {
       name: req.org.name,
       role: req.org.role,
       feature_flags: req.org.feature_flags || {},
+      domain: req.org.domain || null,
       viewingAs: !!req.org.viewingAs,
     } : null,
   });
+});
+
+// ================= CUSTOM DOMAIN (client-submitted request) =================
+
+// Clients can't wire a domain up themselves -- the Vercel project is shared
+// across every org, so going live still takes a super-admin adding it there
+// and setting orgs.domain (Super Admin > Client workspaces > Domain). This
+// just records what the client is asking for, so that step has a target.
+// A live domain (orgs.domain, used by resolvePublicSite below) is separate
+// from this request and is never written by this route.
+const DOMAIN_RE = /^(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$/i;
+
+app.patch('/api/org/custom-domain', requireOrg, requireRole('admin'), async (req, res, next) => {
+  try {
+    const raw = String(req.body?.domain || '').trim().toLowerCase();
+    if (raw && !DOMAIN_RE.test(raw)) return res.status(400).json({ error: 'Enter a valid domain, e.g. cms.acmeco.com' });
+    const featureFlags = { ...(req.org.feature_flags || {}), custom_domain_request: raw || null };
+    await storage.orgs.update(req.org.id, { featureFlags });
+    await auditFor(req.org.id, req.viewer)(raw ? 'Requested custom domain' : 'Cleared custom domain request', raw || undefined);
+    res.json({ success: true, feature_flags: featureFlags });
+  } catch (e) { next(e); }
 });
 
 // ================= COMMERCE + OPS =================

@@ -24,6 +24,13 @@ const CONFIDENCE_THRESHOLD = 0.5;
 
 const titleCase = (s) => s.split('-').map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
 
+// "unknown" is more than a classifier miss -- it's the deliberate escape
+// hatch for keeping a block's original markup verbatim. Every other type
+// re-skins the block via blockRenderers.js (fields only, no classes/styles);
+// picking this one imports b.el.outerHTML as-is instead (see confirmImport),
+// classes/inline styles/<style> tags and all.
+const typeLabel = (t) => (t === 'unknown' ? 'Custom (keep original HTML)' : titleCase(t));
+
 function wrapIfFragment(html) {
   return /<html[\s>]/i.test(html)
     ? html
@@ -183,7 +190,12 @@ export default function PasteInModal({ onClose, onImport }) {
               )}
               <p className="text-xs text-zinc-500 mb-3">
                 {blocks.length} block{blocks.length === 1 ? '' : 's'} found. Uncheck any you don't want, override
-                the guessed type if needed, then import.
+                the guessed type if needed, then import. Classified blocks get re-skinned in
+                Nexus's own plain CSS — pick "Custom (keep original HTML)" on a block to
+                import its original markup as-is instead. Either way, add plain CSS rules
+                after import via a block's Custom CSS field or Design &gt; Custom CSS —
+                Tailwind utility classes from the source page won't render here since
+                Tailwind isn't compiled for pasted-in content.
               </p>
               <div className="space-y-2 max-h-[50vh] overflow-y-auto mb-4">
                 {blocks.map((b) => (
@@ -202,7 +214,7 @@ export default function PasteInModal({ onClose, onImport }) {
                             onChange={(e) => updateBlock(b.key, { blockType: e.target.value })}
                             className="text-xs py-1"
                           >
-                            {TYPE_OPTIONS.map((t) => <option key={t} value={t}>{titleCase(t)}</option>)}
+                            {TYPE_OPTIONS.map((t) => <option key={t} value={t}>{typeLabel(t)}</option>)}
                           </GlassSelect>
                           {b.classifying && <span className="text-xs text-zinc-500">Classifying…</span>}
                           {!b.classifying && b.confidence < CONFIDENCE_THRESHOLD && (

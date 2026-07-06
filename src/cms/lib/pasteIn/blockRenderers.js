@@ -2,8 +2,11 @@
 // `blockType`. This deliberately re-skins imported content in Nexus's own
 // plain styling rather than preserving the source site's original CSS --
 // `fields` only captures text/src/href, never classes or computed styles,
-// so there is no original design to preserve. Output still passes through
-// sanitizeContentHtml server-side on save like any hand-authored section.
+// so there is no original design to preserve. `fields.customCss` is the
+// escape hatch: a coder can add real CSS rules targeting the renderer's own
+// classes (`nx-header`, `nx-item`, etc.) or their own selectors. Output
+// still passes through sanitizeContentHtml server-side on save like any
+// hand-authored section.
 //
 // Every renderer is pure: (fields) -> html string. Structured-view editors
 // call the matching renderer on every field change so `section.html` (the
@@ -396,5 +399,6 @@ export const BLOCK_RENDERERS = {
 export function renderBlock(blockType, fields) {
   const renderer = BLOCK_RENDERERS[blockType];
   if (!renderer || !fields) return null;
-  return renderer(fields);
+  const html = renderer(fields);
+  return fields.customCss ? `<style>\n${fields.customCss}\n</style>\n${html}` : html;
 }

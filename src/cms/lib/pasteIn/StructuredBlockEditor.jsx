@@ -240,6 +240,21 @@ export default function StructuredBlockEditor({ section, onChange }) {
           />
         </div>
       )}
+      <div className="mb-1 pt-2 border-t border-white/10">
+        <label className="text-xs text-zinc-400 block mb-1 mt-2">Custom CSS</label>
+        <p className="text-[11px] text-zinc-500 mb-1.5">
+          Plain CSS rules, injected above this block's markup. Target its
+          built-in classes (<code>nx-item</code>, <code>nx-link</code>, etc. —
+          check Raw HTML to see what's rendered) or your own selectors.
+        </p>
+        <GlassTextarea
+          value={fields.customCss || ''}
+          onChange={(e) => setFields({ customCss: e.target.value })}
+          rows={4}
+          className="w-full font-mono text-xs"
+          placeholder=".nx-item { border-radius: 4px; }"
+        />
+      </div>
     </div>
   );
 }
