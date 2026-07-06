@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, FileText, Users, Rocket, X } from 'lucide-react';
+import { Building2, FileText, Users, Rocket, Palette, X } from 'lucide-react';
 import { GlassPanel, GlassButton } from './ui/Glass.jsx';
 import { useMe, useOrgBase } from './useMe.jsx';
 import { getPreferences, savePreferences } from './api.js';
+import { usePagesStore } from './usePagesStore.js';
+import ThemeWizard from './theme/ThemeWizard.jsx';
 
 // First-run welcome, shown at the top of the Dashboard while there's still
 // setup left to do. Each card is its own dismissible task, persisted per
@@ -23,6 +25,14 @@ const STEPS = ({ base, orgName }) => [
     body: `You're set up as "${orgName}". Change the name, timezone, and branding on the Workspace page.`,
     ctaLabel: 'Workspace settings',
     ctaTo: `${base}/settings/workspace`,
+  },
+  {
+    id: 'style-your-site',
+    icon: Palette,
+    title: 'Style your site',
+    body: 'Pick colors and fonts through a short guided setup -- no HTML needed. You can redo this anytime from Design settings.',
+    ctaLabel: 'Style your site',
+    wizard: true,
   },
   {
     id: 'first-page',
@@ -54,6 +64,8 @@ export default function WelcomeCards({ pages }) {
   const { me } = useMe();
   const base = useOrgBase() || '/admin';
   const [dismissed, setDismissed] = useState(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const themeStore = usePagesStore();
 
   useEffect(() => {
     getPreferences().then((p) => setDismissed(p.dismissed_dashboard_tasks || [])).catch(() => setDismissed([]));
@@ -68,6 +80,17 @@ export default function WelcomeCards({ pages }) {
     const next = [...new Set([...dismissed, id])];
     setDismissed(next);
     savePreferences({ dismissed_dashboard_tasks: next }).catch(() => {});
+  };
+
+  // Onboarding has no page open to hit a separate Save button on (unlike
+  // Design Settings, where Apply just stages the change) -- so here Apply
+  // persists immediately via the same save() the Design Settings page uses.
+  const applyTheme = (theme) => {
+    if (themeStore.globalSettings) {
+      themeStore.save(themeStore.pages, { ...themeStore.globalSettings, theme }).catch(() => {});
+    }
+    setWizardOpen(false);
+    dismiss('style-your-site');
   };
 
   const isDone = (step) => dismissed.includes(step.id) || (step.id === 'first-page' && hasPublishedPage);
@@ -103,9 +126,15 @@ export default function WelcomeCards({ pages }) {
                 </div>
               </div>
               <div className="mt-auto flex gap-2">
-                <Link to={step.ctaTo} className="flex-1">
-                  <GlassButton variant="secondary" className="text-xs w-full">{step.ctaLabel}</GlassButton>
-                </Link>
+                {step.wizard ? (
+                  <GlassButton variant="secondary" className="text-xs flex-1" onClick={() => setWizardOpen(true)}>
+                    {step.ctaLabel}
+                  </GlassButton>
+                ) : (
+                  <Link to={step.ctaTo} className="flex-1">
+                    <GlassButton variant="secondary" className="text-xs w-full">{step.ctaLabel}</GlassButton>
+                  </Link>
+                )}
                 <button
                   onClick={() => dismiss(step.id)}
                   className="text-xs text-zinc-500 hover:text-zinc-300 px-2"
@@ -118,6 +147,13 @@ export default function WelcomeCards({ pages }) {
           );
         })}
       </div>
+      {wizardOpen && (
+        <ThemeWizard
+          initialTheme={themeStore.globalSettings?.theme || {}}
+          onApply={applyTheme}
+          onClose={() => setWizardOpen(false)}
+        />
+      )}
     </div>
   );
 }

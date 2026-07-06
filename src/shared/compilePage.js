@@ -2,6 +2,8 @@
 // static export route. Pages are stored as an ordered list of sections
 // (each with raw `html`), optionally A/B-tested via `abVariants`.
 
+import { buildThemeStyleBlock } from './theme.js';
+
 // Walks a page's parentId chain to build its full nested slug path, e.g.
 // a page "contact" whose parent is "about" (whose parent is root) becomes
 // "about/contact".
@@ -84,13 +86,7 @@ export function compilePageHtml(page, pages, library, globalSettings, abChoices 
 ${seo.description ? `<meta name="description" content="${escapeHtml(seo.description)}" />` : ''}
 ${seo.ogImage ? `<meta property="og:image" content="${escapeHtml(seo.ogImage)}" />` : ''}
 <style>
-:root {
-  --color-primary: ${theme.primary || '#6366f1'};
-  --color-secondary: ${theme.secondary || '#d946ef'};
-  --color-bg: ${theme.bg || '#070a13'};
-  --color-text: ${theme.text || '#e2e8f0'};
-}
-body { background: var(--color-bg); color: var(--color-text); font-family: system-ui, sans-serif; margin: 0; }
+${buildThemeStyleBlock(theme)}
 </style>
 ${theme.customCss ? `<style>\n${theme.customCss}\n</style>` : ''}
 ${globalAnalytics.headSnippet || ''}

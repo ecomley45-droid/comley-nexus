@@ -38,8 +38,8 @@ function itemCard(item) {
 const BASE_STYLE = `
 .nx-item { border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); border-radius: 14px; padding: 20px; }
 .nx-item img { width: 100%; border-radius: 8px; margin-bottom: 12px; }
-.nx-item-meta { font-size: 13px; color: #a5b4fc; margin: -8px 0 8px; }
-.nx-link { color: #a5b4fc; text-decoration: none; }
+.nx-item-meta { font-size: 13px; color: var(--color-link); margin: -8px 0 8px; }
+.nx-link { color: var(--color-link); text-decoration: none; }
 `;
 
 // youtube.com/watch, youtu.be, and vimeo.com URLs get rewritten to their
@@ -72,7 +72,7 @@ export function renderNavigation(fields) {
 
 export function renderFooter(fields) {
   return `<style>${BASE_STYLE}
-.nx-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 24px; font-size: 14px; color: #a1a1aa; border-top: 1px solid rgba(255,255,255,0.08); }
+.nx-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 24px; font-size: 14px; color: var(--color-muted); border-top: 1px solid rgba(255,255,255,0.08); }
 </style>
 <footer class="nx-footer">
   <div>${textHtml(fields.text)}</div>
@@ -83,7 +83,7 @@ export function renderFooter(fields) {
 export function renderHero(fields) {
   return `<style>${BASE_STYLE}
 .nx-hero { text-align: center; padding: 64px 24px; max-width: 720px; margin: 0 auto; }
-.nx-hero .nx-cta { display: inline-block; margin-top: 20px; padding: 12px 24px; border-radius: 10px; background: linear-gradient(90deg, #6366f1, #d946ef); color: white; text-decoration: none; }
+.nx-hero .nx-cta { display: inline-block; margin-top: 20px; padding: 12px 24px; border-radius: 10px; background: var(--color-accent); color: white; text-decoration: none; }
 </style>
 <div class="nx-hero">
   ${headingsHtml(fields.headings, 1)}
@@ -95,7 +95,7 @@ export function renderHero(fields) {
 export function renderCta(fields) {
   return `<style>${BASE_STYLE}
 .nx-cta-section { text-align: center; padding: 48px 24px; max-width: 640px; margin: 0 auto; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); border-radius: 20px; }
-.nx-cta-section a { display: inline-block; margin: 8px; padding: 11px 22px; border-radius: 10px; background: linear-gradient(90deg, #6366f1, #d946ef); color: white; text-decoration: none; }
+.nx-cta-section a { display: inline-block; margin: 8px; padding: 11px 22px; border-radius: 10px; background: var(--color-accent); color: white; text-decoration: none; }
 </style>
 <div class="nx-cta-section">
   ${headingsHtml(fields.headings, 2)}
@@ -116,7 +116,7 @@ export function renderFeature(fields) {
 
 export function renderForm(fields) {
   return `<style>${BASE_STYLE}
-.nx-form-note { padding: 32px 24px; max-width: 600px; margin: 0 auto; text-align: center; color: #a1a1aa; }
+.nx-form-note { padding: 32px 24px; max-width: 600px; margin: 0 auto; text-align: center; color: var(--color-muted); }
 </style>
 <div class="nx-form-note">
   ${headingsHtml(fields.headings, 2)}
@@ -173,8 +173,8 @@ export function renderBreadcrumb(fields) {
   // `fields`. See catalog entry description for this limitation.
   const crumbs = (fields.links || []);
   return `<style>${BASE_STYLE}
-.nx-breadcrumb { display: flex; gap: 8px; align-items: center; padding: 12px 24px; font-size: 13px; color: #a1a1aa; }
-.nx-breadcrumb a { color: #a1a1aa; text-decoration: none; }
+.nx-breadcrumb { display: flex; gap: 8px; align-items: center; padding: 12px 24px; font-size: 13px; color: var(--color-muted); }
+.nx-breadcrumb a { color: var(--color-muted); text-decoration: none; }
 .nx-breadcrumb a:hover { color: #e2e8f0; }
 .nx-breadcrumb span { color: #52525b; }
 </style>
@@ -201,8 +201,8 @@ export function renderStats(fields) {
   const items = fields.items || [];
   return `<style>${BASE_STYLE}
 .nx-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 24px; padding: 40px 24px; text-align: center; }
-.nx-stat .num { font-size: 40px; font-weight: 700; background: linear-gradient(90deg, #6366f1, #d946ef); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.nx-stat .label { font-size: 13px; color: #a1a1aa; margin-top: 4px; }
+.nx-stat .num { font-size: 40px; font-weight: 700; background: var(--color-accent); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.nx-stat .label { font-size: 13px; color: var(--color-muted); margin-top: 4px; }
 </style>
 ${headingsHtml(fields.headings, 2)}
 <div class="nx-stats">${items.map((it) => `<div class="nx-stat"><div class="num">${esc(it.heading)}</div><div class="label">${esc(it.body)}</div></div>`).join('')}</div>`;
@@ -235,10 +235,10 @@ export function renderPricingTable(fields) {
 .nx-plan.highlighted { border-color: rgba(217,70,239,0.5); background: rgba(255,255,255,0.06); }
 .nx-plan .name { font-weight: 600; margin-bottom: 8px; }
 .nx-plan .price { font-size: 32px; font-weight: 700; margin-bottom: 4px; }
-.nx-plan .period { font-size: 13px; color: #a1a1aa; }
+.nx-plan .period { font-size: 13px; color: var(--color-muted); }
 .nx-plan ul { list-style: none; padding: 0; margin: 16px 0; font-size: 14px; color: #d4d4d8; }
 .nx-plan li { padding: 4px 0; }
-.nx-plan a { display: block; text-align: center; padding: 10px; border-radius: 10px; background: linear-gradient(90deg, #6366f1, #d946ef); color: white; text-decoration: none; margin-top: 12px; }
+.nx-plan a { display: block; text-align: center; padding: 10px; border-radius: 10px; background: var(--color-accent); color: white; text-decoration: none; margin-top: 12px; }
 </style>
 ${headingsHtml(fields.headings, 2)}
 <div class="nx-pricing-grid">
@@ -254,7 +254,7 @@ ${plans.map((p) => `<div class="nx-plan${p.highlighted ? ' highlighted' : ''}">
 export function renderNewsletter(fields) {
   return `<style>${BASE_STYLE}
 .nx-newsletter { text-align: center; padding: 40px 24px; max-width: 480px; margin: 0 auto; }
-.nx-newsletter .btn { display: inline-block; margin-top: 12px; padding: 10px 20px; border-radius: 10px; background: linear-gradient(90deg, #6366f1, #d946ef); color: white; text-decoration: none; }
+.nx-newsletter .btn { display: inline-block; margin-top: 12px; padding: 10px 20px; border-radius: 10px; background: var(--color-accent); color: white; text-decoration: none; }
 </style>
 <div class="nx-newsletter">
   ${headingsHtml(fields.headings, 2)}
@@ -298,7 +298,7 @@ export function renderFaq(fields) {
 .nx-faq { max-width: 720px; margin: 0 auto; padding: 24px; }
 .nx-faq details { border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); border-radius: 12px; padding: 14px 18px; margin-bottom: 10px; }
 .nx-faq summary { cursor: pointer; font-weight: 600; }
-.nx-faq p { margin: 10px 0 0; color: #a1a1aa; font-size: 14px; }
+.nx-faq p { margin: 10px 0 0; color: var(--color-muted); font-size: 14px; }
 </style>
 ${headingsHtml(fields.headings, 2)}
 <div class="nx-faq">${items.map((it) => `<details><summary>${esc(it.heading)}</summary><p>${esc(it.body)}</p></details>`).join('')}</div>`;
@@ -333,7 +333,7 @@ export function renderCountdown(fields) {
   const display = date && !isNaN(date) ? date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'TBD';
   return `<style>${BASE_STYLE}
 .nx-countdown { text-align: center; padding: 40px 24px; }
-.nx-countdown .date { font-size: 28px; font-weight: 700; background: linear-gradient(90deg, #6366f1, #d946ef); -webkit-background-clip: text; background-clip: text; color: transparent; margin-top: 8px; }
+.nx-countdown .date { font-size: 28px; font-weight: 700; background: var(--color-accent); -webkit-background-clip: text; background-clip: text; color: transparent; margin-top: 8px; }
 </style>
 <div class="nx-countdown">
   ${headingsHtml(fields.headings, 2)}
