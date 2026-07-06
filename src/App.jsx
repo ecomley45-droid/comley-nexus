@@ -19,6 +19,7 @@ import LibraryPage from './cms/pages/LibraryPage.jsx';
 import MediaPage from './cms/pages/MediaPage.jsx';
 import RedirectsPage from './cms/pages/RedirectsPage.jsx';
 import CommentsPage from './cms/pages/CommentsPage.jsx';
+import FormsPage from './cms/pages/FormsPage.jsx';
 import ConnectionsPage from './cms/pages/ConnectionsPage.jsx';
 import TeamPage from './cms/pages/TeamPage.jsx';
 import SettingsPage from './cms/pages/SettingsPage.jsx';
@@ -95,6 +96,7 @@ export default function App() {
           <Route path="media" element={<MediaPage />} />
           <Route path="redirects" element={<RedirectsPage />} />
           <Route path="comments" element={<CommentsPage />} />
+          <Route path="forms" element={<FormsPage />} />
           <Route path="feedback" element={<FeedbackPage />} />
           <Route path="connections" element={<ConnectionsPage />} />
           <Route path="team" element={<TeamPage />} />

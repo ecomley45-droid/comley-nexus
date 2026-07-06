@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { to: 'library', label: 'Library' },
   { to: 'media', label: 'Media' },
   { to: 'redirects', label: 'Redirects' },
+  { to: 'forms', label: 'Forms' },
   { to: 'comments', label: 'Comments' },
   // Import/Export is hidden while its backend is stubbed (501s in
   // server.js's DEFERRED SURFACES block) -- a live nav link to a dead

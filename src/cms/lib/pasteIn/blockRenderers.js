@@ -114,14 +114,35 @@ export function renderFeature(fields) {
 </div>`;
 }
 
+// Shared form chrome. Both Contact Form and Newsletter POST to the public
+// forms endpoint -- server resolves the org from the request host, stores
+// the submission, and (optionally) emails the workspace admins. The `_hp`
+// input is a honeypot: visually hidden, humans leave it empty, naive bots
+// fill it and get silently dropped server-side.
+const FORM_STYLE = `
+.nx-form { max-width: 480px; margin: 0 auto; padding: 32px 24px; text-align: left; }
+.nx-form label { display: block; font-size: 13px; color: var(--color-muted); margin: 12px 0 4px; }
+.nx-form input, .nx-form textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: var(--color-text); font: inherit; }
+.nx-form button { margin-top: 16px; padding: 11px 22px; border-radius: 10px; border: 0; background: var(--color-accent); color: white; font: inherit; cursor: pointer; }
+.nx-form .nx-hp { position: absolute; left: -9999px; }
+`;
+
 export function renderForm(fields) {
-  return `<style>${BASE_STYLE}
-.nx-form-note { padding: 32px 24px; max-width: 600px; margin: 0 auto; text-align: center; color: var(--color-muted); }
-</style>
-<div class="nx-form-note">
+  return `<style>${BASE_STYLE}${FORM_STYLE}</style>
+<div class="nx-form">
   ${headingsHtml(fields.headings, 2)}
   ${textHtml(fields.text)}
-  <p><em>Imported form markup isn't preserved -- rebuild this form using the block editor.</em></p>
+  <form action="/api/public/forms" method="POST">
+    <input type="hidden" name="_form" value="Contact form" />
+    <input type="text" name="_hp" class="nx-hp" tabindex="-1" autocomplete="off" />
+    <label for="nx-name">Name</label>
+    <input type="text" id="nx-name" name="name" required />
+    <label for="nx-email">Email</label>
+    <input type="email" id="nx-email" name="email" required />
+    <label for="nx-message">Message</label>
+    <textarea id="nx-message" name="message" rows="4" required></textarea>
+    <button type="submit">${esc(fields.buttonLabel || 'Send message')}</button>
+  </form>
 </div>`;
 }
 
@@ -252,15 +273,21 @@ ${plans.map((p) => `<div class="nx-plan${p.highlighted ? ' highlighted' : ''}">
 }
 
 export function renderNewsletter(fields) {
-  return `<style>${BASE_STYLE}
-.nx-newsletter { text-align: center; padding: 40px 24px; max-width: 480px; margin: 0 auto; }
-.nx-newsletter .btn { display: inline-block; margin-top: 12px; padding: 10px 20px; border-radius: 10px; background: var(--color-accent); color: white; text-decoration: none; }
+  return `<style>${BASE_STYLE}${FORM_STYLE}
+.nx-newsletter { text-align: center; }
+.nx-newsletter form { display: flex; gap: 8px; margin-top: 16px; }
+.nx-newsletter input[type="email"] { flex: 1; }
+.nx-newsletter button { margin-top: 0; white-space: nowrap; }
 </style>
-<div class="nx-newsletter">
+<div class="nx-form nx-newsletter">
   ${headingsHtml(fields.headings, 2)}
   ${textHtml(fields.text)}
-  <span class="btn">${esc(fields.buttonLabel || 'Subscribe')}</span>
-  <p><em style="font-size:12px; color:#71717a;">Static preview -- wire this up to a real subscribe endpoint before publishing.</em></p>
+  <form action="/api/public/forms" method="POST">
+    <input type="hidden" name="_form" value="Newsletter signup" />
+    <input type="text" name="_hp" class="nx-hp" tabindex="-1" autocomplete="off" />
+    <input type="email" name="email" placeholder="you@example.com" required />
+    <button type="submit">${esc(fields.buttonLabel || 'Subscribe')}</button>
+  </form>
 </div>`;
 }
 

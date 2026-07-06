@@ -134,6 +134,12 @@ export const deleteComment = (id) => request(`/comments/${id}`, { method: 'DELET
 // ---- A/B testing ----
 export const getAbStats = (sectionId) => request(`/ab-stats/${sectionId}`);
 
+// ---- Form submissions ----
+export const getFormSubmissions = () => request('/forms');
+export const markFormSubmission = (id, read = true) =>
+  request(`/forms/${id}`, { method: 'PATCH', body: JSON.stringify({ read }) });
+export const deleteFormSubmission = (id) => request(`/forms/${id}`, { method: 'DELETE' });
+
 // ---- Draft previews (signed) ----
 export const getPreviewToken = (pageId, nexus = false) =>
   request(nexus ? `/nexus/preview-token/${pageId}` : `/preview-token/${pageId}`);

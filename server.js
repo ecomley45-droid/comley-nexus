@@ -24,6 +24,7 @@ import { sanitizePage, sanitizeGlobalSettings, sanitizeContentHtml, pagesContain
 import * as storage from './lib/storage.js';
 import * as nexus from './lib/nexus.js';
 import { classifyBlock, hasAnthropicKey } from './lib/ai.js';
+import { sendFormNotification } from './lib/email.js';
 import crypto from 'crypto';
 
 assertProductionAuth();
@@ -416,6 +417,92 @@ app.delete('/api/team/:id', requireOrg, requireRole('admin'), async (req, res, n
     const removed = await storage.team.remove(req.org.id, req.params.id);
     if (!removed) return res.status(404).json({ error: 'Team member not found' });
     await auditFor(req.org.id, req.viewer)('Removed team member', `${removed.name} <${removed.email}>`);
+    res.json({ success: true });
+  } catch (e) { next(e); }
+});
+
+// ================= FORMS =================
+
+// Public submission endpoint for the Contact Form / Newsletter blocks.
+// The org is resolved from the request host (same rule as public-page
+// rendering); the `_hp` honeypot silently accepts-and-drops bot fills so
+// bots don't learn they were caught. Responds with a minimal thank-you
+// page (plain HTML form POST, works without any client JS under the
+// public site's strict CSP).
+const formsLimit = rateLimit({ windowMs: 60_000, max: 10, standardHeaders: true, legacyHeaders: false });
+const FORM_THANKS_HTML = (backHref) => `<!doctype html>
+<html><head><meta charset="utf-8"><title>Thanks</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>body{background:#070a13;color:#e2e8f0;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;}
+.box{max-width:420px;padding:24px;} h1{font-size:22px;margin-bottom:8px;} p{color:#a1a1aa;font-size:14px;}
+a{color:#a5b4fc;}</style></head>
+<body><div class="box"><h1>Thanks — got it.</h1><p>Your message has been sent.</p><p><a href="${backHref}">&larr; Back</a></p></div></body></html>`;
+
+async function orgIdForHost(host) {
+  const orgs = await storage.orgs.list();
+  const matched = orgs.find((o) => o.domain && o.domain === host);
+  if (matched) return matched.paused ? null : matched.id;
+  const explicitDefault = process.env.DEFAULT_PUBLIC_ORG_ID || process.env.PUBLIC_ORG_ID;
+  if (explicitDefault) {
+    const org = orgs.find((o) => o.id === explicitDefault);
+    return org?.paused ? null : explicitDefault;
+  }
+  return null;
+}
+
+app.post('/api/public/forms', formsLimit, express.urlencoded({ extended: false, limit: '32kb' }), async (req, res, next) => {
+  try {
+    let backHref = '/';
+    try {
+      const refPath = new URL(req.headers.referer).pathname;
+      if (/^\/[^/]*$/.test(refPath) || /^\/[^/].*/.test(refPath)) backHref = refPath;
+    } catch { /* no/malformed referer -- link back to the homepage */ }
+    const { _form, _hp, ...fields } = req.body || {};
+    // Honeypot filled -> pretend success, store nothing.
+    if (_hp) return res.status(200).send(FORM_THANKS_HTML(backHref));
+
+    const orgId = await orgIdForHost(req.headers.host);
+    if (!orgId) return res.status(404).json({ error: 'Not found' });
+
+    const entries = Object.entries(fields)
+      .filter(([k, v]) => typeof v === 'string' && k.length <= 64)
+      .slice(0, 20)
+      .map(([k, v]) => [k, v.slice(0, 5000)]);
+    if (entries.length === 0) return res.status(400).json({ error: 'Empty submission' });
+
+    const entry = await storage.forms.add(orgId, {
+      id: 'form-' + Date.now() + '-' + Math.floor(Math.random() * 1e6),
+      formName: String(_form || 'Contact form').slice(0, 100),
+      pagePath: backHref.replace(/^\//, ''),
+      fields: Object.fromEntries(entries),
+    });
+
+    // Best-effort admin notification; never blocks the response.
+    storage.forms.adminEmails(orgId)
+      .then(async (to) => {
+        const settings = await storage.settings.get(orgId).catch(() => null);
+        return sendFormNotification({ to, orgName: settings?.siteName || orgId, formName: entry.formName, pagePath: entry.pagePath, fields: entry.fields });
+      })
+      .catch(() => {});
+
+    res.status(200).send(FORM_THANKS_HTML(backHref));
+  } catch (e) { next(e); }
+});
+
+app.get('/api/forms', requireOrg, async (req, res, next) => {
+  try { res.json(await storage.forms.list(req.org.id)); } catch (e) { next(e); }
+});
+
+app.patch('/api/forms/:id', requireOrg, requireRole('editor'), async (req, res, next) => {
+  try {
+    await storage.forms.markRead(req.org.id, req.params.id, req.body?.read !== false);
+    res.json({ success: true });
+  } catch (e) { next(e); }
+});
+
+app.delete('/api/forms/:id', requireOrg, requireRole('editor'), async (req, res, next) => {
+  try {
+    await storage.forms.remove(req.org.id, req.params.id);
     res.json({ success: true });
   } catch (e) { next(e); }
 });
