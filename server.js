@@ -25,6 +25,7 @@ import * as storage from './lib/storage.js';
 import * as nexus from './lib/nexus.js';
 import { classifyBlock, hasAnthropicKey } from './lib/ai.js';
 import { sendFormNotification } from './lib/email.js';
+import { db } from './lib/db.js';
 import crypto from 'crypto';
 
 assertProductionAuth();
@@ -421,6 +422,72 @@ app.delete('/api/team/:id', requireOrg, requireRole('admin'), async (req, res, n
   } catch (e) { next(e); }
 });
 
+// ================= MEDIA =================
+
+// Media files live in a public Supabase Storage bucket, one folder per
+// org, with metadata rows in the existing `media` table. The bucket is
+// created lazily on first upload (service-role client can manage
+// buckets), so no manual Supabase setup step is needed.
+const MEDIA_BUCKET = 'media';
+const MEDIA_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+const MEDIA_MIME_ALLOWLIST = new Set([
+  'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif', 'image/svg+xml',
+  'application/pdf', 'video/mp4', 'video/webm', 'audio/mpeg',
+]);
+
+let mediaBucketReady = false;
+async function ensureMediaBucket() {
+  if (mediaBucketReady) return;
+  // createBucket errors if it already exists -- that's fine, both paths
+  // leave the bucket present.
+  await db().storage.createBucket(MEDIA_BUCKET, { public: true }).catch(() => {});
+  mediaBucketReady = true;
+}
+
+app.get('/api/media', requireOrg, async (req, res, next) => {
+  try { res.json(await storage.media.list(req.org.id)); } catch (e) { next(e); }
+});
+
+app.post('/api/media', express.json({ limit: '15mb' }), requireOrg, requireRole('editor'), async (req, res, next) => {
+  try {
+    const { name, mimeType, dataBase64 } = req.body || {};
+    if (!name || !mimeType || !dataBase64) return res.status(400).json({ error: 'name, mimeType, and dataBase64 are required' });
+    if (!MEDIA_MIME_ALLOWLIST.has(mimeType)) return res.status(400).json({ error: `File type ${mimeType} isn't supported.` });
+    const buffer = Buffer.from(dataBase64, 'base64');
+    if (buffer.length === 0) return res.status(400).json({ error: 'Empty file' });
+    if (buffer.length > MEDIA_MAX_BYTES) return res.status(400).json({ error: 'Files must be 10 MB or smaller.' });
+
+    await ensureMediaBucket();
+    const id = 'media-' + Date.now() + '-' + Math.floor(Math.random() * 1e6);
+    const safeName = String(name).replace(/[^\w.\-]+/g, '_').slice(0, 120);
+    const storagePath = `${req.org.id}/${id}-${safeName}`;
+
+    const { error: uploadError } = await db().storage.from(MEDIA_BUCKET)
+      .upload(storagePath, buffer, { contentType: mimeType, cacheControl: '31536000' });
+    if (uploadError) return res.status(500).json({ error: 'Upload failed. Please try again or contact support.' });
+
+    const { data: pub } = db().storage.from(MEDIA_BUCKET).getPublicUrl(storagePath);
+    const entry = await storage.media.add(req.org.id, {
+      id, name: String(name).slice(0, 200), filename: storagePath,
+      mimeType, size: buffer.length, url: pub.publicUrl,
+    });
+    await auditFor(req.org.id, req.viewer)('Uploaded media', `${entry.name} (${(buffer.length / 1024).toFixed(0)} KB)`);
+    res.json({ success: true, entry });
+  } catch (e) { next(e); }
+});
+
+app.delete('/api/media/:id', requireOrg, requireRole('editor'), async (req, res, next) => {
+  try {
+    const removed = await storage.media.remove(req.org.id, req.params.id);
+    if (!removed) return res.status(404).json({ error: 'File not found' });
+    if (removed.filename) {
+      await db().storage.from(MEDIA_BUCKET).remove([removed.filename]).catch(() => {});
+    }
+    await auditFor(req.org.id, req.viewer)('Deleted media', removed.name || req.params.id);
+    res.json({ success: true });
+  } catch (e) { next(e); }
+});
+
 // ================= FORMS =================
 
 // Public submission endpoint for the Contact Form / Newsletter blocks.
@@ -646,9 +713,6 @@ app.delete('/api/orgs/:id/members/:email', requireSuperAdmin, async (req, res, n
 // ================= DEFERRED SURFACES (501) =================
 
 const deferred501 = (msg) => (_req, res) => res.status(501).json({ error: msg });
-app.get('/api/media', deferred501('Media library is being migrated to Supabase Storage - coming soon.'));
-app.post('/api/media', deferred501('Media upload is being migrated to Supabase Storage - coming soon.'));
-app.delete('/api/media/:id', deferred501('Media library is being migrated to Supabase Storage - coming soon.'));
 app.get('/api/export/csv/:type', deferred501('CSV export is temporarily disabled during the storage migration.'));
 app.get('/api/export/csv/:type/template', deferred501('CSV export is temporarily disabled during the storage migration.'));
 app.post('/api/import/csv/:type', deferred501('CSV import is temporarily disabled during the storage migration.'));

@@ -42,7 +42,9 @@ export default function MediaPage() {
   };
 
   const copyUrl = (url) => {
-    navigator.clipboard?.writeText(window.location.origin + url);
+    // Supabase Storage URLs are already absolute; only prefix legacy
+    // relative paths from the pre-Storage era.
+    navigator.clipboard?.writeText(/^https?:\/\//.test(url) ? url : window.location.origin + url);
     setCopied(url);
     setTimeout(() => setCopied(''), 1500);
   };

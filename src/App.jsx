@@ -1,55 +1,68 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import LandingPage from './marketing/LandingPage.jsx';
 import PausedGate from './cms/lib/PausedGate.jsx';
 import RequireOrg from './cms/lib/RequireOrg.jsx';
 import RequireSuperAdmin from './cms/lib/RequireSuperAdmin.jsx';
-import SuperAdminLayout from './cms/lib/SuperAdminLayout.jsx';
-import SuperAdminDashboardPage from './cms/pages/super-admin/SuperAdminDashboardPage.jsx';
-import OrgsPage from './cms/pages/super-admin/OrgsPage.jsx';
-import NexusSettingsPage from './cms/pages/super-admin/NexusSettingsPage.jsx';
-import SuperAdminBillingPage from './cms/pages/super-admin/BillingPage.jsx';
+
+// Every page is a lazy route-level chunk -- the whole app previously
+// shipped as one ~617 KB bundle where signing in to edit a page also
+// downloaded all of commerce, super-admin, and ops. Layouts and guards
+// stay eager (they render on every route); everything else loads on
+// first navigation to it.
+const LandingPage = lazy(() => import('./marketing/LandingPage.jsx'));
+const SuperAdminLayout = lazy(() => import('./cms/lib/SuperAdminLayout.jsx'));
+const SuperAdminDashboardPage = lazy(() => import('./cms/pages/super-admin/SuperAdminDashboardPage.jsx'));
+const OrgsPage = lazy(() => import('./cms/pages/super-admin/OrgsPage.jsx'));
+const NexusSettingsPage = lazy(() => import('./cms/pages/super-admin/NexusSettingsPage.jsx'));
+const SuperAdminBillingPage = lazy(() => import('./cms/pages/super-admin/BillingPage.jsx'));
 
 // --- CMS ---
-import CmsLayout from './cms/lib/CmsLayout.jsx';
-import DashboardPage from './cms/pages/DashboardPage.jsx';
-import PagesListPage from './cms/pages/PagesListPage.jsx';
-import PageEditorPage from './cms/pages/PageEditorPage.jsx';
-import BlocksCatalogPage from './cms/pages/BlocksCatalogPage.jsx';
-import LibraryPage from './cms/pages/LibraryPage.jsx';
-import MediaPage from './cms/pages/MediaPage.jsx';
-import RedirectsPage from './cms/pages/RedirectsPage.jsx';
-import CommentsPage from './cms/pages/CommentsPage.jsx';
-import FormsPage from './cms/pages/FormsPage.jsx';
-import ConnectionsPage from './cms/pages/ConnectionsPage.jsx';
-import TeamPage from './cms/pages/TeamPage.jsx';
-import SettingsPage from './cms/pages/SettingsPage.jsx';
-import WorkspaceSettingsPage from './cms/pages/settings/WorkspaceSettingsPage.jsx';
-import DesignSettingsPage from './cms/pages/settings/DesignSettingsPage.jsx';
-import BillingSettingsPage from './cms/pages/settings/BillingSettingsPage.jsx';
-import AuditLogPage from './cms/pages/AuditLogPage.jsx';
-import ImportExportPage from './cms/pages/ImportExportPage.jsx';
-import FeedbackPage from './cms/pages/FeedbackPage.jsx';
-import OpsDashboardPage from './cms/pages/ops/DashboardPage.jsx';
-import OpsSystemStatusPage from './cms/pages/ops/SystemStatusPage.jsx';
-import OpsFeatureRequestsPage from './cms/pages/ops/FeatureRequestsPage.jsx';
-import OpsSchedulePage from './cms/pages/ops/SchedulePage.jsx';
-import OpsGitPullPage from './cms/pages/ops/GitPullPage.jsx';
-import OpsProfilePage from './cms/pages/ops/ProfilePage.jsx';
+const CmsLayout = lazy(() => import('./cms/lib/CmsLayout.jsx'));
+const DashboardPage = lazy(() => import('./cms/pages/DashboardPage.jsx'));
+const PagesListPage = lazy(() => import('./cms/pages/PagesListPage.jsx'));
+const PageEditorPage = lazy(() => import('./cms/pages/PageEditorPage.jsx'));
+const BlocksCatalogPage = lazy(() => import('./cms/pages/BlocksCatalogPage.jsx'));
+const LibraryPage = lazy(() => import('./cms/pages/LibraryPage.jsx'));
+const MediaPage = lazy(() => import('./cms/pages/MediaPage.jsx'));
+const RedirectsPage = lazy(() => import('./cms/pages/RedirectsPage.jsx'));
+const CommentsPage = lazy(() => import('./cms/pages/CommentsPage.jsx'));
+const FormsPage = lazy(() => import('./cms/pages/FormsPage.jsx'));
+const ConnectionsPage = lazy(() => import('./cms/pages/ConnectionsPage.jsx'));
+const TeamPage = lazy(() => import('./cms/pages/TeamPage.jsx'));
+const SettingsPage = lazy(() => import('./cms/pages/SettingsPage.jsx'));
+const WorkspaceSettingsPage = lazy(() => import('./cms/pages/settings/WorkspaceSettingsPage.jsx'));
+const DesignSettingsPage = lazy(() => import('./cms/pages/settings/DesignSettingsPage.jsx'));
+const BillingSettingsPage = lazy(() => import('./cms/pages/settings/BillingSettingsPage.jsx'));
+const AuditLogPage = lazy(() => import('./cms/pages/AuditLogPage.jsx'));
+const ImportExportPage = lazy(() => import('./cms/pages/ImportExportPage.jsx'));
+const FeedbackPage = lazy(() => import('./cms/pages/FeedbackPage.jsx'));
+const OpsDashboardPage = lazy(() => import('./cms/pages/ops/DashboardPage.jsx'));
+const OpsSystemStatusPage = lazy(() => import('./cms/pages/ops/SystemStatusPage.jsx'));
+const OpsFeatureRequestsPage = lazy(() => import('./cms/pages/ops/FeatureRequestsPage.jsx'));
+const OpsSchedulePage = lazy(() => import('./cms/pages/ops/SchedulePage.jsx'));
+const OpsGitPullPage = lazy(() => import('./cms/pages/ops/GitPullPage.jsx'));
+const OpsProfilePage = lazy(() => import('./cms/pages/ops/ProfilePage.jsx'));
 
 // --- Commerce admin (per-org opt-in, gated in CmsLayout nav) ---
-import CommerceLayout from './commerce/lib/CommerceLayout.jsx';
-import HomePage from './commerce/pages/admin/HomePage.jsx';
-import OrdersPage from './commerce/pages/admin/OrdersPage.jsx';
-import OrderDetailPage from './commerce/pages/admin/OrderDetailPage.jsx';
-import ProductsPage from './commerce/pages/admin/ProductsPage.jsx';
-import ProductEditPage from './commerce/pages/admin/ProductEditPage.jsx';
-import CustomersPage from './commerce/pages/admin/CustomersPage.jsx';
-import DiscountsPage from './commerce/pages/admin/DiscountsPage.jsx';
-import GrowthPage from './commerce/pages/admin/GrowthPage.jsx';
-import ContentPage from './commerce/pages/admin/ContentPage.jsx';
-import MarketsPage from './commerce/pages/admin/MarketsPage.jsx';
-import FinancePage from './commerce/pages/admin/FinancePage.jsx';
-import AnalyticsPage from './commerce/pages/admin/AnalyticsPage.jsx';
+const CommerceLayout = lazy(() => import('./commerce/lib/CommerceLayout.jsx'));
+const HomePage = lazy(() => import('./commerce/pages/admin/HomePage.jsx'));
+const OrdersPage = lazy(() => import('./commerce/pages/admin/OrdersPage.jsx'));
+const OrderDetailPage = lazy(() => import('./commerce/pages/admin/OrderDetailPage.jsx'));
+const ProductsPage = lazy(() => import('./commerce/pages/admin/ProductsPage.jsx'));
+const ProductEditPage = lazy(() => import('./commerce/pages/admin/ProductEditPage.jsx'));
+const CustomersPage = lazy(() => import('./commerce/pages/admin/CustomersPage.jsx'));
+const DiscountsPage = lazy(() => import('./commerce/pages/admin/DiscountsPage.jsx'));
+const GrowthPage = lazy(() => import('./commerce/pages/admin/GrowthPage.jsx'));
+const ContentPage = lazy(() => import('./commerce/pages/admin/ContentPage.jsx'));
+const MarketsPage = lazy(() => import('./commerce/pages/admin/MarketsPage.jsx'));
+const FinancePage = lazy(() => import('./commerce/pages/admin/FinancePage.jsx'));
+const AnalyticsPage = lazy(() => import('./commerce/pages/admin/AnalyticsPage.jsx'));
+
+const routeFallback = (
+  <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#070a13', color: '#a1a1aa', fontFamily: 'system-ui, sans-serif', fontSize: 14 }}>
+    Loading…
+  </div>
+);
 
 // The /:orgSlug route param is a client workspace's slug — e.g. Comley
 // Creative (Nexus's first client) is /comley-creative/*. RequireOrg
@@ -64,6 +77,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <PausedGate>
+      <Suspense fallback={routeFallback}>
       <Routes>
         {/* Public marketing */}
         <Route path="/" element={<LandingPage />} />
@@ -136,6 +150,7 @@ export default function App() {
             typos) redirects back to the marketing landing. */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
       </PausedGate>
     </BrowserRouter>
   );
