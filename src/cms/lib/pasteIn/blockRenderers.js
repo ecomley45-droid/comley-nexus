@@ -392,6 +392,7 @@ export const BLOCK_RENDERERS = {
   tabs: renderTabs,
   countdown: renderCountdown,
   'social-links': renderSocialLinks,
+  script: renderScript,
 };
 
 // Regenerates `html` from `fields` for a given blockType. Returns null for
