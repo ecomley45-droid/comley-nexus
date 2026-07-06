@@ -55,6 +55,23 @@ export default function DesignSettingsPage() {
         </div>
       </GlassPanel>
 
+      <GlassPanel className="p-4 mb-4">
+        <h2 className="font-medium mb-1">Custom CSS</h2>
+        <p className="text-xs text-zinc-500 mb-3">
+          Raw CSS injected into every published page's <code>&lt;head&gt;</code>.
+          Use this for styling that blocks and theme colors don't cover — plain
+          CSS rules only, not Tailwind utility classes (those aren't compiled
+          for pasted-in content).
+        </p>
+        <GlassTextarea
+          value={globalSettings.theme?.customCss || ''}
+          onChange={(e) => updateTheme({ customCss: e.target.value })}
+          rows={8}
+          className="w-full font-mono text-xs"
+          placeholder=".nx-header { padding: 24px; }"
+        />
+      </GlassPanel>
+
       <GlassPanel id="globals" className="p-4 mb-4">
         <h2 className="font-medium mb-1">Global content</h2>
         <p className="text-xs text-zinc-500 mb-3">
