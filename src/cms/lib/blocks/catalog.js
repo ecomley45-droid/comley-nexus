@@ -10,8 +10,10 @@ import { renderBlock } from '../pasteIn/blockRenderers.js';
 
 // Fixed display order for the categories we shipped with; any category a
 // custom block introduces (workspace or platform) still shows, just after
-// these, in whatever order the API returns it.
-export const BASE_CATEGORIES = ['Structure', 'Content', 'Social Proof', 'Conversion', 'Media', 'Interactive'];
+// these, in whatever order the API returns it. 'Layout' sorts first --
+// deliberately, so the nestable Layout blocks are the most discoverable
+// tab in the "Add Layout/Block +" picker.
+export const BASE_CATEGORIES = ['Layout', 'Structure', 'Content', 'Social Proof', 'Conversion', 'Media', 'Interactive'];
 
 export async function fetchBlockCatalog() {
   const entries = await getBlockCatalog();

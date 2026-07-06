@@ -20,7 +20,7 @@ import {
   attachClerk, resolveViewer, requireRole, requireOrgMatch, requireSuperAdmin,
   isSuperAdminViewer, assertProductionAuth,
 } from './lib/auth.js';
-import { sanitizePage, sanitizeGlobalSettings, sanitizeContentHtml, pagesContainScriptBlock } from './lib/sanitize.js';
+import { sanitizePage, sanitizeGlobalSettings, sanitizeContentHtml, pagesContainScriptBlock, pagesContainFullHtmlMode } from './lib/sanitize.js';
 import * as storage from './lib/storage.js';
 import * as nexus from './lib/nexus.js';
 import { classifyBlock, hasAnthropicKey } from './lib/ai.js';
@@ -184,6 +184,9 @@ app.post('/api/pages', requireOrg, requireRole('editor'), async (req, res, next)
     if (!pages || !Array.isArray(pages)) return res.status(400).json({ error: 'Invalid pages data structure' });
     if (pagesContainScriptBlock(pages) && req.viewer?.role !== 'admin') {
       return res.status(403).json({ error: 'Only workspace admins can save a page containing a Script block.' });
+    }
+    if (pagesContainFullHtmlMode(pages) && req.viewer?.role !== 'admin') {
+      return res.status(403).json({ error: 'Only workspace admins can save a page in Full HTML mode.' });
     }
     const cleanPages = pages.map(sanitizePage);
     const oldPages = await storage.pages.list(req.org.id);

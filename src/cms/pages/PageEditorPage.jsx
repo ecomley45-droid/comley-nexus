@@ -14,7 +14,18 @@ import { fetchBlockCatalog } from '../lib/blocks/catalog.js';
 const newSection = () => ({ id: 'sec-' + Date.now() + '-' + Math.floor(Math.random() * 1e6), name: 'New section', html: '<div class="p-8">New section</div>' });
 
 const DEVICE_WIDTHS = { 'Desktop - Large': 1440, 'Tablet': 768, 'Mobile': 390 };
-const EDIT_VIEWS = ['Structured', 'Raw HTML'];
+const ALL_EDIT_VIEWS = ['Structured', 'Raw HTML'];
+const PAGE_MODES = ['Blocks', 'Full HTML'];
+
+// Respects a workspace's optional lock (Design Settings > Page editor):
+// 'structured' or 'raw' restricts every page's Structured/Raw HTML toggle
+// to just that one option; unset (the default) allows both, matching
+// today's behavior.
+const editViewsFor = (lockBlockView) => {
+  if (lockBlockView === 'structured') return ['Structured'];
+  if (lockBlockView === 'raw') return ['Raw HTML'];
+  return ALL_EDIT_VIEWS;
+};
 
 function AbVariantsEditor({ section, onChange }) {
   const [stats, setStats] = useState({});
@@ -247,6 +258,8 @@ export default function PageEditorPage({ nexus = false }) {
     () => Object.fromEntries(blockCatalog.map((e) => [e.blockType, e.name])),
     [blockCatalog]
   );
+  const editViews = editViewsFor(globalSettings?.editor?.lockBlockView);
+  const effectiveEditView = editViews.includes(editView) ? editView : editViews[0];
 
   const page = useMemo(() => pages?.find((p) => p.id === id), [pages, id]);
   const debouncedPage = useDebouncedValue(page, 250);
@@ -262,6 +275,21 @@ export default function PageEditorPage({ nexus = false }) {
   const updatePage = (patch) => setPages(pages.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   const updateSections = (content) => updatePage({ content });
   const updateLayout = (patch) => updatePage({ layout: { ...(page.layout || {}), ...patch } });
+
+  // Both `content` and `fullHtml` always persist on the page regardless of
+  // mode -- switching back and forth never discards either representation,
+  // it just changes which one compilePageHtml actually serves. Seeding
+  // fullHtml from the current compiled output only happens the first time
+  // (while it's still empty), so toggling back and forth never clobbers
+  // edits already made in Full HTML mode.
+  const setPageMode = (mode) => {
+    const editorMode = mode === 'Full HTML' ? 'full-html' : 'blocks';
+    if (editorMode === 'full-html' && !page.fullHtml && globalSettings) {
+      updatePage({ editorMode, fullHtml: compilePageHtml(page, pages, library, globalSettings) });
+    } else {
+      updatePage({ editorMode });
+    }
+  };
 
   const addSection = () => updateSections([...page.content, newSection()]);
   const addFromLibrary = (libId) => {
@@ -334,67 +362,100 @@ export default function PageEditorPage({ nexus = false }) {
 
       <div className="flex gap-4 items-start">
         <div className="w-2/5 min-w-0 shrink-0">
-          <LayoutPanel
-            layout={page.layout || {}}
-            globals={globalSettings?.globals || {}}
-            onChange={updateLayout}
-          />
-          <div className="flex justify-between items-center mb-2">
-            <h2 className="font-medium text-zinc-300">Blocks</h2>
-            <div className="flex gap-2">
-              {library.length > 0 && (
-                <GlassSelect onChange={(e) => e.target.value && addFromLibrary(e.target.value)} defaultValue="" className="text-xs py-1">
-                  <option value="">Insert from library…</option>
-                  {library.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-                </GlassSelect>
-              )}
-              <button onClick={() => setPasteInOpen(true)} className="text-xs text-glass-sky hover:underline">Paste in…</button>
-              <button onClick={addSection} className="text-xs text-glass-sky hover:underline">Blank</button>
-            </div>
-          </div>
-
-          <GlassButton onClick={() => setCatalogOpen(true)} className="w-full mb-3 justify-center">
-            Add Block +
-          </GlassButton>
-
           <div className="flex items-center gap-1 mb-3 p-0.5 rounded-lg bg-white/[0.04] border border-white/10 w-fit">
-            {EDIT_VIEWS.map((v) => (
+            {PAGE_MODES.map((mode) => (
               <button
-                key={v}
-                onClick={() => setEditView(v)}
+                key={mode}
+                onClick={() => setPageMode(mode)}
                 className={`text-xs px-2.5 py-1 rounded-md transition ${
-                  editView === v ? 'bg-white/10 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
+                  (page.editorMode === 'full-html') === (mode === 'Full HTML') ? 'bg-white/10 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                {v}
+                {mode}
               </button>
             ))}
           </div>
 
-          {page.content.length === 0 && <p className="text-zinc-500 text-sm">No sections yet.</p>}
+          {page.editorMode === 'full-html' ? (
+            <>
+              <p className="text-xs text-zinc-500 mb-2">
+                Full document control -- header, footer, theme, and analytics injection are all bypassed for this page. What you write here is exactly what gets served. Requires workspace admin to save.
+              </p>
+              <GlassTextarea
+                value={page.fullHtml || ''}
+                onChange={(e) => updatePage({ fullHtml: e.target.value })}
+                rows={32}
+                className="w-full font-mono text-xs"
+                placeholder="<!doctype html>&#10;<html>&#10;<head>...</head>&#10;<body>...</body>&#10;</html>"
+              />
+            </>
+          ) : (
+            <>
+              <LayoutPanel
+                layout={page.layout || {}}
+                globals={globalSettings?.globals || {}}
+                onChange={updateLayout}
+              />
+              <div className="flex justify-between items-center mb-2">
+                <h2 className="font-medium text-zinc-300">Blocks</h2>
+                <div className="flex gap-2">
+                  {library.length > 0 && (
+                    <GlassSelect onChange={(e) => e.target.value && addFromLibrary(e.target.value)} defaultValue="" className="text-xs py-1">
+                      <option value="">Insert from library…</option>
+                      {library.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                    </GlassSelect>
+                  )}
+                  <button onClick={() => setPasteInOpen(true)} className="text-xs text-glass-sky hover:underline">Paste in…</button>
+                  <button onClick={addSection} className="text-xs text-glass-sky hover:underline">Blank</button>
+                </div>
+              </div>
 
-          {page.content.map((section, idx) => (
-            <BlockRow
-              key={section.id}
-              section={section}
-              index={idx}
-              total={page.content.length}
-              expanded={expandedId === section.id}
-              onToggle={() => setExpandedId(expandedId === section.id ? null : section.id)}
-              onDragStart={setDragIndex}
-              onDragOver={() => {}}
-              onDrop={reorderTo}
-              onRename={(name) => updateSection(section.id, { name })}
-              onMove={(dir) => moveSection(section.id, dir)}
-              onDuplicate={() => duplicateSection(section.id)}
-              onRemove={() => removeSection(section.id)}
-              onChange={(patch) => updateSection(section.id, patch)}
-              pageId={page.id}
-              nexus={nexus}
-              editView={editView}
-              catalogNameByType={catalogNameByType}
-            />
-          ))}
+              <GlassButton onClick={() => setCatalogOpen(true)} className="w-full mb-3 justify-center">
+                Add Layout/Block +
+              </GlassButton>
+
+              {editViews.length > 1 && (
+                <div className="flex items-center gap-1 mb-3 p-0.5 rounded-lg bg-white/[0.04] border border-white/10 w-fit">
+                  {editViews.map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => setEditView(v)}
+                      className={`text-xs px-2.5 py-1 rounded-md transition ${
+                        effectiveEditView === v ? 'bg-white/10 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
+                      }`}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {page.content.length === 0 && <p className="text-zinc-500 text-sm">No sections yet.</p>}
+
+              {page.content.map((section, idx) => (
+                <BlockRow
+                  key={section.id}
+                  section={section}
+                  index={idx}
+                  total={page.content.length}
+                  expanded={expandedId === section.id}
+                  onToggle={() => setExpandedId(expandedId === section.id ? null : section.id)}
+                  onDragStart={setDragIndex}
+                  onDragOver={() => {}}
+                  onDrop={reorderTo}
+                  onRename={(name) => updateSection(section.id, { name })}
+                  onMove={(dir) => moveSection(section.id, dir)}
+                  onDuplicate={() => duplicateSection(section.id)}
+                  onRemove={() => removeSection(section.id)}
+                  onChange={(patch) => updateSection(section.id, patch)}
+                  pageId={page.id}
+                  nexus={nexus}
+                  editView={effectiveEditView}
+                  catalogNameByType={catalogNameByType}
+                />
+              ))}
+            </>
+          )}
         </div>
 
         <GlassPanel className="flex-1 min-w-0 p-2 sticky top-6 self-start" style={{ height: 'calc(100vh - 9rem)' }}>

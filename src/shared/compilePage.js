@@ -60,6 +60,13 @@ export function resolveGlobalContent(page, globalSettings) {
 }
 
 export function compilePageHtml(page, pages, library, globalSettings, abChoices = {}) {
+  // Full HTML mode bypasses everything below -- header/footer inheritance,
+  // theme variables, analytics injection -- by design ("full document
+  // control", see PageEditorPage.jsx's Blocks/Full HTML toggle). The page
+  // becomes exactly this one string. A/B variants don't apply here -- there's
+  // no per-section concept left to vary, a real but minor v1 limitation.
+  if (page.editorMode === 'full-html') return page.fullHtml || '';
+
   const theme = globalSettings?.theme || {};
   const { headerHtml, footerHtml } = resolveGlobalContent(page, globalSettings);
   const sectionsHtml = (page.content || [])

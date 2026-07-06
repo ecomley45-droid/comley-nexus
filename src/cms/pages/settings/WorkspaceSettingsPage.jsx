@@ -63,6 +63,25 @@ export default function WorkspaceSettingsPage() {
         />
       </GlassPanel>
 
+      <GlassPanel className="p-4 mb-4">
+        <h2 className="font-medium mb-1">Page editor</h2>
+        <p className="text-xs text-zinc-500 mb-3">
+          Controls the Structured/Raw HTML toggle every page editor shows.
+          Locking it to one option simplifies things for a team that only
+          ever uses one -- e.g. Structured-only so no one sees raw HTML.
+        </p>
+        <label className="text-xs text-zinc-400 block mb-1">Block editing view</label>
+        <GlassSelect
+          value={globalSettings.editor?.lockBlockView || ''}
+          onChange={(e) => update({ editor: { ...(globalSettings.editor || {}), lockBlockView: e.target.value || null } })}
+          className="w-full"
+        >
+          <option value="">Both Structured and Raw HTML (default)</option>
+          <option value="structured">Structured only</option>
+          <option value="raw">Raw HTML only</option>
+        </GlassSelect>
+      </GlassPanel>
+
       <GlassPanel className="p-4">
         <h2 className="font-medium mb-3">Maintenance</h2>
         <label className="flex items-center gap-2 text-sm text-zinc-300">

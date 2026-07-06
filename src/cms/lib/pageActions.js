@@ -8,6 +8,13 @@ export function blankPage() {
     slug: 'untitled-' + Date.now().toString(36),
     parentId: null,
     content: [],
+    // 'blocks' (default) uses `content` above; 'full-html' bypasses it
+    // entirely in favor of `fullHtml`, a complete raw document (see
+    // compilePageHtml's fork in src/shared/compilePage.js). Both fields
+    // always persist regardless of mode -- switching back and forth never
+    // discards either representation.
+    editorMode: 'blocks',
+    fullHtml: '',
     seo: { title: '', description: '', ogImage: '' },
     status: 'draft',
     scheduledPublishAt: null,
