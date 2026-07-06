@@ -7,13 +7,16 @@ import BlockPreviewFrame from './BlockPreviewFrame.jsx';
 // appends a normal section with blockType/fields/html already set to
 // realistic placeholder content -- editable afterward exactly like a
 // paste-in imported block, via the same Structured/Raw HTML toggle.
-export default function BlockCatalogPicker({ onClose, onInsert }) {
+export default function BlockCatalogPicker({ onClose, onInsert, excludeTypes = [] }) {
   const [entries, setEntries] = useState(null);
   const [error, setError] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
 
   useEffect(() => {
-    fetchBlockCatalog().then(setEntries).catch((e) => setError(e.message));
+    // excludeTypes: opened from inside a Layout block's column, this
+    // filters out 'layout' so a Layout can't be nested inside itself --
+    // v1 keeps nesting one level deep only.
+    fetchBlockCatalog().then((all) => setEntries(all.filter((e) => !excludeTypes.includes(e.blockType)))).catch((e) => setError(e.message));
   }, []);
 
   const categories = entries ? categoriesFor(entries) : [];

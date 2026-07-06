@@ -1,5 +1,7 @@
-import { GlassInput, GlassTextarea } from '../ui/Glass.jsx';
-import { renderBlock } from './blockRenderers.js';
+import { useState } from 'react';
+import { GlassInput, GlassTextarea, GlassSelect } from '../ui/Glass.jsx';
+import { renderBlock, LAYOUT_TEMPLATES } from './blockRenderers.js';
+import BlockCatalogPicker from '../blocks/BlockCatalogPicker.jsx';
 
 // Structured-view counterpart to BlockRow's raw HTML textarea. Only usable
 // on blocks that carry `blockType` + `fields` (created via "Paste in" --
@@ -169,6 +171,137 @@ function PlansEditor({ plans, onChange }) {
   );
 }
 
+// Editor for a Layout block's nested columns. Each column holds zero or
+// more full section objects (same shape as top-level blocks), so editing a
+// nested child recursively reuses StructuredBlockEditor itself -- a nested
+// Hero/CTA/etc. gets full structured editing for free, one level deep only
+// (the "Add block" picker below excludes 'layout' so this can't recurse
+// further). No Raw HTML toggle at the nested level in v1 -- top-level
+// blocks keep it, nested ones don't, a real but minor limitation.
+function LayoutBlockEditor({ fields, onChange }) {
+  const [expandedChild, setExpandedChild] = useState(null);
+  const [addingToColumn, setAddingToColumn] = useState(null);
+
+  const template = LAYOUT_TEMPLATES[fields.template] || LAYOUT_TEMPLATES['two-column'];
+  const columns = template.widths.map((_, i) => fields.columns?.[i] || { id: `col-${i}`, sections: [] });
+
+  const commit = (nextColumns) => {
+    const nextFields = { ...fields, columns: nextColumns };
+    onChange({ fields: nextFields, html: renderBlock('layout', nextFields) });
+  };
+
+  // Any nested-child mutation bubbles through here: update the child inside
+  // its column, regenerate the child's own html if its fields changed, then
+  // regenerate the Layout's own html (via commit) from the updated columns --
+  // the one genuinely new piece of logic this feature needed.
+  const updateChild = (colIndex, childId, patch) => {
+    const nextColumns = columns.map((col, i) => {
+      if (i !== colIndex) return col;
+      return {
+        ...col,
+        sections: col.sections.map((child) => {
+          if (child.id !== childId) return child;
+          const nextChild = { ...child, ...patch };
+          if (patch.fields) nextChild.html = renderBlock(nextChild.blockType, nextChild.fields) || nextChild.html;
+          return nextChild;
+        }),
+      };
+    });
+    commit(nextColumns);
+  };
+
+  const removeChild = (colIndex, childId) => {
+    commit(columns.map((col, i) => (i !== colIndex ? col : { ...col, sections: col.sections.filter((c) => c.id !== childId) })));
+  };
+
+  const moveChildWithinColumn = (colIndex, childId, dir) => {
+    const col = columns[colIndex];
+    const idx = col.sections.findIndex((c) => c.id === childId);
+    const swapWith = idx + dir;
+    if (swapWith < 0 || swapWith >= col.sections.length) return;
+    const nextSections = [...col.sections];
+    [nextSections[idx], nextSections[swapWith]] = [nextSections[swapWith], nextSections[idx]];
+    commit(columns.map((c, i) => (i !== colIndex ? c : { ...c, sections: nextSections })));
+  };
+
+  const moveChildToColumn = (fromCol, childId, toCol) => {
+    if (fromCol === toCol) return;
+    const child = columns[fromCol].sections.find((c) => c.id === childId);
+    if (!child) return;
+    commit(columns.map((col, i) => {
+      if (i === fromCol) return { ...col, sections: col.sections.filter((c) => c.id !== childId) };
+      if (i === toCol) return { ...col, sections: [...col.sections, child] };
+      return col;
+    }));
+  };
+
+  const addChild = (colIndex, newSection) => {
+    commit(columns.map((col, i) => (i !== colIndex ? col : { ...col, sections: [...col.sections, newSection] })));
+    setAddingToColumn(null);
+  };
+
+  return (
+    <div className="pt-1">
+      <p className="text-xs text-zinc-500 mb-3">
+        {template.label} layout -- add blocks into each column below. Columns wrap on narrow screens.
+      </p>
+      <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }}>
+        {columns.map((col, colIndex) => (
+          <div key={col.id || colIndex} className="rounded-lg border border-white/10 bg-white/[0.02] p-2 min-w-0">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-medium text-zinc-400">Column {colIndex + 1}</span>
+              <button onClick={() => setAddingToColumn(colIndex)} className="text-xs text-glass-sky hover:underline">Add block</button>
+            </div>
+            {col.sections.length === 0 && <p className="text-xs text-zinc-600 mb-1">Empty</p>}
+            <div className="space-y-1.5">
+              {col.sections.map((child, childIdx) => (
+                <div key={child.id} className="rounded-md border border-white/10 bg-white/[0.03]">
+                  <div className="flex items-center gap-1 p-1.5">
+                    <button
+                      onClick={() => setExpandedChild(expandedChild === child.id ? null : child.id)}
+                      className="flex-1 text-left text-xs text-zinc-200 truncate px-1 min-w-0"
+                    >
+                      {expandedChild === child.id ? '▾' : '▸'} {child.name}
+                    </button>
+                    <button onClick={() => moveChildWithinColumn(colIndex, child.id, -1)} disabled={childIdx === 0} className="text-zinc-400 hover:text-white disabled:opacity-30 text-xs px-1">↑</button>
+                    <button onClick={() => moveChildWithinColumn(colIndex, child.id, 1)} disabled={childIdx === col.sections.length - 1} className="text-zinc-400 hover:text-white disabled:opacity-30 text-xs px-1">↓</button>
+                    <button onClick={() => removeChild(colIndex, child.id)} className="text-red-400 hover:text-red-300 text-xs px-1">✕</button>
+                  </div>
+                  {columns.length > 1 && (
+                    <div className="px-1.5 pb-1.5">
+                      <GlassSelect
+                        value={colIndex}
+                        onChange={(e) => moveChildToColumn(colIndex, child.id, Number(e.target.value))}
+                        className="text-[11px] py-0.5 w-full"
+                      >
+                        {columns.map((_, i) => (
+                          <option key={i} value={i}>{i === colIndex ? `Column ${i + 1} (current)` : `Move to column ${i + 1}`}</option>
+                        ))}
+                      </GlassSelect>
+                    </div>
+                  )}
+                  {expandedChild === child.id && (
+                    <div className="border-t border-white/10 p-2">
+                      <StructuredBlockEditor section={child} onChange={(patch) => updateChild(colIndex, child.id, patch)} />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      {addingToColumn !== null && (
+        <BlockCatalogPicker
+          excludeTypes={['layout']}
+          onClose={() => setAddingToColumn(null)}
+          onInsert={(newSection) => addChild(addingToColumn, newSection)}
+        />
+      )}
+    </div>
+  );
+}
+
 export default function StructuredBlockEditor({ section, onChange }) {
   if (!section.blockType || !section.fields) {
     return (
@@ -183,6 +316,12 @@ export default function StructuredBlockEditor({ section, onChange }) {
     const nextFields = { ...fields, ...patch };
     onChange({ fields: nextFields, html: renderBlock(section.blockType, nextFields) || section.html });
   };
+
+  // Layout is a container, not a content block -- headings/images/links
+  // don't apply to it either, and it needs its own nested column UI.
+  if (section.blockType === 'layout') {
+    return <LayoutBlockEditor fields={fields} onChange={onChange} />;
+  }
 
   // Script has no visual layout fields (headings/images/links etc. don't
   // apply to it) -- it's just a code body, so it skips the generic editors

@@ -365,6 +365,42 @@ export function renderScript(fields) {
   return `<script>${safeCode}</script>`;
 }
 
+// Fixed column templates for the Layout block -- see catalog entries for
+// the 5 seeded combinations (Two-column, Split Screen, Asymmetrical,
+// Card/Block Grid, Featured). `fields.template` is set once at insert time
+// and never changes afterward (changing column count later would require
+// reflowing existing nested children, real complexity for little payoff --
+// add a new Layout block and move children over instead).
+export const LAYOUT_TEMPLATES = {
+  'two-column': { label: 'Two-column', widths: [1, 1], gap: '24px' },
+  'split-screen': { label: 'Split Screen', widths: [1, 1], gap: '0' },
+  asymmetrical: { label: 'Asymmetrical', widths: [1, 2], gap: '24px' },
+  grid: { label: 'Card/Block Grid', widths: [1, 1, 1], gap: '16px' },
+  featured: { label: 'Featured', widths: [2, 1], gap: '24px' },
+};
+
+// Renders a Layout block: a row of columns, each holding zero or more
+// nested blocks. Every nested block's `html` is already fully rendered and
+// kept in sync with its own `fields` by the editor (see
+// StructuredBlockEditor.jsx's LayoutBlockEditor) -- this just concatenates
+// that already-rendered HTML inside each column's wrapper, no separate
+// rendering pass needed. Falls back to the template's column count with
+// empty columns if `fields.columns` is missing/short, so a hand-edited or
+// stale catalog entry can't crash the renderer.
+export function renderLayout(fields) {
+  const template = LAYOUT_TEMPLATES[fields.template] || LAYOUT_TEMPLATES['two-column'];
+  const columns = template.widths.map((_, i) => fields.columns?.[i] || { sections: [] });
+  const colHtml = columns
+    .map((col, i) => `<div class="nx-layout-col" style="flex: ${template.widths[i]} 1 260px; min-width: 0;">
+${(col.sections || []).map((s) => s.html || '').join('\n')}
+</div>`)
+    .join('\n');
+  return `<style>${BASE_STYLE}
+.nx-layout { display: flex; flex-wrap: wrap; gap: ${template.gap}; align-items: flex-start; }
+</style>
+<div class="nx-layout">${colHtml}</div>`;
+}
+
 export const BLOCK_RENDERERS = {
   header: renderHeader,
   navigation: renderNavigation,
@@ -393,6 +429,7 @@ export const BLOCK_RENDERERS = {
   countdown: renderCountdown,
   'social-links': renderSocialLinks,
   script: renderScript,
+  layout: renderLayout,
 };
 
 // Regenerates `html` from `fields` for a given blockType. Returns null for
