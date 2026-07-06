@@ -88,14 +88,25 @@ function OrgRow({ org, onSelect, onDeleted, onUpdated }) {
     }
   };
 
+  const requested = org.feature_flags?.custom_domain_request;
+
   const saveDomain = async () => {
     setBusy(true);
     try {
-      await updateOrg(org.id, { domain: domainValue.trim() || null });
+      // Setting the live domain resolves whatever the client asked for.
+      await updateOrg(org.id, {
+        domain: domainValue.trim() || null,
+        featureFlags: { ...org.feature_flags, custom_domain_request: null },
+      });
       setEditingDomain(false);
       onUpdated();
     } catch (e) { alert(e.message); }
     finally { setBusy(false); }
+  };
+
+  const useRequested = () => {
+    setDomainValue(requested);
+    setEditingDomain(true);
   };
 
   const togglePause = async () => {
@@ -133,6 +144,12 @@ function OrgRow({ org, onSelect, onDeleted, onUpdated }) {
             <span>
               Domain: {org.domain || '—'}{' '}
               <button onClick={() => setEditingDomain(true)} className="text-glass-sky hover:underline">Edit</button>
+            </span>
+          )}
+          {requested && requested !== org.domain && !editingDomain && (
+            <span className="text-amber-400">
+              Requested: {requested}{' '}
+              <button onClick={useRequested} className="text-glass-sky hover:underline">Use</button>
             </span>
           )}
           <span>Created: {new Date(org.created_at).toLocaleDateString()}</span>

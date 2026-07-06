@@ -56,6 +56,10 @@ async function request(path, options = {}) {
 // ---- Identity / org (server-derived) ----
 export const getMe = () => request('/me');
 
+// ---- Custom domain (client request; live wiring is super-admin only) ----
+export const requestCustomDomain = (domain) =>
+  request('/org/custom-domain', { method: 'PATCH', body: JSON.stringify({ domain }) });
+
 // ---- Orgs (super-admin) ----
 export const listOrgs = () => request('/orgs');
 export const createOrg = (payload) => request('/orgs', { method: 'POST', body: JSON.stringify(payload) });

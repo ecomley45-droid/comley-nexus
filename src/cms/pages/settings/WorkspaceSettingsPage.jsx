@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { usePagesStore } from '../../lib/usePagesStore.js';
-import { getMe } from '../../lib/api.js';
+import { getMe, requestCustomDomain } from '../../lib/api.js';
 import { GlassPanel, GlassButton, GlassInput, GlassSelect } from '../../lib/ui/Glass.jsx';
 
 // "Workspace" bucket: the identity + operational settings for the org
@@ -43,25 +43,7 @@ export default function WorkspaceSettingsPage() {
         </GlassSelect>
       </GlassPanel>
 
-      <GlassPanel className="p-4 mb-4">
-        <h2 className="font-medium mb-3">Custom domain</h2>
-        <p className="text-xs text-zinc-500 mb-3">
-          Point your own domain at this workspace instead of using the default
-          Nexus URL. Ask us to help wire the DNS records.
-        </p>
-        <label className="text-xs text-zinc-400 block mb-1">Custom domain (e.g. cms.acmeco.com)</label>
-        <GlassInput
-          value={me?.org?.feature_flags?.custom_domain || ''}
-          onChange={() => {}}
-          placeholder="cms.your-brand.com"
-          className="w-full"
-          disabled
-        />
-        <p className="text-[11px] text-zinc-500 mt-2">
-          Custom domains are added on the Vercel project and require a CNAME record.
-          Contact hello@comleycreative.com to schedule the switch.
-        </p>
-      </GlassPanel>
+      <CustomDomainPanel me={me} onUpdated={setMe} />
 
       <GlassPanel className="p-4 mb-4">
         <h2 className="font-medium mb-3">Branding &amp; SEO defaults</h2>
@@ -98,5 +80,58 @@ export default function WorkspaceSettingsPage() {
         </p>
       </GlassPanel>
     </div>
+  );
+}
+
+function CustomDomainPanel({ me, onUpdated }) {
+  const liveDomain = me?.org?.domain || '';
+  const requested = me?.org?.feature_flags?.custom_domain_request || '';
+  const [value, setValue] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => { setValue(requested || liveDomain); }, [requested, liveDomain]);
+
+  const submit = async () => {
+    setBusy(true);
+    setMessage('');
+    try {
+      await requestCustomDomain(value.trim());
+      onUpdated(await getMe());
+      setMessage(value.trim() ? "Requested — we'll follow up with the DNS record to add." : 'Request cleared.');
+    } catch (e) {
+      setMessage(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <GlassPanel className="p-4 mb-4">
+      <h2 className="font-medium mb-3">Custom domain</h2>
+      <p className="text-xs text-zinc-500 mb-3">
+        Point your own domain at this workspace instead of using the default
+        Nexus URL.
+      </p>
+      {liveDomain && <p className="text-xs text-emerald-400 mb-3">Live: {liveDomain}</p>}
+      {!liveDomain && requested && (
+        <p className="text-xs text-amber-400 mb-3">Requested: {requested} — pending setup on our end.</p>
+      )}
+      <label className="text-xs text-zinc-400 block mb-1">Custom domain (e.g. cms.acmeco.com)</label>
+      <div className="flex gap-2">
+        <GlassInput
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="cms.your-brand.com"
+          className="w-full"
+        />
+        <GlassButton onClick={submit} disabled={busy}>{busy ? 'Saving…' : 'Request'}</GlassButton>
+      </div>
+      {message && <p className="text-xs text-zinc-400 mt-2">{message}</p>}
+      <p className="text-[11px] text-zinc-500 mt-2">
+        Once it's set up on our end, you'll just need to add a CNAME record with
+        your DNS provider — we'll send you the exact record to add.
+      </p>
+    </GlassPanel>
   );
 }
