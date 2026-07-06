@@ -49,6 +49,7 @@ const files = [
   'migrations/005_integration_api_keys.sql',
   'migrations/006_block_catalog.sql',
   'migrations/007_org_paused.sql',
+  'migrations/008_script_block.sql',
 ];
 // If you add a new migration, add it here so `node db/apply.mjs` picks
 // it up. Order matters — migrations must remain idempotent.

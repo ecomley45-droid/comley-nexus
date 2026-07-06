@@ -9,6 +9,7 @@ import { useOrgBase } from '../lib/useMe.jsx';
 import PasteInModal from '../lib/pasteIn/PasteInModal.jsx';
 import StructuredBlockEditor from '../lib/pasteIn/StructuredBlockEditor.jsx';
 import BlockCatalogPicker from '../lib/blocks/BlockCatalogPicker.jsx';
+import { fetchBlockCatalog } from '../lib/blocks/catalog.js';
 
 const newSection = () => ({ id: 'sec-' + Date.now() + '-' + Math.floor(Math.random() * 1e6), name: 'New section', html: '<div class="p-8">New section</div>' });
 
@@ -109,7 +110,13 @@ function CollapsibleSection({ title, defaultOpen = false, children }) {
 // One row in the left block list. Drag-and-drop reorder uses native HTML5
 // DnD (draggable + onDragStart/onDragOver/onDrop) — no DnD library needed
 // for a flat list.
-function BlockRow({ section, index, total, expanded, onToggle, onDragStart, onDragOver, onDrop, onRename, onMove, onDuplicate, onRemove, onChange, pageId, nexus, editView }) {
+function BlockRow({ section, index, total, expanded, onToggle, onDragStart, onDragOver, onDrop, onRename, onMove, onDuplicate, onRemove, onChange, pageId, nexus, editView, catalogNameByType }) {
+  // A block's origin (which catalog template it came from, or "Custom
+  // HTML" for hand-authored/pasted/raw content) is tied to blockType, not
+  // the editable `name` -- name can be freely renamed afterward, but
+  // blockType is stamped once at insert time (buildSectionFromCatalog) and
+  // never changes, so it's the reliable thing to label from.
+  const origin = section.blockType ? (catalogNameByType[section.blockType] || section.blockType) : 'Custom HTML';
   return (
     <div
       draggable
@@ -127,13 +134,16 @@ function BlockRow({ section, index, total, expanded, onToggle, onDragStart, onDr
             {expanded ? '▾' : '▸'}
           </button>
           <span className="text-xs text-zinc-500 w-5 text-center shrink-0">{index + 1}</span>
-          <button onClick={onToggle} className="flex-1 text-left py-2 -my-2">
-            <input
-              value={section.name}
-              onClick={(e) => e.stopPropagation()}
-              onChange={(e) => onRename(e.target.value)}
-              className="font-medium text-sm bg-transparent border-b border-transparent hover:border-white/20 outline-none w-full"
-            />
+          <button onClick={onToggle} className="flex-1 text-left py-2 -my-2 min-w-0">
+            <div className="flex items-baseline gap-2 min-w-0">
+              <input
+                value={section.name}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => onRename(e.target.value)}
+                className="font-medium text-sm bg-transparent border-b border-transparent hover:border-white/20 outline-none min-w-0 flex-1"
+              />
+              <span className="text-[11px] text-zinc-500 shrink-0">{origin}</span>
+            </div>
           </button>
           <div className="flex gap-1.5 text-xs text-zinc-400 shrink-0">
             <button onClick={() => onMove(-1)} disabled={index === 0} className="hover:text-white disabled:opacity-30">↑</button>
@@ -223,6 +233,7 @@ export default function PageEditorPage({ nexus = false }) {
     nexus ? { fetchPages: getNexusPages, savePages: saveNexusPages } : undefined
   );
   const [library, setLibrary] = useState([]);
+  const [blockCatalog, setBlockCatalog] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
   const [dragIndex, setDragIndex] = useState(null);
   const [deviceWidth, setDeviceWidth] = useState('Desktop - Large');
@@ -231,6 +242,11 @@ export default function PageEditorPage({ nexus = false }) {
   const [catalogOpen, setCatalogOpen] = useState(false);
 
   useEffect(() => { (nexus ? getNexusLibrary() : getLibrary()).then(setLibrary).catch(() => {}); }, [nexus]);
+  useEffect(() => { fetchBlockCatalog().then(setBlockCatalog).catch(() => {}); }, []);
+  const catalogNameByType = useMemo(
+    () => Object.fromEntries(blockCatalog.map((e) => [e.blockType, e.name])),
+    [blockCatalog]
+  );
 
   const page = useMemo(() => pages?.find((p) => p.id === id), [pages, id]);
   const debouncedPage = useDebouncedValue(page, 250);
@@ -376,6 +392,7 @@ export default function PageEditorPage({ nexus = false }) {
               pageId={page.id}
               nexus={nexus}
               editView={editView}
+              catalogNameByType={catalogNameByType}
             />
           ))}
         </div>

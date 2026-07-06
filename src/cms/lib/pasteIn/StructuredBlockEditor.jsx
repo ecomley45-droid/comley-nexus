@@ -184,6 +184,27 @@ export default function StructuredBlockEditor({ section, onChange }) {
     onChange({ fields: nextFields, html: renderBlock(section.blockType, nextFields) || section.html });
   };
 
+  // Script has no visual layout fields (headings/images/links etc. don't
+  // apply to it) -- it's just a code body, so it skips the generic editors
+  // below entirely rather than showing empty, irrelevant sections.
+  if (section.blockType === 'script') {
+    return (
+      <div className="pt-1">
+        <label className="text-xs text-zinc-400 block mb-1">JavaScript</label>
+        <p className="text-xs text-zinc-600 mb-1.5">
+          Runs unsandboxed on the published page inside a &lt;script&gt; tag. Requires workspace admin to save.
+        </p>
+        <GlassTextarea
+          value={fields.code || ''}
+          onChange={(e) => setFields({ code: e.target.value })}
+          placeholder="console.log('hello');"
+          rows={12}
+          className="w-full font-mono text-xs"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="pt-1">
       <StringListEditor label="Headings" items={fields.headings || []} onChange={(headings) => setFields({ headings })} placeholder="Heading text" />

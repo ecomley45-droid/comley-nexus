@@ -347,6 +347,21 @@ export function renderSocialLinks(fields) {
 <div class="nx-social">${linksHtml(fields.links, '')}</div>`;
 }
 
+// Arbitrary inline JS on the published page -- see lib/sanitize.js's
+// 'script' entry for why this is a bigger trust jump than every other
+// block, and server.js's admin-only save gate for the resulting guard.
+// No visual output; renders nothing in the page flow.
+export function renderScript(fields) {
+  const code = String(fields.code || '');
+  // A literal `</script` inside the code (e.g. in a string or comment)
+  // would otherwise close the tag early when parsed as HTML -- both by
+  // the sanitizer and by the browser itself, silently truncating and
+  // corrupting the script. `<\/script` is valid JS (an escaped slash) and
+  // reads back identically at runtime.
+  const safeCode = code.replace(/<\/script/gi, '<\\/script');
+  return `<script>${safeCode}</script>`;
+}
+
 export const BLOCK_RENDERERS = {
   header: renderHeader,
   navigation: renderNavigation,
