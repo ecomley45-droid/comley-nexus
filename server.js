@@ -24,6 +24,7 @@ import { sanitizePage, sanitizeGlobalSettings, sanitizeContentHtml, pagesContain
 import * as storage from './lib/storage.js';
 import * as nexus from './lib/nexus.js';
 import { classifyBlock, hasAnthropicKey } from './lib/ai.js';
+import crypto from 'crypto';
 
 assertProductionAuth();
 
@@ -210,6 +211,41 @@ app.post('/api/pages', requireOrg, requireRole('editor'), async (req, res, next)
     }
     res.json({ success: true, pages: written, globalSettings: updatedGlobals });
   } catch (e) { next(e); }
+});
+
+// ================= DRAFT PREVIEWS (signed) =================
+
+// Draft previews used to be `?preview=1` -- anyone who guessed a URL could
+// read unpublished content. Now the editor's "Open preview" button fetches
+// a short-lived HMAC token here (org-authenticated), and the public-site
+// handler below only serves a non-published page when the token verifies.
+// The token is bound to one pageId + expiry; possession proves an
+// authorized editor generated it, so the public handler needs no session.
+const PREVIEW_SECRET = process.env.PREVIEW_TOKEN_SECRET || process.env.CLERK_SECRET_KEY || 'dev-preview-secret';
+const PREVIEW_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+function signPreviewToken(pageId, exp) {
+  return crypto.createHmac('sha256', PREVIEW_SECRET).update(`${pageId}:${exp}`).digest('base64url');
+}
+
+function verifyPreviewToken(pageId, token) {
+  if (!token || typeof token !== 'string') return false;
+  const [expStr, sig] = token.split('.');
+  const exp = Number(expStr);
+  if (!exp || exp < Date.now() || !sig) return false;
+  const expected = signPreviewToken(pageId, exp);
+  return sig.length === expected.length && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
+}
+
+app.get('/api/preview-token/:pageId', requireOrg, (req, res) => {
+  const exp = Date.now() + PREVIEW_TTL_MS;
+  res.json({ token: `${exp}.${signPreviewToken(req.params.pageId, exp)}` });
+});
+
+// Nexus's own pages get the same treatment via the super-admin surface.
+app.get('/api/nexus/preview-token/:pageId', requireSuperAdmin, (req, res) => {
+  const exp = Date.now() + PREVIEW_TTL_MS;
+  res.json({ token: `${exp}.${signPreviewToken(req.params.pageId, exp)}` });
 });
 
 // ================= VERSIONS =================
@@ -585,6 +621,45 @@ async function resolvePublicSite(host) {
   return nexusSite();
 }
 
+// Search-engine plumbing for every hosted site: sitemap lists published
+// pages only (drafts stay invisible), robots points at it.
+app.get('/sitemap.xml', async (req, res, next) => {
+  try {
+    const site = await resolvePublicSite(req.headers.host);
+    if (site.paused) return res.status(404).end();
+    const pages = await site.loadPages();
+    const origin = `https://${req.headers.host}`;
+    const urls = pages
+      .filter((p) => p.status === 'published')
+      .map((p) => `  <url><loc>${origin}/${getFullPath(p, pages)}</loc></url>`.replace(/\/<\/loc>/, '</loc>'))
+      .join('\n');
+    res.setHeader('Content-Type', 'application/xml');
+    res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+    res.send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`);
+  } catch (e) { next(e); }
+});
+
+app.get('/robots.txt', (req, res) => {
+  res.setHeader('Content-Type', 'text/plain');
+  res.setHeader('Cache-Control', 'public, s-maxage=3600');
+  res.send(`User-agent: *\nAllow: /\n\nSitemap: https://${req.headers.host}/sitemap.xml\n`);
+});
+
+// Inline <script> bodies (Script blocks, pasted analytics snippets) need
+// their hashes in script-src -- 'self' alone silently blocks them, which
+// would make the Script block feature dead on arrival in production.
+// Hashing each body keeps the CSP strict instead of falling back to
+// 'unsafe-inline'.
+function inlineScriptHashes(html) {
+  const hashes = [];
+  const re = /<script(?![^>]*\bsrc\s*=)[^>]*>([\s\S]*?)<\/script>/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    if (m[1]) hashes.push(`'sha256-${crypto.createHash('sha256').update(m[1]).digest('base64')}'`);
+  }
+  return hashes.join(' ');
+}
+
 app.use(async (req, res, next) => {
   try {
     if (req.method !== 'GET') return next();
@@ -612,7 +687,10 @@ app.use(async (req, res, next) => {
       : pages.find(p => getFullPath(p, pages) === requestPath);
 
     if (!page) return res.redirect(302, '/');
-    const isPreview = req.query.preview === '1' || req.query.preview === 'true';
+    // Unpublished pages are only served with a valid signed preview token
+    // (see /api/preview-token/:pageId above). The old `?preview=1` served
+    // drafts to anyone who guessed the URL.
+    const isPreview = verifyPreviewToken(page.id, req.query.preview);
     if (page.status !== 'published' && !isPreview) return res.redirect(302, '/');
 
     const cookies = (req.headers.cookie || '').split(';').reduce((acc, pair) => {
@@ -631,21 +709,36 @@ app.use(async (req, res, next) => {
       await site.recordImpression(section.id, variant.id);
     }
 
-    const renderedHtml = compilePageHtml(page, pages, library, globalSettings, abChoices);
+    const renderedHtml = compilePageHtml(page, pages, library, globalSettings, abChoices, `https://${req.headers.host}`);
     const analyticsHosts = process.env.ANALYTICS_HOSTS || '';
     res.setHeader('Content-Security-Policy', [
       `default-src 'self'`,
-      `script-src 'self' ${analyticsHosts}`,
+      // Inline hashes: Script blocks + inline analytics snippets would be
+      // silently blocked by 'self' alone. Hashed per-response, stays strict.
+      `script-src 'self' ${analyticsHosts} ${inlineScriptHashes(renderedHtml)}`.trim(),
       `style-src 'self' 'unsafe-inline'`,
       `img-src 'self' data: https:`,
       `font-src 'self' data:`,
       `connect-src 'self' ${analyticsHosts}`,
+      // Video Embed block: default-src 'self' was blocking YouTube/Vimeo
+      // iframes entirely in production.
+      `frame-src https://www.youtube.com https://player.vimeo.com`,
       `frame-ancestors 'none'`,
       `base-uri 'self'`,
       `form-action 'self'`,
     ].join('; '));
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    // CDN caching for published pages: Vercel's edge absorbs repeat views
+    // without touching Express/Supabase. Skipped for previews (private
+    // drafts) and A/B pages (per-visitor variant cookies must not be
+    // cached and impressions must be counted per view).
+    const hasAb = Object.keys(abChoices).length > 0;
+    if (!isPreview && !hasAb) {
+      res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+    } else {
+      res.setHeader('Cache-Control', 'private, no-store');
+    }
     res.send(renderedHtml);
   } catch (e) { next(e); }
 });

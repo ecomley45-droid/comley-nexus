@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { usePagesStore } from '../lib/usePagesStore.js';
 import { useDebouncedValue } from '../lib/useDebouncedValue.js';
 import { compilePageHtml, getFullPath } from '../../shared/compilePage.js';
-import { getLibrary, getAbStats, getComments, addComment, resolveComment, getNexusPages, saveNexusPages, getNexusLibrary } from '../lib/api.js';
+import { getLibrary, getAbStats, getComments, addComment, resolveComment, getNexusPages, saveNexusPages, getNexusLibrary, getPreviewToken } from '../lib/api.js';
 import { GlassPanel, GlassButton, GlassInput, GlassTextarea, GlassSelect } from '../lib/ui/Glass.jsx';
 import { useOrgBase } from '../lib/useMe.jsx';
 import PasteInModal from '../lib/pasteIn/PasteInModal.jsx';
@@ -248,9 +248,42 @@ export default function PageEditorPage({ nexus = false }) {
   const [expandedId, setExpandedId] = useState(null);
   const [dragIndex, setDragIndex] = useState(null);
   const [deviceWidth, setDeviceWidth] = useState('Desktop - Large');
-  const [editView, setEditView] = useState('Raw HTML');
+  // Structured is the default -- the target user is the no-HTML crowd;
+  // devs will find the Raw HTML toggle.
+  const [editView, setEditView] = useState('Structured');
   const [pasteInOpen, setPasteInOpen] = useState(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
+
+  // Unsaved-work protection: any page edit marks the editor dirty; a
+  // browser-nav warning fires while dirty, Cmd/Ctrl+S saves, and an idle
+  // autosave runs 30s after the LAST edit (re-armed per edit via
+  // dirtyTick). Idle-based rather than interval-based on purpose --
+  // usePagesStore.save() replaces local state with the server's response,
+  // so saving mid-keystroke could clobber in-flight typing; only saving
+  // after 30s of no edits keeps that window effectively closed.
+  const dirtyRef = useRef(false);
+  const saveRef = useRef(null);
+  const [dirtyTick, setDirtyTick] = useState(0);
+  const markDirty = () => { dirtyRef.current = true; setDirtyTick((t) => t + 1); };
+
+  useEffect(() => {
+    const onBeforeUnload = (e) => { if (dirtyRef.current) { e.preventDefault(); e.returnValue = ''; } };
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveRef.current?.(); }
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!dirtyTick) return;
+    const t = setTimeout(() => { if (dirtyRef.current) saveRef.current?.(); }, 30000);
+    return () => clearTimeout(t);
+  }, [dirtyTick]);
 
   useEffect(() => { (nexus ? getNexusLibrary() : getLibrary()).then(setLibrary).catch(() => {}); }, [nexus]);
   useEffect(() => { fetchBlockCatalog().then(setBlockCatalog).catch(() => {}); }, []);
@@ -272,7 +305,10 @@ export default function PageEditorPage({ nexus = false }) {
   if (error) return <p className="text-red-400">{error}</p>;
   if (!page) return <p className="text-zinc-300">Page not found. <Link to={`${base}/pages`} className="underline">Back to pages</Link></p>;
 
-  const updatePage = (patch) => setPages(pages.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  const updatePage = (patch) => {
+    markDirty();
+    setPages(pages.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  };
   const updateSections = (content) => updatePage({ content });
   const updateLayout = (patch) => updatePage({ layout: { ...(page.layout || {}), ...patch } });
 
@@ -334,13 +370,26 @@ export default function PageEditorPage({ nexus = false }) {
   const handleSave = async () => {
     try {
       await save(pages);
+      dirtyRef.current = false;
     } catch {
-      // saveMessage already reflects the error
+      // saveMessage already reflects the error; stay dirty so the
+      // beforeunload guard and autosave keep protecting the edits.
     }
   };
+  saveRef.current = handleSave;
 
   const fullPath = getFullPath(page, pages);
-  const previewHref = `/${fullPath}?preview=1`;
+  // Preview URLs carry a short-lived signed token instead of the old
+  // `?preview=1` -- drafts are no longer readable by anyone who guesses
+  // the URL. Token is fetched on click so it's always fresh.
+  const openPreview = async () => {
+    try {
+      const { token } = await getPreviewToken(page.id, nexus);
+      window.open(`/${fullPath}?preview=${encodeURIComponent(token)}`, '_blank', 'noopener');
+    } catch {
+      window.open(`/${fullPath}`, '_blank', 'noopener');
+    }
+  };
   const previewWidth = DEVICE_WIDTHS[deviceWidth];
 
   return (
@@ -353,9 +402,7 @@ export default function PageEditorPage({ nexus = false }) {
         />
         <div className="flex gap-2 items-center">
           {saveMessage && <span className="text-sm text-zinc-400">{saveMessage}</span>}
-          <a href={previewHref} target="_blank" rel="noreferrer">
-            <GlassButton variant="secondary">Open preview</GlassButton>
-          </a>
+          <GlassButton variant="secondary" onClick={openPreview}>Open preview</GlassButton>
           <GlassButton onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</GlassButton>
         </div>
       </div>

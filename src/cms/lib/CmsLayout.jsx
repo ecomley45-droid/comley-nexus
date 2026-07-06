@@ -19,7 +19,9 @@ const NAV_ITEMS = [
   { to: 'media', label: 'Media' },
   { to: 'redirects', label: 'Redirects' },
   { to: 'comments', label: 'Comments' },
-  { to: 'import-export', label: 'Import / Export' },
+  // Import/Export is hidden while its backend is stubbed (501s in
+  // server.js's DEFERRED SURFACES block) -- a live nav link to a dead
+  // page costs trial credibility. Restore when CSV/static export ships.
   {
     to: 'ops/dashboard',
     label: 'Ops',
@@ -43,7 +45,6 @@ const NAV_ITEMS = [
       { to: 'team', label: 'Team & Permissions' },
       { to: 'connections', label: 'Integrations' },
       { to: 'settings/billing', label: 'Billing' },
-      { to: 'import-export', label: 'Import / Export' },
       { to: 'audit', label: 'Audit Log' },
     ],
   },

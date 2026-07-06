@@ -59,7 +59,11 @@ export function resolveGlobalContent(page, globalSettings) {
   return { headerHtml: pickHtml('header'), footerHtml: pickHtml('footer') };
 }
 
-export function compilePageHtml(page, pages, library, globalSettings, abChoices = {}) {
+// `origin` (e.g. "https://acme.com") is only known server-side at request
+// time -- when present, canonical/og:url tags are emitted; the editor's
+// live preview omits it and gets no canonical, which is correct (preview
+// HTML should never declare itself the canonical copy of anything).
+export function compilePageHtml(page, pages, library, globalSettings, abChoices = {}, origin = '') {
   // Full HTML mode bypasses everything below -- header/footer inheritance,
   // theme variables, analytics injection -- by design ("full document
   // control", see PageEditorPage.jsx's Blocks/Full HTML toggle). The page
@@ -83,15 +87,26 @@ export function compilePageHtml(page, pages, library, globalSettings, abChoices 
   const seo = page.seo || {};
   const globalAnalytics = globalSettings?.analytics || {};
   const pageAnalytics = page.analytics || {};
+  const title = seo.title || page.name || globalSettings?.siteName || 'Untitled Page';
+  const description = seo.description || '';
+  const ogImage = seo.ogImage || globalSettings?.defaultOgImage || '';
+  const canonicalUrl = origin ? `${origin}/${getFullPath(page, pages)}`.replace(/\/$/, '') || origin : '';
 
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>${escapeHtml(seo.title || page.name || globalSettings?.siteName || 'Untitled Page')}</title>
-${seo.description ? `<meta name="description" content="${escapeHtml(seo.description)}" />` : ''}
-${seo.ogImage ? `<meta property="og:image" content="${escapeHtml(seo.ogImage)}" />` : ''}
+<title>${escapeHtml(title)}</title>
+${description ? `<meta name="description" content="${escapeHtml(description)}" />` : ''}
+${canonicalUrl ? `<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />` : ''}
+<meta property="og:title" content="${escapeHtml(title)}" />
+${description ? `<meta property="og:description" content="${escapeHtml(description)}" />` : ''}
+<meta property="og:type" content="website" />
+${canonicalUrl ? `<meta property="og:url" content="${escapeHtml(canonicalUrl)}" />` : ''}
+${ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />` : ''}
+<meta name="twitter:card" content="${ogImage ? 'summary_large_image' : 'summary'}" />
+${globalSettings?.siteName ? `<meta property="og:site_name" content="${escapeHtml(globalSettings.siteName)}" />` : ''}
 <style>
 ${buildThemeStyleBlock(theme)}
 </style>

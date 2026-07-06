@@ -134,6 +134,10 @@ export const deleteComment = (id) => request(`/comments/${id}`, { method: 'DELET
 // ---- A/B testing ----
 export const getAbStats = (sectionId) => request(`/ab-stats/${sectionId}`);
 
+// ---- Draft previews (signed) ----
+export const getPreviewToken = (pageId, nexus = false) =>
+  request(nexus ? `/nexus/preview-token/${pageId}` : `/preview-token/${pageId}`);
+
 // ---- Export ----
 export const exportSite = () => request('/export', { method: 'POST' });
 
