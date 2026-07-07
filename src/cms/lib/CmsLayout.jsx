@@ -91,7 +91,13 @@ export default function CmsLayout() {
 
   const navItems = useMemo(() => rebaseNav(NAV_ITEMS, base), [base]);
 
-  const logoLabel = me?.org?.name ? `Nexus · ${me.org.name}` : 'Nexus';
+  // White-label (Agency tier): a workspace with feature_flags.white_label
+  // shows the agency's brand instead of Nexus anywhere in the client-facing
+  // chrome. Set per-org from Super Admin > Client workspaces.
+  const whiteLabel = me?.org?.feature_flags?.white_label?.name || '';
+  const logoLabel = whiteLabel
+    ? (me?.org?.name ? `${whiteLabel} · ${me.org.name}` : whiteLabel)
+    : (me?.org?.name ? `Nexus · ${me.org.name}` : 'Nexus');
 
   // Client workspace management and Nexus's own site now live at
   // /super-admin, outside this org-scoped console entirely — this link is

@@ -119,6 +119,26 @@ function OrgRow({ org, onSelect, onDeleted, onUpdated }) {
 
   const downloadBackup = () => window.open(`/api/orgs/${org.id}/backup`, '_blank');
 
+  // White-label: the client's editor shows THEIR brand name instead of
+  // "Nexus" -- the Agency-tier selling point. Stored in feature_flags so
+  // no migration is needed; /api/me already surfaces it to CmsLayout.
+  const whiteLabel = org.feature_flags?.white_label?.name || '';
+  const editWhiteLabel = async () => {
+    const name = prompt(
+      `White-label brand name for "${org.name}" (their editor shows this instead of Nexus). Leave empty to remove.`,
+      whiteLabel
+    );
+    if (name === null) return;
+    setBusy(true);
+    try {
+      await updateOrg(org.id, {
+        featureFlags: { ...org.feature_flags, white_label: name.trim() ? { name: name.trim() } : null },
+      });
+      onUpdated();
+    } catch (e) { alert(e.message); }
+    finally { setBusy(false); }
+  };
+
   return (
     <GlassPanel className="p-3 flex items-center gap-3">
       <div className="flex-1 min-w-0">
@@ -152,6 +172,10 @@ function OrgRow({ org, onSelect, onDeleted, onUpdated }) {
               <button onClick={useRequested} className="text-glass-sky hover:underline">Use</button>
             </span>
           )}
+          <span>
+            Brand: {whiteLabel || 'Nexus'}{' '}
+            <button onClick={editWhiteLabel} disabled={busy} className="text-glass-sky hover:underline">Edit</button>
+          </span>
           <span>Created: {new Date(org.created_at).toLocaleDateString()}</span>
         </div>
       </div>
