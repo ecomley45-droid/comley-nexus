@@ -17,6 +17,7 @@ import { mountOpsApi } from './lib/ops/routes.js';
 import { mountNexusApi } from './lib/nexusRoutes.js';
 import { mountSuperAdminApi } from './lib/superAdminRoutes.js';
 import { mountBlockCatalogApi } from './lib/blockCatalogRoutes.js';
+import { mountMarketplaceApi } from './lib/marketplaceRoutes.js';
 import {
   attachClerk, resolveViewer, requireRole, requireOrgMatch, requireSuperAdmin,
   isSuperAdminViewer, assertProductionAuth, requireAuth,
@@ -172,6 +173,7 @@ mountOpsApi(app);
 mountNexusApi(app);
 mountSuperAdminApi(app);
 mountBlockCatalogApi(app);
+mountMarketplaceApi(app);
 
 // ================= PAGES =================
 

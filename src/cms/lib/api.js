@@ -126,6 +126,24 @@ export const createBlockCatalogEntry = (payload) => request('/block-catalog', { 
 export const updateBlockCatalogEntry = (id, patch) => request(`/block-catalog/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
 export const deleteBlockCatalogEntry = (id) => request(`/block-catalog/${id}`, { method: 'DELETE' });
 
+// ---- Template marketplace ----
+export const getTemplates = () => request('/templates');
+export const getTemplate = (id) => request(`/templates/${id}`);
+export const installTemplate = (id, applyTheme = true) =>
+  request(`/templates/${id}/install`, { method: 'POST', body: JSON.stringify({ applyTheme }) });
+export const getTemplateInstalls = () => request('/template-installs');
+// Super-admin authoring
+export const createTemplate = (payload) => request('/templates', { method: 'POST', body: JSON.stringify(payload) });
+export const updateTemplate = (id, patch) => request(`/templates/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+export const deleteTemplate = (id) => request(`/templates/${id}`, { method: 'DELETE' });
+export const saveSiteAsTemplate = (payload) => request('/templates/from-site', { method: 'POST', body: JSON.stringify(payload) });
+
+// ---- Site backups / restore ----
+export const getBackups = () => request('/backups');
+export const createBackup = (label) => request('/backups', { method: 'POST', body: JSON.stringify({ label }) });
+export const restoreBackup = (id) => request(`/backups/${id}/restore`, { method: 'POST' });
+export const deleteBackup = (id) => request(`/backups/${id}`, { method: 'DELETE' });
+
 // ---- Media ----
 export const getMedia = () => request('/media');
 export const uploadMedia = (name, mimeType, dataBase64) =>

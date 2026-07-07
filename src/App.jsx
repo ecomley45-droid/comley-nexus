@@ -35,6 +35,9 @@ const WorkspaceSettingsPage = lazy(() => import('./cms/pages/settings/WorkspaceS
 const DesignSettingsPage = lazy(() => import('./cms/pages/settings/DesignSettingsPage.jsx'));
 const BillingSettingsPage = lazy(() => import('./cms/pages/settings/BillingSettingsPage.jsx'));
 const AuditLogPage = lazy(() => import('./cms/pages/AuditLogPage.jsx'));
+const TemplateMarketplacePage = lazy(() => import('./cms/pages/TemplateMarketplacePage.jsx'));
+const TemplateDetailPage = lazy(() => import('./cms/pages/TemplateDetailPage.jsx'));
+const BackupsPage = lazy(() => import('./cms/pages/settings/BackupsPage.jsx'));
 const ImportExportPage = lazy(() => import('./cms/pages/ImportExportPage.jsx'));
 const FeedbackPage = lazy(() => import('./cms/pages/FeedbackPage.jsx'));
 const OpsDashboardPage = lazy(() => import('./cms/pages/ops/DashboardPage.jsx'));
@@ -108,6 +111,8 @@ export default function App() {
           <Route path="pages" element={<PagesListPage />} />
           <Route path="pages/:id" element={<PageEditorPage />} />
           <Route path="blocks" element={<BlocksCatalogPage />} />
+          <Route path="templates" element={<TemplateMarketplacePage />} />
+          <Route path="templates/:id" element={<TemplateDetailPage />} />
           <Route path="library" element={<LibraryPage />} />
           <Route path="media" element={<MediaPage />} />
           <Route path="redirects" element={<RedirectsPage />} />
@@ -119,6 +124,7 @@ export default function App() {
           <Route path="settings" element={<SettingsPage />} />
           <Route path="settings/workspace" element={<WorkspaceSettingsPage />} />
           <Route path="settings/design" element={<DesignSettingsPage />} />
+          <Route path="settings/backups" element={<BackupsPage />} />
           <Route path="settings/billing" element={<BillingSettingsPage />} />
           <Route path="import-export" element={<ImportExportPage />} />
           <Route path="audit" element={<AuditLogPage />} />
