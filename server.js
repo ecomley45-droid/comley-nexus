@@ -29,6 +29,7 @@ import { clerkClient } from '@clerk/express';
 import { sendFormNotification } from './lib/email.js';
 import { SITE_TEMPLATES, buildTemplateSite } from './src/shared/siteTemplates.js';
 import { PLANS, createCheckoutSession, createPortalSession } from './lib/billing.js';
+import { generateSite } from './lib/aiSiteGen.js';
 import { db } from './lib/db.js';
 import crypto from 'crypto';
 
@@ -723,6 +724,46 @@ app.post('/api/signup/workspace', signupLimit, requireAuth, async (req, res, nex
     await storage.audit.append(slug, 'Workspace created', 'Self-serve signup');
     res.json({ success: true, org: { id: org.id, slug: org.id, name: org.name } });
   } catch (e) { next(e); }
+});
+
+// ================= AI SITE GENERATION =================
+
+// "Describe your business, get a themed multi-page site." Generated pages
+// APPEND to the workspace (slug-deduped) so existing work is never
+// overwritten; the generated theme only applies when the workspace had no
+// pages yet (a fresh workspace gets the full effect, an established site
+// keeps its look).
+const aiGenerateLimit = rateLimit({ windowMs: 60_000, max: 3, standardHeaders: true, legacyHeaders: false });
+
+app.post('/api/ai/generate-site', aiGenerateLimit, requireOrg, requireRole('editor'), async (req, res, next) => {
+  try {
+    const { description } = req.body || {};
+    if (!description?.trim() || description.trim().length < 10) {
+      return res.status(400).json({ error: 'Describe your business in a sentence or two first.' });
+    }
+    const { pages: generated, theme } = await generateSite(description.trim());
+
+    const existing = await storage.pages.list(req.org.id);
+    const existingSlugs = new Set(existing.map((p) => p.slug));
+    const deduped = generated.map((p) => {
+      let slug = p.slug;
+      while (existingSlugs.has(slug)) slug = `${p.slug}-${Math.floor(Math.random() * 1000)}`;
+      existingSlugs.add(slug);
+      return { ...p, slug };
+    });
+
+    await storage.pages.bulkReplace(req.org.id, [...existing, ...deduped.map(sanitizePage)]);
+    if (existing.length === 0 && Object.keys(theme).length > 0) {
+      const settings = await storage.settings.get(req.org.id);
+      await storage.settings.replace(req.org.id, sanitizeGlobalSettings({ ...settings, theme: { ...settings.theme, ...theme } }));
+    }
+    await auditFor(req.org.id, req.viewer)('AI generated site', `${deduped.length} pages from a description`);
+    res.json({ success: true, pages: deduped.map((p) => ({ id: p.id, name: p.name, slug: p.slug })), themeApplied: existing.length === 0 });
+  } catch (e) {
+    // AI errors are user-actionable (retry, add detail) -- surface the
+    // message rather than a generic 500.
+    res.status(422).json({ error: e.message });
+  }
 });
 
 // ================= PLATFORM BILLING (Nexus's own plans) =================

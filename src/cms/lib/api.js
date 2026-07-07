@@ -66,6 +66,10 @@ export const createOrg = (payload) => request('/orgs', { method: 'POST', body: J
 export const getSiteTemplates = () => request('/site-templates');
 export const createWorkspace = (payload) => request('/signup/workspace', { method: 'POST', body: JSON.stringify(payload) });
 
+// ---- AI site generation ----
+export const generateAiSite = (description) =>
+  request('/ai/generate-site', { method: 'POST', body: JSON.stringify({ description }) });
+
 // ---- Platform billing (Nexus's own plans) ----
 export const getBillingStatus = () => request('/billing/status');
 export const startCheckout = (plan, interval) =>
