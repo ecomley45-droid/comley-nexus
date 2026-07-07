@@ -266,10 +266,24 @@ export default function PageEditorPage({ nexus = false }) {
   const [dirtyTick, setDirtyTick] = useState(0);
   const markDirty = () => { dirtyRef.current = true; setDirtyTick((t) => t + 1); };
 
+  // Undo/redo over `page.content` snapshots (last 50). Native undo inside
+  // a focused input/textarea is left alone -- the global handler only
+  // fires when focus is outside a text field, so Cmd+Z while typing still
+  // means "undo my typing," not "undo my block edit."
+  const historyRef = useRef({ pageId: null, past: [], future: [] });
+  const undoRef = useRef(null);
+  const redoRef = useRef(null);
+  const [undoToast, setUndoToast] = useState(null);
+
   useEffect(() => {
+    const isTyping = (e) => /^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName) || e.target?.isContentEditable;
     const onBeforeUnload = (e) => { if (dirtyRef.current) { e.preventDefault(); e.returnValue = ''; } };
     const onKey = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveRef.current?.(); }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveRef.current?.(); return; }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !isTyping(e)) {
+        e.preventDefault();
+        (e.shiftKey ? redoRef.current : undoRef.current)?.();
+      }
     };
     window.addEventListener('beforeunload', onBeforeUnload);
     window.addEventListener('keydown', onKey);
@@ -278,6 +292,12 @@ export default function PageEditorPage({ nexus = false }) {
       window.removeEventListener('keydown', onKey);
     };
   }, []);
+
+  useEffect(() => {
+    if (!undoToast) return;
+    const t = setTimeout(() => setUndoToast(null), 6000);
+    return () => clearTimeout(t);
+  }, [undoToast]);
 
   useEffect(() => {
     if (!dirtyTick) return;
@@ -309,7 +329,33 @@ export default function PageEditorPage({ nexus = false }) {
     markDirty();
     setPages(pages.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   };
-  const updateSections = (content) => updatePage({ content });
+
+  // Every content mutation flows through updateSections, so pushing the
+  // pre-change snapshot here covers add/remove/reorder/edit uniformly.
+  // History resets when navigating to a different page.
+  if (historyRef.current.pageId !== id) historyRef.current = { pageId: id, past: [], future: [] };
+  const updateSections = (content) => {
+    const h = historyRef.current;
+    h.past = [...h.past.slice(-49), page.content];
+    h.future = [];
+    updatePage({ content });
+  };
+  const applySnapshot = (content) => updatePage({ content });
+  undoRef.current = () => {
+    const h = historyRef.current;
+    if (h.past.length === 0) return;
+    h.future = [page.content, ...h.future.slice(0, 49)];
+    applySnapshot(h.past[h.past.length - 1]);
+    h.past = h.past.slice(0, -1);
+    setUndoToast(null);
+  };
+  redoRef.current = () => {
+    const h = historyRef.current;
+    if (h.future.length === 0) return;
+    h.past = [...h.past.slice(-49), page.content];
+    applySnapshot(h.future[0]);
+    h.future = h.future.slice(1);
+  };
   const updateLayout = (patch) => updatePage({ layout: { ...(page.layout || {}), ...patch } });
 
   // Both `content` and `fullHtml` always persist on the page regardless of
@@ -342,7 +388,11 @@ export default function PageEditorPage({ nexus = false }) {
     setCatalogOpen(false);
   };
   const updateSection = (secId, patch) => updateSections(page.content.map((s) => (s.id === secId ? { ...s, ...patch } : s)));
-  const removeSection = (secId) => updateSections(page.content.filter((s) => s.id !== secId));
+  const removeSection = (secId) => {
+    const removed = page.content.find((s) => s.id === secId);
+    updateSections(page.content.filter((s) => s.id !== secId));
+    setUndoToast({ label: `Deleted "${removed?.name || 'block'}"` });
+  };
   const duplicateSection = (secId) => {
     const idx = page.content.findIndex((s) => s.id === secId);
     const copy = { ...page.content[idx], id: 'sec-' + Date.now() };
@@ -569,6 +619,18 @@ export default function PageEditorPage({ nexus = false }) {
 
       {pasteInOpen && <PasteInModal onClose={() => setPasteInOpen(false)} onImport={importPastedBlocks} />}
       {catalogOpen && <BlockCatalogPicker onClose={() => setCatalogOpen(false)} onInsert={insertCatalogBlock} />}
+
+      {undoToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl border border-white/15 bg-zinc-900/95 backdrop-blur px-4 py-2.5 shadow-xl">
+          <span className="text-sm text-zinc-200">{undoToast.label}</span>
+          <button
+            onClick={() => undoRef.current?.()}
+            className="text-sm font-medium text-glass-sky hover:underline"
+          >
+            Undo
+          </button>
+        </div>
+      )}
     </div>
   );
 }

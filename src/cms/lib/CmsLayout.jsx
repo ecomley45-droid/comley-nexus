@@ -5,6 +5,7 @@ import { GlassShell } from './ui/Glass.jsx';
 import TopBar from './ui/TopBar.jsx';
 import FeedbackWidget from './FeedbackWidget.jsx';
 import AuthTokenBridge from './AuthTokenBridge.jsx';
+import CommandPalette from './CommandPalette.jsx';
 import { useMe, useIsSuperAdmin } from './useMe.jsx';
 
 // Nav item definitions live as relative paths so they can be rebased onto
@@ -122,6 +123,7 @@ export default function CmsLayout() {
         <Outlet />
       </main>
       <FeedbackWidget area="cms" />
+      <CommandPalette base={base} />
     </GlassShell>
   );
 }
