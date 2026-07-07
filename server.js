@@ -813,7 +813,10 @@ function inlineScriptHashes(html) {
 
 app.use(async (req, res, next) => {
   try {
-    if (req.method !== 'GET') return next();
+    // HEAD included: uptime monitors and some crawlers probe with HEAD,
+    // and Express automatically omits the body for them -- only handling
+    // GET made every public page 404 to those probes.
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
     const requestPath = req.path.split('/').filter(Boolean).join('/');
     if (requestPath.startsWith('api') || requestPath.includes('.')) return next();
 
