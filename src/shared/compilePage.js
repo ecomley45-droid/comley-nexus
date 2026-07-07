@@ -120,6 +120,7 @@ ${sectionsHtml}
 ${footerHtml ? `<footer data-global="footer">${footerHtml}</footer>` : ''}
 ${globalAnalytics.bodySnippet || ''}
 ${pageAnalytics.bodySnippet || ''}
+${origin ? `<script>navigator.sendBeacon&&navigator.sendBeacon('/api/public/pv',JSON.stringify({p:location.pathname}));</script>` : ''}
 </body>
 </html>`;
 }

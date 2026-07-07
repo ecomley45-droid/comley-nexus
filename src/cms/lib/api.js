@@ -66,6 +66,9 @@ export const createOrg = (payload) => request('/orgs', { method: 'POST', body: J
 export const getSiteTemplates = () => request('/site-templates');
 export const createWorkspace = (payload) => request('/signup/workspace', { method: 'POST', body: JSON.stringify(payload) });
 
+// ---- Built-in analytics ----
+export const getSiteViews = (days = 30) => request(`/analytics/views?days=${days}`);
+
 // ---- AI site generation ----
 export const generateAiSite = (description) =>
   request('/ai/generate-site', { method: 'POST', body: JSON.stringify({ description }) });

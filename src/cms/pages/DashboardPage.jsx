@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { FileText, LayoutTemplate, Upload, Link2, Tag, UserPlus } from 'lucide-react';
 import { usePagesStore } from '../lib/usePagesStore.js';
 import { createPage } from '../lib/pageActions.js';
-import { getAudit } from '../lib/api.js';
+import { getAudit, getSiteViews } from '../lib/api.js';
 import { getFullPath } from '../../shared/compilePage.js';
 import { GlassPanel, GlassSelect, Badge } from '../lib/ui/Glass.jsx';
 import AiPromptBar from '../lib/AiPromptBar.jsx';
@@ -29,6 +29,53 @@ function QuickStartTile({ icon: Icon, label, onClick }) {
         <span className="text-sm text-zinc-200">{label}</span>
       </GlassPanel>
     </button>
+  );
+}
+
+// Built-in cookieless traffic panel -- last 30 days of page views from
+// the beacon every published page carries. No third-party script, no
+// consent banner.
+function TrafficPanel() {
+  const [views, setViews] = useState(null);
+
+  useEffect(() => { getSiteViews(30).then(setViews).catch(() => setViews({ total: -1 })); }, []);
+
+  if (!views || views.total === -1) return null; // hidden until the table exists / has data
+
+  const days = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+    days.push({ day: d, views: views.byDay[d] || 0 });
+  }
+  const max = Math.max(1, ...days.map((d) => d.views));
+
+  return (
+    <GlassPanel className="p-4 mb-6">
+      <div className="flex justify-between items-baseline mb-3">
+        <h2 className="font-medium text-zinc-300">Site traffic</h2>
+        <span className="text-xs text-zinc-500">{views.total.toLocaleString()} views · last 30 days</span>
+      </div>
+      <div className="flex items-end gap-[2px] h-16 mb-3">
+        {days.map((d) => (
+          <div
+            key={d.day}
+            title={`${d.day}: ${d.views} views`}
+            className="flex-1 rounded-t bg-glass-indigo/60 hover:bg-glass-indigo transition-colors"
+            style={{ height: `${Math.max(3, (d.views / max) * 100)}%` }}
+          />
+        ))}
+      </div>
+      {views.topPaths.length > 0 && (
+        <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+          {views.topPaths.slice(0, 6).map((p) => (
+            <div key={p.path} className="flex justify-between text-xs">
+              <span className="text-zinc-400 truncate">{p.path}</span>
+              <span className="text-zinc-500 shrink-0 ml-2 tabular-nums">{p.views.toLocaleString()}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </GlassPanel>
   );
 }
 
@@ -99,6 +146,8 @@ export default function DashboardPage() {
       <WelcomeCards pages={pages} />
 
       <AiPromptBar />
+
+      <TrafficPanel />
 
       <h2 className="font-medium mb-2 text-zinc-300">Quick Start</h2>
       <div className="grid grid-cols-6 gap-3 mb-6">

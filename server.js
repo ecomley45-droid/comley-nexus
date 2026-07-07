@@ -726,6 +726,46 @@ app.post('/api/signup/workspace', signupLimit, requireAuth, async (req, res, nex
   } catch (e) { next(e); }
 });
 
+// ================= BUILT-IN ANALYTICS =================
+
+// Beacon target for the tiny inline script compilePageHtml injects into
+// every published page. Cookieless by design: nothing identifies the
+// visitor, we just bump (org, day, path) -- no consent banner needed.
+// sendBeacon posts text/plain, hence express.text + manual parse.
+const pvLimit = rateLimit({ windowMs: 60_000, max: 120, standardHeaders: false, legacyHeaders: false });
+
+app.post('/api/public/pv', pvLimit, express.text({ type: '*/*', limit: '2kb' }), async (req, res) => {
+  try {
+    const orgId = await orgIdForHost(req.headers.host);
+    if (!orgId) return res.status(204).end();
+    let pagePath = '';
+    try { pagePath = String(JSON.parse(req.body || '{}').p || '').slice(0, 300); } catch { /* malformed -> count as homepage */ }
+    await storage.pageViews.record(orgId, pagePath.replace(/^\/+/, ''));
+    res.status(204).end();
+  } catch {
+    res.status(204).end(); // analytics must never error a visitor's page
+  }
+});
+
+app.get('/api/analytics/views', requireOrg, async (req, res, next) => {
+  try {
+    const days = Math.min(90, Math.max(1, Number(req.query.days) || 30));
+    const rows = await storage.pageViews.list(req.org.id, days);
+    const byDay = {};
+    const byPath = {};
+    let total = 0;
+    for (const r of rows) {
+      byDay[r.day] = (byDay[r.day] || 0) + r.views;
+      byPath[r.path] = (byPath[r.path] || 0) + r.views;
+      total += r.views;
+    }
+    const topPaths = Object.entries(byPath)
+      .sort((a, b) => b[1] - a[1]).slice(0, 10)
+      .map(([path, views]) => ({ path: '/' + path, views }));
+    res.json({ total, days, byDay, topPaths });
+  } catch (e) { next(e); }
+});
+
 // ================= AI SITE GENERATION =================
 
 // "Describe your business, get a themed multi-page site." Generated pages
