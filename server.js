@@ -739,7 +739,10 @@ app.get('/api/public/buy/:productId', buyLimit, async (req, res, next) => {
     const { stripe } = await import('./lib/commerce/stripeClient.js');
     if (!stripe) return res.status(503).send('Checkout is not available right now.');
     const productsRepo = await import('./lib/commerce/productsRepo.js');
-    const product = await productsRepo.getProduct(req.params.productId);
+    // A malformed id (products.id is a uuid column) makes the DB lookup
+    // throw rather than return null -- either way, it's just "not found"
+    // to the visitor, never a 500.
+    const product = await productsRepo.getProduct(req.params.productId).catch(() => null);
     if (!product || product.price == null) return res.status(404).send('Product not found.');
 
     const quantity = Math.min(10, Math.max(1, Number(req.query.qty) || 1));
