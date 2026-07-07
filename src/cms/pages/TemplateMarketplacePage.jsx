@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getTemplates, getTemplateInstalls, restoreBackup } from '../lib/api.js';
+import { getTemplates, getTemplateInstalls, restoreBackup, saveSiteAsTemplate } from '../lib/api.js';
 import TemplatePreviewFrame from '../lib/templates/TemplatePreviewFrame.jsx';
 import { GlassPanel, GlassButton, Badge } from '../lib/ui/Glass.jsx';
-import { useMe } from '../lib/useMe.jsx';
+import { useMe, useIsSuperAdmin } from '../lib/useMe.jsx';
 
 // The template marketplace: browse installable starter sites by category, or
 // review this workspace's install history ("My Templates"). Installing is
@@ -12,6 +12,7 @@ import { useMe } from '../lib/useMe.jsx';
 export default function TemplateMarketplacePage() {
   const { orgSlug } = useParams();
   const { me } = useMe();
+  const isSuperAdmin = useIsSuperAdmin();
   const isAdmin = me?.org?.role === 'admin';
   const [tab, setTab] = useState('browse');
   const [templates, setTemplates] = useState(null);
@@ -40,6 +41,19 @@ export default function TemplateMarketplacePage() {
     return category === 'All' ? templates : templates.filter((t) => t.category === category);
   }, [templates, category]);
 
+  const onCaptureSite = async () => {
+    const name = window.prompt('Name this template (captures the current workspace’s site as a new platform template):');
+    if (!name?.trim()) return;
+    const category = window.prompt('Category?', 'Business') || 'Business';
+    try {
+      const res = await saveSiteAsTemplate({ name: name.trim(), category: category.trim(), description: '' });
+      await getTemplates().then((d) => setTemplates(d.templates));
+      alert(`Saved “${res.template.name}” to the marketplace.`);
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+
   const onRestore = async (install) => {
     if (!confirm(`Restore the site you had before installing “${install.templateName}”? Your current site will be backed up first, then replaced.`)) return;
     setBusyBackup(install.backupId);
@@ -60,6 +74,9 @@ export default function TemplateMarketplacePage() {
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-2xl font-semibold">Templates</h1>
         <div className="flex gap-2">
+          {isSuperAdmin && (
+            <GlassButton variant="secondary" onClick={onCaptureSite}>Save this site as template</GlassButton>
+          )}
           <GlassButton variant={tab === 'browse' ? 'primary' : 'ghost'} onClick={() => setTab('browse')}>Browse</GlassButton>
           <GlassButton variant={tab === 'mine' ? 'primary' : 'ghost'} onClick={() => setTab('mine')}>My Templates</GlassButton>
         </div>

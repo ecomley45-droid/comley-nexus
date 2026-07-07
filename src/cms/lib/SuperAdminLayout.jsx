@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { to: '/super-admin/orgs', label: 'Client workspaces' },
   { to: '/super-admin/pages', label: 'Nexus pages' },
   { to: '/super-admin/blocks', label: 'Blocks' },
+  { to: '/super-admin/templates', label: 'Templates' },
   { to: '/super-admin/billing', label: 'Billing' },
   { to: '/super-admin/settings', label: 'Nexus settings' },
 ];

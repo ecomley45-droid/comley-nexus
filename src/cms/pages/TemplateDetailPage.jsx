@@ -110,15 +110,18 @@ export default function TemplateDetailPage() {
             ))}
           </div>
           <GlassPanel className="overflow-hidden">
-            <TemplatePreviewFrame
-              sections={pages[activePage]?.sections || []}
-              theme={theme}
-              height={560}
-              interactive
-            />
+            <div className="max-h-[75vh] overflow-y-auto">
+              <TemplatePreviewFrame
+                sections={pages[activePage]?.sections || []}
+                theme={theme}
+                height={560}
+                autoHeight
+                interactive
+              />
+            </div>
           </GlassPanel>
           <p className="text-xs text-zinc-500 mt-2">
-            Live preview rendered with the template’s theme — this is exactly what installs.
+            Full-page desktop (1440px) preview with the template’s theme, scaled to fit — this is exactly what installs.
           </p>
         </div>
 

@@ -1,12 +1,15 @@
 // Renders a template page (a list of {blockType, fields} sections) inside an
-// isolated iframe, WITH the template's theme applied -- unlike
-// BlockPreviewFrame (single block, app dark background), this injects
-// buildThemeStyleBlock so every block's var(--color-*) references resolve to
-// the template's own palette. That makes the marketplace preview
-// byte-identical to what an install actually produces (both go through the
-// same renderBlock + buildThemeStyleBlock path).
+// isolated iframe WITH the template's theme applied, so var(--color-*)
+// references resolve to the template's palette -- making the marketplace
+// preview byte-identical to what an install produces.
+//
+// Rendered at a fixed 1440px logical width and scaled to fit (see
+// ScaledPreviewFrame): the preview shows the real desktop layout scaled down,
+// not the site reflowed into the preview's narrow width. Pass `autoHeight` to
+// show the whole page (detail view); omit it for a fixed-height card crop.
 import { buildThemeStyleBlock } from '../../../shared/theme.js';
 import { renderBlock } from '../pasteIn/blockRenderers.js';
+import ScaledPreviewFrame from '../ScaledPreviewFrame.jsx';
 
 export function renderSectionsHtml(sections = []) {
   return sections.map((s) => renderBlock(s.blockType, s.fields) || '').join('\n');
@@ -22,15 +25,14 @@ body { margin: 0; }
 </head><body>${renderSectionsHtml(sections)}</body></html>`;
 }
 
-export default function TemplatePreviewFrame({ sections = [], theme = {}, height = 220, interactive = false }) {
+export default function TemplatePreviewFrame({ sections = [], theme = {}, height = 220, autoHeight = false, interactive = false }) {
   return (
-    <div style={{ height, overflow: 'hidden', position: 'relative' }}>
-      <iframe
-        srcDoc={wrap(sections, theme)}
-        title="Template preview"
-        style={{ width: '100%', height: '100%', border: 0, pointerEvents: interactive ? 'auto' : 'none' }}
-        tabIndex={-1}
-      />
-    </div>
+    <ScaledPreviewFrame
+      srcDoc={wrap(sections, theme)}
+      baseWidth={1440}
+      height={height}
+      autoHeight={autoHeight}
+      interactive={interactive}
+    />
   );
 }

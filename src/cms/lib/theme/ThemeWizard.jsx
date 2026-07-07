@@ -3,6 +3,7 @@ import { GlassPanel, GlassButton } from '../ui/Glass.jsx';
 import { FONT_STACKS, FONT_SCALES } from '../../../shared/theme.js';
 import { THEME_PRESETS } from '../../../shared/themePresets.js';
 import { buildMockupHtml } from './themeMockup.js';
+import ScaledPreviewFrame from '../ScaledPreviewFrame.jsx';
 
 // Guided, no-HTML-knowledge-required setup flow for a workspace's theme.
 // Same lightweight step-machine convention as PasteInModal.jsx (a plain
@@ -155,12 +156,9 @@ export default function ThemeWizard({ initialTheme, onApply, onClose }) {
             </div>
             <div className="min-h-[20rem]">
               <div className="text-xs text-zinc-500 mb-1.5">Live preview</div>
-              <iframe
-                title="Theme preview"
-                srcDoc={mockupSrcDoc}
-                sandbox=""
-                className="w-full h-[24rem] rounded-xl border border-white/10 bg-black"
-              />
+              <div className="rounded-xl border border-white/10 overflow-hidden">
+                <ScaledPreviewFrame srcDoc={mockupSrcDoc} baseWidth={1440} height={384} sandbox="" bg="#000" />
+              </div>
             </div>
           </div>
 
