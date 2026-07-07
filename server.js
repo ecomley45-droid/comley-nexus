@@ -9,6 +9,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { compilePageHtml, getFullPath, pickWeightedVariant } from './src/shared/compilePage.js';
 import { mountCommerceWebhooks, mountCommerceApi } from './lib/commerce/routes.js';
@@ -838,6 +839,15 @@ app.post('/api/export', deferred501('Static site export is temporarily disabled 
 // ================= DYNAMIC PAGE RENDER =================
 
 const nexusSite = () => ({
+  // The platform host (nexus.comleycreative.com) is a hybrid: some paths
+  // are real published marketing pages (/, /pricing), but most top-level
+  // paths are SPA app routes (/welcome, /admin, /super-admin, and every
+  // /:orgSlug workspace). isPlatform tells the render handler to fall
+  // back to the SPA shell for an unmatched path instead of redirecting to
+  // "/" -- without it, self-serve signups at /:slug and /welcome never
+  // load. Client custom domains are pure published sites and keep the
+  // redirect-to-homepage behavior.
+  isPlatform: true,
   findRedirect: (p) => nexus.redirects.findMatch(p),
   applySchedules: () => nexus.pages.applyScheduledPublishes(),
   loadPages: () => nexus.pages.list(),
@@ -845,6 +855,21 @@ const nexusSite = () => ({
   loadSettings: () => nexus.settings.get(),
   recordImpression: async () => {}, // no A/B wiring for Nexus's own site in v1
 });
+
+// The built SPA shell (dist/index.html), read once and cached. Served for
+// unmatched app routes on the platform host so client-side routing can
+// take over. Returns null if the build output isn't present (e.g. API-only
+// local run) so callers fall back to the old redirect.
+let cachedShell;
+function spaShell() {
+  if (cachedShell !== undefined) return cachedShell;
+  try {
+    cachedShell = fs.readFileSync(path.join(__dirname, 'dist', 'index.html'), 'utf8');
+  } catch {
+    cachedShell = null;
+  }
+  return cachedShell;
+}
 
 const orgSite = (orgId, paused) => ({
   paused: !!paused,
@@ -957,12 +982,21 @@ app.use(async (req, res, next) => {
       ? (pages.find(p => p.slug === 'index') || pages[0])
       : pages.find(p => getFullPath(p, pages) === requestPath);
 
-    if (!page) return res.redirect(302, '/');
+    // On the platform host, an unmatched (or unpublished) path is almost
+    // always an SPA app route -- serve the shell and let client routing
+    // handle it. On client custom domains, keep redirecting to home.
+    const serveShellOrRedirect = () => {
+      const shell = site.isPlatform && spaShell();
+      if (shell) return res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').send(shell);
+      return res.redirect(302, '/');
+    };
+
+    if (!page) return serveShellOrRedirect();
     // Unpublished pages are only served with a valid signed preview token
     // (see /api/preview-token/:pageId above). The old `?preview=1` served
     // drafts to anyone who guessed the URL.
     const isPreview = verifyPreviewToken(page.id, req.query.preview);
-    if (page.status !== 'published' && !isPreview) return res.redirect(302, '/');
+    if (page.status !== 'published' && !isPreview) return serveShellOrRedirect();
 
     const cookies = (req.headers.cookie || '').split(';').reduce((acc, pair) => {
       const idx = pair.indexOf('='); if (idx === -1) return acc;
