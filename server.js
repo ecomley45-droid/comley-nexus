@@ -24,7 +24,9 @@ import { sanitizePage, sanitizeGlobalSettings, sanitizeContentHtml, pagesContain
 import * as storage from './lib/storage.js';
 import * as nexus from './lib/nexus.js';
 import { classifyBlock, hasAnthropicKey } from './lib/ai.js';
+import { clerkClient } from '@clerk/express';
 import { sendFormNotification } from './lib/email.js';
+import { SITE_TEMPLATES, buildTemplateSite } from './src/shared/siteTemplates.js';
 import { db } from './lib/db.js';
 import crypto from 'crypto';
 
@@ -405,11 +407,30 @@ app.post('/api/team', requireOrg, requireRole('admin'), async (req, res, next) =
     if (!name?.trim() || !email?.trim() || !['viewer', 'editor', 'admin'].includes(role)) {
       return res.status(400).json({ error: 'name, email, and a valid role are required' });
     }
+    const cleanEmail = email.trim().toLowerCase();
     const entry = await storage.team.add(req.org.id, {
-      id: 'team-' + Date.now(), name: name.trim(), email: email.trim(), role,
+      id: 'team-' + Date.now(), name: name.trim(), email: cleanEmail, role,
     });
+    // Real membership row (what resolveViewer actually checks) + a real
+    // Clerk invitation email. Previously this route only wrote the roster
+    // row while the UI implied an invite email had been sent -- the invite
+    // was actually a manual Clerk-dashboard step.
+    await storage.orgMembers.add(req.org.id, cleanEmail, role).catch(() => {});
+    let invited = false;
+    try {
+      await clerkClient.invitations.createInvitation({
+        emailAddress: cleanEmail,
+        redirectUrl: `https://${req.headers.host}/${req.org.id}`,
+        notify: true,
+        ignoreExisting: true,
+      });
+      invited = true;
+    } catch {
+      // Already invited / already a Clerk user / Clerk hiccup -- the
+      // membership row above still lets them in once they can sign in.
+    }
     await auditFor(req.org.id, req.viewer)('Added team member', `${entry.name} <${entry.email}> as ${entry.role}`);
-    res.json({ success: true, entry });
+    res.json({ success: true, entry, invited });
   } catch (e) { next(e); }
 });
 
@@ -625,19 +646,44 @@ app.get('/api/orgs', requireSuperAdmin, async (req, res, next) => {
 // Clerk's invite API here later).
 app.post('/api/orgs', requireSuperAdmin, async (req, res, next) => {
   try {
-    const { id, name, domain, plan, featureFlags, adminEmail } = req.body || {};
+    const { id, name, domain, plan, featureFlags, adminEmail, templateId } = req.body || {};
     if (!id?.trim() || !name?.trim()) return res.status(400).json({ error: 'id and name are required' });
     const slug = String(id).trim().toLowerCase().replace(/[^a-z0-9-]/g, '-');
     const existing = await storage.orgs.get(slug);
     if (existing) return res.status(400).json({ error: `An org with slug "${slug}" already exists.` });
     const org = await storage.orgs.create({ id: slug, name: name.trim(), domain, plan, featureFlags });
     if (adminEmail?.trim()) {
-      await storage.orgMembers.add(slug, adminEmail.trim().toLowerCase(), 'admin');
+      const cleanEmail = adminEmail.trim().toLowerCase();
+      await storage.orgMembers.add(slug, cleanEmail, 'admin');
+      // Best-effort Clerk invite email so they can actually sign in --
+      // previously a manual Clerk-dashboard step.
+      await clerkClient.invitations.createInvitation({
+        emailAddress: cleanEmail,
+        redirectUrl: `https://${req.headers.host}/${slug}`,
+        notify: true,
+        ignoreExisting: true,
+      }).catch(() => {});
     }
-    // Seed a default page + audit entry so the org isn't stark empty on first login.
+    // Optional starter site: full multi-page template built from the block
+    // system, published immediately, plus its matching theme -- so the
+    // workspace's first login shows a working site, not an empty list.
+    if (templateId) {
+      const site = buildTemplateSite(templateId);
+      if (!site) return res.status(400).json({ error: `Unknown template "${templateId}"` });
+      await storage.pages.bulkReplace(slug, site.pages.map(sanitizePage));
+      const settings = await storage.settings.get(slug);
+      await storage.settings.replace(slug, sanitizeGlobalSettings({ ...settings, siteName: name.trim(), theme: site.theme }));
+      await storage.audit.append(slug, 'Starter site applied', `Template: ${templateId}`);
+    }
     await storage.audit.append(slug, 'Workspace created', `Created by ${req.viewer?.email || 'unknown'}`);
     res.json({ success: true, org });
   } catch (e) { next(e); }
+});
+
+// Public list of available starter templates (id/name/description only) --
+// used by the workspace-creation UI.
+app.get('/api/site-templates', requireSuperAdmin, (_req, res) => {
+  res.json(SITE_TEMPLATES.map(({ id, name, description }) => ({ id, name, description })));
 });
 
 app.patch('/api/orgs/:id', requireSuperAdmin, async (req, res, next) => {

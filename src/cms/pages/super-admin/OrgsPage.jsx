@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   listOrgs, createOrg, updateOrg, deleteOrg,
-  listOrgMembers, addOrgMember, removeOrgMember, viewAsOrg,
+  listOrgMembers, addOrgMember, removeOrgMember, viewAsOrg, getSiteTemplates,
 } from '../../lib/api.js';
 import { GlassPanel, GlassButton, GlassInput, GlassSelect } from '../../lib/ui/Glass.jsx';
 import { useMe } from '../../lib/useMe.jsx';
@@ -175,13 +175,17 @@ function NewOrgModal({ onClose, onCreated }) {
   const [name, setName] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
   const [plan, setPlan] = useState('starter');
+  const [templateId, setTemplateId] = useState('');
+  const [templates, setTemplates] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => { getSiteTemplates().then(setTemplates).catch(() => {}); }, []);
 
   const submit = async () => {
     setError(''); setBusy(true);
     try {
-      await createOrg({ id: id.trim(), name: name.trim(), plan, adminEmail: adminEmail.trim() || null });
+      await createOrg({ id: id.trim(), name: name.trim(), plan, adminEmail: adminEmail.trim() || null, templateId: templateId || null });
       onCreated();
     } catch (e) { setError(e.message); }
     finally { setBusy(false); }
@@ -201,16 +205,27 @@ function NewOrgModal({ onClose, onCreated }) {
       <label className="text-xs text-zinc-400 block mb-1">First admin email</label>
       <GlassInput value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="owner@acmeco.com" className="w-full mb-1" />
       <p className="text-[11px] text-zinc-500 mb-3">
-        After creating, invite this email through the Clerk dashboard so they can sign in.
+        They'll get an invitation email with a sign-in link to their new workspace.
       </p>
 
       <label className="text-xs text-zinc-400 block mb-1">Plan</label>
-      <GlassSelect value={plan} onChange={(e) => setPlan(e.target.value)} className="w-full mb-4">
+      <GlassSelect value={plan} onChange={(e) => setPlan(e.target.value)} className="w-full mb-3">
         <option value="starter">Starter</option>
         <option value="growth">Growth</option>
         <option value="enterprise">Enterprise</option>
         <option value="internal">Internal (comped)</option>
       </GlassSelect>
+
+      <label className="text-xs text-zinc-400 block mb-1">Starter site</label>
+      <GlassSelect value={templateId} onChange={(e) => setTemplateId(e.target.value)} className="w-full mb-1">
+        <option value="">Blank workspace</option>
+        {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+      </GlassSelect>
+      <p className="text-[11px] text-zinc-500 mb-4">
+        {templateId
+          ? templates.find((t) => t.id === templateId)?.description
+          : 'Optionally start them with a complete multi-page site, themed and published, editable like anything else.'}
+      </p>
 
       {error && <p className="text-sm text-red-400 mb-2">{error}</p>}
       <div className="flex justify-end gap-2">

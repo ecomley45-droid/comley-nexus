@@ -63,6 +63,7 @@ export const requestCustomDomain = (domain) =>
 // ---- Orgs (super-admin) ----
 export const listOrgs = () => request('/orgs');
 export const createOrg = (payload) => request('/orgs', { method: 'POST', body: JSON.stringify(payload) });
+export const getSiteTemplates = () => request('/site-templates');
 export const updateOrg = (id, patch) => request(`/orgs/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
 export const deleteOrg = (id) => request(`/orgs/${id}`, { method: 'DELETE' });
 export const listOrgMembers = (id) => request(`/orgs/${id}/members`);
