@@ -18,7 +18,7 @@ import { mountSuperAdminApi } from './lib/superAdminRoutes.js';
 import { mountBlockCatalogApi } from './lib/blockCatalogRoutes.js';
 import {
   attachClerk, resolveViewer, requireRole, requireOrgMatch, requireSuperAdmin,
-  isSuperAdminViewer, assertProductionAuth,
+  isSuperAdminViewer, assertProductionAuth, requireAuth,
 } from './lib/auth.js';
 import { sanitizePage, sanitizeGlobalSettings, sanitizeContentHtml, pagesContainScriptBlock, pagesContainFullHtmlMode } from './lib/sanitize.js';
 import * as storage from './lib/storage.js';
@@ -27,6 +27,7 @@ import { classifyBlock, hasAnthropicKey } from './lib/ai.js';
 import { clerkClient } from '@clerk/express';
 import { sendFormNotification } from './lib/email.js';
 import { SITE_TEMPLATES, buildTemplateSite } from './src/shared/siteTemplates.js';
+import { PLANS, createCheckoutSession, createPortalSession } from './lib/billing.js';
 import { db } from './lib/db.js';
 import crypto from 'crypto';
 
@@ -680,10 +681,80 @@ app.post('/api/orgs', requireSuperAdmin, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// Public list of available starter templates (id/name/description only) --
-// used by the workspace-creation UI.
-app.get('/api/site-templates', requireSuperAdmin, (_req, res) => {
+// List of available starter templates (id/name/description only) -- used
+// by both the super-admin workspace-creation UI and the self-serve
+// /welcome flow, so any signed-in user may read it.
+app.get('/api/site-templates', requireAuth, (_req, res) => {
   res.json(SITE_TEMPLATES.map(({ id, name, description }) => ({ id, name, description })));
+});
+
+// ================= SELF-SERVE SIGNUP =================
+
+// A signed-in user with no workspace creates their own here (the /welcome
+// page). One workspace per email via self-serve -- agencies needing more
+// go through Super Admin (or, later, the Agency plan's own flow). Slug
+// squats on reserved route names are rejected.
+const RESERVED_SLUGS = new Set(['admin', 'api', 'assets', 'super-admin', 'welcome', 'commerce', 'nexus', 'www', 'pricing', 'blocks']);
+const signupLimit = rateLimit({ windowMs: 60_000, max: 3, standardHeaders: true, legacyHeaders: false });
+
+app.post('/api/signup/workspace', signupLimit, requireAuth, async (req, res, next) => {
+  try {
+    if (req.org) return res.status(400).json({ error: 'This account already has a workspace.' });
+    const { name, slug: rawSlug, templateId } = req.body || {};
+    if (!name?.trim()) return res.status(400).json({ error: 'A workspace name is required.' });
+    const slug = String(rawSlug || name).trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+    if (!slug || RESERVED_SLUGS.has(slug)) return res.status(400).json({ error: 'That workspace URL isn\'t available -- try another.' });
+    if (await storage.orgs.get(slug)) return res.status(400).json({ error: 'That workspace URL is taken -- try another.' });
+
+    const org = await storage.orgs.create({
+      id: slug, name: name.trim(), plan: 'starter',
+      featureFlags: { trial_ends_at: Date.now() + 14 * 24 * 60 * 60 * 1000 },
+    });
+    await storage.orgMembers.add(slug, req.viewer.email.toLowerCase(), 'admin');
+    if (templateId) {
+      const site = buildTemplateSite(templateId);
+      if (site) {
+        await storage.pages.bulkReplace(slug, site.pages.map(sanitizePage));
+        const settings = await storage.settings.get(slug);
+        await storage.settings.replace(slug, sanitizeGlobalSettings({ ...settings, siteName: name.trim(), theme: site.theme }));
+      }
+    }
+    await storage.audit.append(slug, 'Workspace created', 'Self-serve signup');
+    res.json({ success: true, org: { id: org.id, slug: org.id, name: org.name } });
+  } catch (e) { next(e); }
+});
+
+// ================= PLATFORM BILLING (Nexus's own plans) =================
+
+app.post('/api/billing/checkout', requireOrg, requireRole('admin'), async (req, res, next) => {
+  try {
+    const { plan, interval } = req.body || {};
+    const session = await createCheckoutSession({
+      orgId: req.org.id, plan, interval,
+      email: req.viewer?.email,
+      origin: `https://${req.headers.host}`,
+    });
+    res.json({ url: session.url });
+  } catch (e) { next(e); }
+});
+
+app.post('/api/billing/portal', requireOrg, requireRole('admin'), async (req, res, next) => {
+  try {
+    const customerId = req.org.feature_flags?.subscription?.stripe_customer_id;
+    if (!customerId) return res.status(400).json({ error: 'No subscription on this workspace yet.' });
+    const session = await createPortalSession({ customerId, orgId: req.org.id, origin: `https://${req.headers.host}` });
+    res.json({ url: session.url });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/billing/status', requireOrg, (req, res) => {
+  const flags = req.org.feature_flags || {};
+  res.json({
+    plan: req.org.plan || 'starter',
+    subscription: flags.subscription || null,
+    trialEndsAt: flags.trial_ends_at || null,
+    plans: Object.entries(PLANS).map(([id, p]) => ({ id, label: p.label, monthly: p.monthly, annual: p.annual })),
+  });
 });
 
 app.patch('/api/orgs/:id', requireSuperAdmin, async (req, res, next) => {

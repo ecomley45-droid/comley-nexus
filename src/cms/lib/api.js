@@ -64,6 +64,13 @@ export const requestCustomDomain = (domain) =>
 export const listOrgs = () => request('/orgs');
 export const createOrg = (payload) => request('/orgs', { method: 'POST', body: JSON.stringify(payload) });
 export const getSiteTemplates = () => request('/site-templates');
+export const createWorkspace = (payload) => request('/signup/workspace', { method: 'POST', body: JSON.stringify(payload) });
+
+// ---- Platform billing (Nexus's own plans) ----
+export const getBillingStatus = () => request('/billing/status');
+export const startCheckout = (plan, interval) =>
+  request('/billing/checkout', { method: 'POST', body: JSON.stringify({ plan, interval }) });
+export const openBillingPortal = () => request('/billing/portal', { method: 'POST' });
 export const updateOrg = (id, patch) => request(`/orgs/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
 export const deleteOrg = (id) => request(`/orgs/${id}`, { method: 'DELETE' });
 export const listOrgMembers = (id) => request(`/orgs/${id}/members`);

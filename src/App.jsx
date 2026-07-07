@@ -10,6 +10,7 @@ import RequireSuperAdmin from './cms/lib/RequireSuperAdmin.jsx';
 // stay eager (they render on every route); everything else loads on
 // first navigation to it.
 const LandingPage = lazy(() => import('./marketing/LandingPage.jsx'));
+const WelcomePage = lazy(() => import('./cms/pages/WelcomePage.jsx'));
 const SuperAdminLayout = lazy(() => import('./cms/lib/SuperAdminLayout.jsx'));
 const SuperAdminDashboardPage = lazy(() => import('./cms/pages/super-admin/SuperAdminDashboardPage.jsx'));
 const OrgsPage = lazy(() => import('./cms/pages/super-admin/OrgsPage.jsx'));
@@ -81,6 +82,7 @@ export default function App() {
       <Routes>
         {/* Public marketing */}
         <Route path="/" element={<LandingPage />} />
+        <Route path="/welcome" element={<WelcomePage />} />
 
         {/* Legacy /admin/commerce/* URLs still resolve — reroute them onto
             the new /:orgSlug/commerce/* structure so old bookmarks work.
