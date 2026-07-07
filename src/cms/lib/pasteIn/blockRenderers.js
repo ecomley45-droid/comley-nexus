@@ -377,6 +377,36 @@ export function renderSocialLinks(fields) {
 <div class="nx-social">${linksHtml(fields.links, '')}</div>`;
 }
 
+// A single sellable product: image, name, price, and a Buy button that's
+// a plain link to the hosted-checkout endpoint (GET /api/public/buy/:id)
+// -- no client JS, works under the public site's strict CSP. `productId`
+// comes from the workspace's Commerce > Products list; without one the
+// button renders as an inert placeholder so an unconfigured block can't
+// send visitors to a 404.
+export function renderProduct(fields) {
+  const buyHref = fields.productId ? `/api/public/buy/${esc(fields.productId)}` : '';
+  const button = buyHref
+    ? `<a class="nx-buy" href="${buyHref}">${esc(fields.buttonLabel || 'Buy now')}</a>`
+    : `<span class="nx-buy nx-buy-disabled">${esc(fields.buttonLabel || 'Buy now')}</span>`;
+  return `<style>${BASE_STYLE}
+.nx-product { display: flex; gap: 24px; align-items: center; max-width: 720px; margin: 0 auto; padding: 32px 24px; flex-wrap: wrap; }
+.nx-product img { width: 260px; max-width: 100%; border-radius: 14px; }
+.nx-product-info { flex: 1; min-width: 220px; }
+.nx-product .price { font-size: 24px; font-weight: 700; margin: 8px 0 12px; }
+.nx-buy { display: inline-block; padding: 12px 28px; border-radius: 10px; background: var(--color-accent); color: white; text-decoration: none; }
+.nx-buy-disabled { opacity: 0.5; cursor: not-allowed; }
+</style>
+<div class="nx-product">
+  ${fields.image ? `<img src="${esc(fields.image)}" alt="${esc(fields.headings?.[0] || 'Product')}" />` : ''}
+  <div class="nx-product-info">
+    ${headingsHtml(fields.headings, 2)}
+    ${textHtml(fields.text)}
+    ${fields.price ? `<div class="price">${esc(fields.price)}</div>` : ''}
+    ${button}
+  </div>
+</div>`;
+}
+
 // Arbitrary inline JS on the published page -- see lib/sanitize.js's
 // 'script' entry for why this is a bigger trust jump than every other
 // block, and server.js's admin-only save gate for the resulting guard.
@@ -455,6 +485,7 @@ export const BLOCK_RENDERERS = {
   tabs: renderTabs,
   countdown: renderCountdown,
   'social-links': renderSocialLinks,
+  product: renderProduct,
   script: renderScript,
   layout: renderLayout,
 };

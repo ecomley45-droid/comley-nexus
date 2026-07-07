@@ -368,6 +368,29 @@ export default function StructuredBlockEditor({ section, onChange }) {
           <GlassInput value={fields.buttonLabel || ''} onChange={(e) => setFields({ buttonLabel: e.target.value })} placeholder="Subscribe" className="w-full" />
         </div>
       )}
+      {section.blockType === 'product' && (
+        <div className="mb-3 space-y-2">
+          <div>
+            <label className="text-xs text-zinc-400 block mb-1">Product ID (from Commerce &gt; Products)</label>
+            <GlassInput value={fields.productId || ''} onChange={(e) => setFields({ productId: e.target.value.trim() })} placeholder="Paste the product's ID" className="w-full" />
+            {!fields.productId && <p className="text-[11px] text-zinc-500 mt-1">Without a Product ID the Buy button shows as inactive.</p>}
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-1 min-w-0">
+              <label className="text-xs text-zinc-400 block mb-1">Displayed price</label>
+              <GlassInput value={fields.price || ''} onChange={(e) => setFields({ price: e.target.value })} placeholder="$29" className="w-full" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <label className="text-xs text-zinc-400 block mb-1">Button label</label>
+              <GlassInput value={fields.buttonLabel || ''} onChange={(e) => setFields({ buttonLabel: e.target.value })} placeholder="Buy now" className="w-full" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-zinc-400 block mb-1">Image URL</label>
+            <GlassInput value={fields.image || ''} onChange={(e) => setFields({ image: e.target.value })} placeholder="https://…" className="w-full" />
+          </div>
+        </div>
+      )}
       {section.blockType === 'countdown' && (
         <div className="mb-3">
           <label className="text-xs text-zinc-400 block mb-1">Target date</label>

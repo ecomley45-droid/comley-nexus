@@ -726,6 +726,44 @@ app.post('/api/signup/workspace', signupLimit, requireAuth, async (req, res, nex
   } catch (e) { next(e); }
 });
 
+// ================= PUBLIC PRODUCT CHECKOUT =================
+
+// The Product block's Buy button is a plain link here -- no client JS, no
+// cart. Creates a Stripe-hosted Checkout session for one product and 303s
+// the visitor to it; fulfillment (order row, confirmation email) happens
+// via the checkout.session.completed webhook in lib/commerce/routes.js.
+const buyLimit = rateLimit({ windowMs: 60_000, max: 20, standardHeaders: true, legacyHeaders: false });
+
+app.get('/api/public/buy/:productId', buyLimit, async (req, res, next) => {
+  try {
+    const { stripe } = await import('./lib/commerce/stripeClient.js');
+    if (!stripe) return res.status(503).send('Checkout is not available right now.');
+    const productsRepo = await import('./lib/commerce/productsRepo.js');
+    const product = await productsRepo.getProduct(req.params.productId);
+    if (!product || product.price == null) return res.status(404).send('Product not found.');
+
+    const quantity = Math.min(10, Math.max(1, Number(req.query.qty) || 1));
+    const back = `https://${req.headers.host}`;
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: { name: product.name },
+          unit_amount: Math.round(product.price * 100),
+        },
+        quantity,
+      }],
+      metadata: {
+        commerce_item: JSON.stringify({ productId: product.id, variantId: null, quantity, name: product.name, price: product.price }),
+      },
+      success_url: `${back}/?purchased=1`,
+      cancel_url: req.headers.referer || back,
+    });
+    res.redirect(303, session.url);
+  } catch (e) { next(e); }
+});
+
 // ================= BUILT-IN ANALYTICS =================
 
 // Beacon target for the tiny inline script compilePageHtml injects into
