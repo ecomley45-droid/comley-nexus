@@ -56,6 +56,8 @@ create table if not exists media (
   mime_type text not null,
   size bigint not null default 0,
   url text not null,
+  alt_text text not null default '',
+  description text not null default '',
   uploaded_at timestamptz not null default now()
 );
 

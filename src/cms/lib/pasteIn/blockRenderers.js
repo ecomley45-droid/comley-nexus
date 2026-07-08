@@ -40,7 +40,28 @@ const BASE_STYLE = `
 .nx-item img { width: 100%; border-radius: 8px; margin-bottom: 12px; }
 .nx-item-meta { font-size: 13px; color: var(--color-link); margin: -8px 0 8px; }
 .nx-link { color: var(--color-link); text-decoration: none; }
+.nx-fig { margin: 0; }
+.nx-figcaption { margin-top: 8px; font-size: 13px; line-height: 1.45; }
+.nx-figcaption .nx-cap-name { display: block; font-weight: 600; }
+.nx-figcaption .nx-cap-alt { display: block; opacity: 0.8; }
+.nx-figcaption .nx-cap-desc { display: block; opacity: 0.7; margin-top: 2px; }
 `;
+
+// Renders one image with an optional visible caption assembled from the
+// per-placement show flags (showName / showAlt / showDescription). `alt` is
+// always emitted as the accessibility attribute regardless of showAlt. When
+// no flags are set this returns a bare <img>, byte-identical to the pre-
+// caption output, so existing blocks and their layout CSS are unaffected.
+export function imageWithCaption(img, imgAttrs = '') {
+  if (!img || !img.src) return '';
+  const tag = `<img src="${esc(img.src)}" alt="${esc(img.alt || '')}"${imgAttrs ? ' ' + imgAttrs : ''} />`;
+  const parts = [];
+  if (img.showName && img.name) parts.push(`<span class="nx-cap-name">${esc(img.name)}</span>`);
+  if (img.showAlt && img.alt) parts.push(`<span class="nx-cap-alt">${esc(img.alt)}</span>`);
+  if (img.showDescription && img.description) parts.push(`<span class="nx-cap-desc">${esc(img.description)}</span>`);
+  if (parts.length === 0) return tag;
+  return `<figure class="nx-fig">${tag}<figcaption class="nx-figcaption">${parts.join('')}</figcaption></figure>`;
+}
 
 // youtube.com/watch, youtu.be, and vimeo.com URLs get rewritten to their
 // embeddable form; anything else is assumed to already be an embed URL.
@@ -296,17 +317,19 @@ export function renderImage(fields) {
   return `<style>${BASE_STYLE}
 .nx-image-block { padding: 16px 24px; text-align: center; }
 .nx-image-block img { max-width: 100%; border-radius: 12px; }
+.nx-image-block .nx-figcaption { text-align: center; }
 </style>
-<div class="nx-image-block">${img ? `<img src="${esc(img.src)}" alt="${esc(img.alt || '')}" />` : ''}</div>`;
+<div class="nx-image-block">${imageWithCaption(img)}</div>`;
 }
 
 export function renderGallery(fields) {
   return `<style>${BASE_STYLE}
 .nx-gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; padding: 24px; }
 .nx-gallery img { width: 100%; height: 160px; object-fit: cover; border-radius: 10px; }
+.nx-gallery .nx-fig img { margin: 0; }
 </style>
 ${headingsHtml(fields.headings, 2)}
-<div class="nx-gallery">${(fields.images || []).map((img) => `<img src="${esc(img.src)}" alt="${esc(img.alt || '')}" />`).join('')}</div>`;
+<div class="nx-gallery">${(fields.images || []).map((img) => imageWithCaption(img)).join('')}</div>`;
 }
 
 export function renderVideo(fields) {
@@ -860,12 +883,18 @@ export function renderGalleryMasonry(fields) {
 .px-masonry-wrap h2 { text-align:center; margin:0 0 24px; }
 .px-masonry { column-count:3; column-gap:14px; }
 .px-masonry img { width:100%; margin:0 0 14px; border-radius:12px; break-inside:avoid; display:block; }
+.px-masonry .nx-fig { break-inside:avoid; margin:0 0 14px; }
+.px-masonry .nx-fig img { margin:0; }
+.px-masonry .nx-figcaption { font-size:13px; line-height:1.45; margin-top:8px; }
+.px-masonry .nx-cap-name { display:block; font-weight:600; }
+.px-masonry .nx-cap-alt { display:block; opacity:0.8; }
+.px-masonry .nx-cap-desc { display:block; opacity:0.7; margin-top:2px; }
 @media(max-width:820px){ .px-masonry{ column-count:2; } }
 @media(max-width:480px){ .px-masonry{ column-count:1; } }
 </style>
 <div class="px-masonry-wrap">
   ${headingsHtml(fields.headings, 2)}
-  <div class="px-masonry">${images.map((im) => `<img src="${esc(im.src)}" alt="${esc(im.alt || '')}" />`).join('')}</div>
+  <div class="px-masonry">${images.map((im) => imageWithCaption(im)).join('')}</div>
 </div>`;
 }
 

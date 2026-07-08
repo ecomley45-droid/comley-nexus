@@ -156,8 +156,10 @@ export const deleteEvent = (id) => request(`/events/${id}`, { method: 'DELETE' }
 
 // ---- Media ----
 export const getMedia = () => request('/media');
-export const uploadMedia = (name, mimeType, dataBase64) =>
-  request('/media', { method: 'POST', body: JSON.stringify({ name, mimeType, dataBase64 }) });
+export const uploadMedia = (name, mimeType, dataBase64, meta = {}) =>
+  request('/media', { method: 'POST', body: JSON.stringify({ name, mimeType, dataBase64, ...meta }) });
+export const updateMedia = (id, patch) =>
+  request(`/media/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
 export const deleteMedia = (id) => request(`/media/${id}`, { method: 'DELETE' });
 
 // ---- Redirects ----

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { getMedia, uploadMedia, deleteMedia } from '../lib/api.js';
-import { GlassPanel } from '../lib/ui/Glass.jsx';
+import { getMedia, uploadMedia, updateMedia, deleteMedia } from '../lib/api.js';
+import { GlassPanel, GlassInput, GlassTextarea, GlassButton } from '../lib/ui/Glass.jsx';
 
 const fileToBase64 = (file) =>
   new Promise((resolve, reject) => {
@@ -10,11 +10,62 @@ const fileToBase64 = (file) =>
     reader.readAsDataURL(file);
   });
 
+// Full-screen editor for a single media item: rename + alt text +
+// description. These three fields are what the page-block renderers can
+// optionally surface as a caption, so this is where a user sets the
+// defaults that carry over when the media is placed on a page.
+function MediaEditModal({ item, onClose, onSaved }) {
+  const [name, setName] = useState(item.name || '');
+  const [altText, setAltText] = useState(item.altText || '');
+  const [description, setDescription] = useState(item.description || '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const save = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const { entry } = await updateMedia(item.id, { name, altText, description });
+      onSaved(entry);
+    } catch (e) {
+      setError(e.message);
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <GlassPanel className="w-full max-w-lg p-5" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-lg font-semibold mb-3">Edit media</h2>
+        {item.mimeType?.startsWith('image/') && (
+          <img src={item.url} alt={item.altText || item.name} className="w-full h-40 object-contain rounded-xl mb-3 bg-white/5" />
+        )}
+        <label className="block text-xs text-zinc-400 mb-1">Name</label>
+        <GlassInput value={name} onChange={(e) => setName(e.target.value)} className="w-full mb-3" placeholder="File name" />
+
+        <label className="block text-xs text-zinc-400 mb-1">Alt text</label>
+        <GlassInput value={altText} onChange={(e) => setAltText(e.target.value)} className="w-full mb-1" placeholder="Describe the image for screen readers & SEO" />
+        <p className="text-[11px] text-zinc-600 mb-3">Read by screen readers and search engines. Keep it short and descriptive.</p>
+
+        <label className="block text-xs text-zinc-400 mb-1">Description</label>
+        <GlassTextarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="w-full mb-3" placeholder="Longer caption shown under the media on a page (optional)" />
+
+        {error && <p className="text-red-400 text-sm mb-2">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <GlassButton variant="ghost" onClick={onClose} disabled={saving}>Cancel</GlassButton>
+          <GlassButton onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</GlassButton>
+        </div>
+      </GlassPanel>
+    </div>
+  );
+}
+
 export default function MediaPage() {
   const [media, setMedia] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState('');
+  const [editing, setEditing] = useState(null);
 
   const load = () => getMedia().then(setMedia).catch((e) => setError(e.message));
   useEffect(() => { load(); }, []);
@@ -25,6 +76,8 @@ export default function MediaPage() {
     setUploading(true);
     try {
       const dataBase64 = await fileToBase64(file);
+      // Server auto-converts raster images to WebP; the list refresh below
+      // reflects the final stored name/type.
       await uploadMedia(file.name, file.type, dataBase64);
       load();
     } catch (err) {
@@ -51,13 +104,14 @@ export default function MediaPage() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center mb-1">
         <h1 className="text-2xl font-semibold">Media library</h1>
         <label className="inline-flex items-center justify-center gap-1.5 rounded-xl text-sm font-medium transition active:scale-95 px-4 py-2 text-white bg-gradient-to-tr from-glass-indigo to-glass-fuchsia shadow-lg shadow-glass-fuchsia/20 hover:brightness-110 cursor-pointer">
           {uploading ? 'Uploading…' : 'Upload file'}
           <input type="file" onChange={handleUpload} className="hidden" disabled={uploading} />
         </label>
       </div>
+      <p className="text-xs text-zinc-500 mb-4">Images are automatically optimized to WebP on upload.</p>
       {error && <p className="text-red-400 mb-2">{error}</p>}
       {media.length === 0 && <p className="text-zinc-500">No media uploaded yet.</p>}
 
@@ -65,22 +119,37 @@ export default function MediaPage() {
         {media.map((item) => (
           <GlassPanel key={item.id} className="p-2">
             {item.mimeType?.startsWith('image/') ? (
-              <img src={item.url} alt={item.name} className="w-full h-24 object-cover rounded-xl mb-2" />
+              <img src={item.url} alt={item.altText || item.name} className="w-full h-24 object-cover rounded-xl mb-2" />
             ) : (
               <div className="w-full h-24 bg-white/5 rounded-xl mb-2 flex items-center justify-center text-xs text-zinc-400">
                 {item.mimeType}
               </div>
             )}
             <p className="text-xs truncate text-zinc-300" title={item.name}>{item.name}</p>
-            <div className="flex justify-between mt-1">
+            {item.altText
+              ? <p className="text-[11px] truncate text-zinc-500" title={item.altText}>{item.altText}</p>
+              : <p className="text-[11px] text-amber-500/80">No alt text</p>}
+            <div className="flex justify-between mt-1 gap-1">
               <button onClick={() => copyUrl(item.url)} className="text-xs text-glass-sky hover:underline">
                 {copied === item.url ? 'Copied!' : 'Copy URL'}
               </button>
+              <button onClick={() => setEditing(item)} className="text-xs text-zinc-300 hover:text-white">Edit</button>
               <button onClick={() => remove(item.id)} className="text-xs text-red-400 hover:text-red-300">Delete</button>
             </div>
           </GlassPanel>
         ))}
       </div>
+
+      {editing && (
+        <MediaEditModal
+          item={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(entry) => {
+            setMedia((prev) => prev.map((m) => (m.id === entry.id ? entry : m)));
+            setEditing(null);
+          }}
+        />
+      )}
     </div>
   );
 }

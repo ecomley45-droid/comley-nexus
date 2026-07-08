@@ -40,6 +40,7 @@
     "resend": "^4.1.2",
     "sanitize-html": "^2.17.5",
     "serverless-http": "^4.0.0",
+    "sharp": "^0.34.5",
     "stripe": "^17.6.0",
     "svix": "^1.45.1",
     "tailwindcss": "^4.3.1",

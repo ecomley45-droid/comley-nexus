@@ -498,6 +498,28 @@ const MEDIA_MIME_ALLOWLIST = new Set([
   'application/pdf', 'video/mp4', 'video/webm', 'audio/mpeg',
 ]);
 
+// Raster formats we transcode to WebP on upload for smaller, faster-loading
+// files. SVG (vector) and non-image types pass through untouched. GIFs are
+// converted with `animated: true` so multi-frame GIFs become animated WebP
+// rather than a single flattened frame. Conversion is best-effort: if sharp
+// is unavailable or a buffer won't decode, we fall back to the original
+// bytes so an upload never hard-fails on the optimization step.
+const WEBP_SOURCE_MIME = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/avif']);
+
+async function toWebp(buffer, mimeType, name) {
+  if (!WEBP_SOURCE_MIME.has(mimeType)) return null;
+  try {
+    const { default: sharp } = await import('sharp');
+    const out = await sharp(buffer, { animated: mimeType === 'image/gif' })
+      .webp({ quality: 82 })
+      .toBuffer();
+    const base = String(name).replace(/\.[^.]+$/, '');
+    return { buffer: out, mimeType: 'image/webp', name: `${base}.webp` };
+  } catch {
+    return null;
+  }
+}
+
 let mediaBucketReady = false;
 async function ensureMediaBucket() {
   if (mediaBucketReady) return;
@@ -513,28 +535,59 @@ app.get('/api/media', requireOrg, async (req, res, next) => {
 
 app.post('/api/media', express.json({ limit: '15mb' }), requireOrg, requireRole('editor'), async (req, res, next) => {
   try {
-    const { name, mimeType, dataBase64 } = req.body || {};
+    const { name, mimeType, dataBase64, altText, description } = req.body || {};
     if (!name || !mimeType || !dataBase64) return res.status(400).json({ error: 'name, mimeType, and dataBase64 are required' });
     if (!MEDIA_MIME_ALLOWLIST.has(mimeType)) return res.status(400).json({ error: `File type ${mimeType} isn't supported.` });
     const buffer = Buffer.from(dataBase64, 'base64');
     if (buffer.length === 0) return res.status(400).json({ error: 'Empty file' });
     if (buffer.length > MEDIA_MAX_BYTES) return res.status(400).json({ error: 'Files must be 10 MB or smaller.' });
 
+    // Auto-optimize raster images to WebP before storage. Non-convertible
+    // types (SVG, PDF, video, audio) keep their original bytes/name/mime.
+    let outName = String(name).slice(0, 200);
+    let outMime = mimeType;
+    let outBuffer = buffer;
+    const converted = await toWebp(buffer, mimeType, name);
+    if (converted) {
+      outBuffer = converted.buffer;
+      outMime = converted.mimeType;
+      outName = String(converted.name).slice(0, 200);
+    }
+
     await ensureMediaBucket();
     const id = 'media-' + Date.now() + '-' + Math.floor(Math.random() * 1e6);
-    const safeName = String(name).replace(/[^\w.\-]+/g, '_').slice(0, 120);
+    const safeName = outName.replace(/[^\w.\-]+/g, '_').slice(0, 120);
     const storagePath = `${req.org.id}/${id}-${safeName}`;
 
     const { error: uploadError } = await db().storage.from(MEDIA_BUCKET)
-      .upload(storagePath, buffer, { contentType: mimeType, cacheControl: '31536000' });
+      .upload(storagePath, outBuffer, { contentType: outMime, cacheControl: '31536000' });
     if (uploadError) return res.status(500).json({ error: 'Upload failed. Please try again or contact support.' });
 
     const { data: pub } = db().storage.from(MEDIA_BUCKET).getPublicUrl(storagePath);
     const entry = await storage.media.add(req.org.id, {
-      id, name: String(name).slice(0, 200), filename: storagePath,
-      mimeType, size: buffer.length, url: pub.publicUrl,
+      id, name: outName, filename: storagePath,
+      mimeType: outMime, size: outBuffer.length, url: pub.publicUrl,
+      altText: typeof altText === 'string' ? altText.slice(0, 500) : '',
+      description: typeof description === 'string' ? description.slice(0, 2000) : '',
     });
-    await auditFor(req.org.id, req.viewer)('Uploaded media', `${entry.name} (${(buffer.length / 1024).toFixed(0)} KB)`);
+    await auditFor(req.org.id, req.viewer)('Uploaded media', `${entry.name} (${(outBuffer.length / 1024).toFixed(0)} KB)`);
+    res.json({ success: true, entry });
+  } catch (e) { next(e); }
+});
+
+// Rename / edit metadata (alt text, description). Storage-managed fields
+// (the actual bytes, url, mime, size) are never touched here.
+app.patch('/api/media/:id', express.json({ limit: '64kb' }), requireOrg, requireRole('editor'), async (req, res, next) => {
+  try {
+    const { name, altText, description } = req.body || {};
+    const patch = {};
+    if (name !== undefined) patch.name = name;
+    if (altText !== undefined) patch.altText = altText;
+    if (description !== undefined) patch.description = description;
+    if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'Nothing to update' });
+    const entry = await storage.media.update(req.org.id, req.params.id, patch);
+    if (!entry) return res.status(404).json({ error: 'File not found' });
+    await auditFor(req.org.id, req.viewer)('Edited media', entry.name);
     res.json({ success: true, entry });
   } catch (e) { next(e); }
 });

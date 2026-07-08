@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { GlassInput, GlassTextarea, GlassSelect } from '../ui/Glass.jsx';
 import { renderBlock, LAYOUT_TEMPLATES } from './blockRenderers.js';
 import BlockCatalogPicker from '../blocks/BlockCatalogPicker.jsx';
-import { getCalendars, getEvents } from '../api.js';
+import { getCalendars, getEvents, getMedia } from '../api.js';
 import { EVENT_BOUND_TYPES, applyEventsToFields, expandRecurring, accentWrap } from '../../../shared/eventsMap.js';
 
 // Structured-view counterpart to BlockRow's raw HTML textarea. Only usable
@@ -50,10 +50,42 @@ function StringListEditor({ label, items, onChange, multiline = false, placehold
   );
 }
 
+// A small labelled checkbox used for the per-image caption show/hide toggles.
+function ToggleChip({ checked, onChange, label }) {
+  return (
+    <label className="inline-flex items-center gap-1 text-[11px] text-zinc-400 cursor-pointer select-none">
+      <input type="checkbox" checked={!!checked} onChange={(e) => onChange(e.target.checked)} className="accent-glass-indigo" />
+      {label}
+    </label>
+  );
+}
+
+// Each image carries its own metadata (name, alt, description) plus three
+// per-placement show flags. The flags decide which pieces render as a
+// visible caption on the page when this media sits in a block --
+// independently for every placement, so the same asset can show its name
+// on one page and its description on another. `alt` is always written to
+// the <img alt> attribute for accessibility; `showAlt` only controls
+// whether it *also* appears as visible caption text.
 function ImagesEditor({ images, onChange }) {
+  const [library, setLibrary] = useState([]);
+  useEffect(() => { getMedia().then(setLibrary).catch(() => setLibrary([])); }, []);
+
   const update = (i, patch) => onChange(images.map((img, idx) => (idx === i ? { ...img, ...patch } : img)));
   const remove = (i) => onChange(images.filter((_, idx) => idx !== i));
   const add = () => onChange([...images, { src: '', alt: '' }]);
+
+  // Picking a library item copies its stored metadata in as defaults; the
+  // editor can still override any field afterwards without affecting the
+  // library record.
+  const pickFromLibrary = (i, mediaId) => {
+    const m = library.find((x) => x.id === mediaId);
+    if (!m) return;
+    update(i, {
+      mediaId: m.id, src: m.url,
+      name: m.name || '', alt: m.altText || '', description: m.description || '',
+    });
+  };
 
   return (
     <div className="mb-3">
@@ -62,10 +94,28 @@ function ImagesEditor({ images, onChange }) {
         <button onClick={add} className="text-xs text-glass-sky hover:underline">Add</button>
       </div>
       {images.map((img, i) => (
-        <div key={i} className="flex gap-1.5 mb-1.5">
-          <GlassInput value={img.src || ''} onChange={(e) => update(i, { src: e.target.value })} placeholder="Image URL" className="flex-1 min-w-0" />
-          <GlassInput value={img.alt || ''} onChange={(e) => update(i, { alt: e.target.value })} placeholder="Alt text" className="w-32" />
-          <button onClick={() => remove(i)} className="text-red-400 hover:text-red-300 text-xs px-1">✕</button>
+        <div key={i} className="mb-2 rounded-lg border border-white/10 p-2">
+          <div className="flex gap-1.5 mb-1.5">
+            {library.length > 0 && (
+              <GlassSelect value={img.mediaId || ''} onChange={(e) => pickFromLibrary(i, e.target.value)} className="w-28 shrink-0">
+                <option value="">Library…</option>
+                {library.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </GlassSelect>
+            )}
+            <GlassInput value={img.src || ''} onChange={(e) => update(i, { src: e.target.value, mediaId: undefined })} placeholder="Image URL" className="flex-1 min-w-0" />
+            <button onClick={() => remove(i)} className="text-red-400 hover:text-red-300 text-xs px-1">✕</button>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+            <GlassInput value={img.name || ''} onChange={(e) => update(i, { name: e.target.value })} placeholder="Name / title" />
+            <GlassInput value={img.alt || ''} onChange={(e) => update(i, { alt: e.target.value })} placeholder="Alt text" />
+          </div>
+          <GlassInput value={img.description || ''} onChange={(e) => update(i, { description: e.target.value })} placeholder="Description" className="w-full mb-1.5" />
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
+            <span className="text-[11px] text-zinc-600">Show on page:</span>
+            <ToggleChip checked={img.showName} onChange={(v) => update(i, { showName: v })} label="Name" />
+            <ToggleChip checked={img.showAlt} onChange={(v) => update(i, { showAlt: v })} label="Alt text" />
+            <ToggleChip checked={img.showDescription} onChange={(v) => update(i, { showDescription: v })} label="Description" />
+          </div>
         </div>
       ))}
       {images.length === 0 && <p className="text-xs text-zinc-600">None</p>}
