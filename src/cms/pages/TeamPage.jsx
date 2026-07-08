@@ -12,6 +12,7 @@ export default function TeamPage() {
   const [team, setTeam] = useState(null);
   const [form, setForm] = useState({ name: '', email: '', role: 'editor' });
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   const load = () => getTeam().then(setTeam).catch((e) => setError(e.message));
   useEffect(() => { load(); }, []);
@@ -19,9 +20,16 @@ export default function TeamPage() {
   const submit = async (e) => {
     e.preventDefault();
     setError('');
+    setNotice('');
     try {
-      await addTeamMember(form.name, form.email, form.role);
+      const email = form.email.trim();
+      const res = await addTeamMember(form.name, email, form.role);
       setForm({ name: '', email: '', role: 'editor' });
+      if (res?.invited) {
+        setNotice(`Invite email sent to ${email}. If it doesn't arrive, check spam and your Clerk dashboard → Invitations.`);
+      } else {
+        setNotice(`${email} was added to the workspace, but no invite email was sent${res?.inviteError ? ` — ${res.inviteError}` : ''}. They can still get in by signing in with that email.`);
+      }
       load();
     } catch (err) {
       setError(err.message);
@@ -71,6 +79,7 @@ export default function TeamPage() {
           <GlassButton type="submit">Add</GlassButton>
         </form>
         {error && <p className="text-red-400 mt-2 text-sm">{error}</p>}
+        {notice && <p className="text-amber-300/90 mt-2 text-sm">{notice}</p>}
       </GlassPanel>
 
       {team.length === 0 && <p className="text-zinc-500">No team members added yet.</p>}

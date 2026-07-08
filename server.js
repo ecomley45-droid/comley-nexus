@@ -425,6 +425,7 @@ app.post('/api/team', requireOrg, requireRole('admin'), async (req, res, next) =
     // was actually a manual Clerk-dashboard step.
     await storage.orgMembers.add(req.org.id, cleanEmail, role).catch(() => {});
     let invited = false;
+    let inviteError = null;
     try {
       await clerkClient.invitations.createInvitation({
         emailAddress: cleanEmail,
@@ -433,12 +434,17 @@ app.post('/api/team', requireOrg, requireRole('admin'), async (req, res, next) =
         ignoreExisting: true,
       });
       invited = true;
-    } catch {
-      // Already invited / already a Clerk user / Clerk hiccup -- the
-      // membership row above still lets them in once they can sign in.
+    } catch (e) {
+      // Surface WHY instead of swallowing it: most often the address already
+      // has a Clerk account (no invite email needed -- they can just sign in),
+      // an existing pending invite (Clerk won't re-send), or the redirect URL
+      // isn't allowlisted in Clerk. The membership row above still lets them
+      // in once they sign in with this email.
+      inviteError = e?.errors?.[0]?.longMessage || e?.errors?.[0]?.message || e?.message || 'Invitation could not be sent.';
+      console.error('[team invite]', cleanEmail, inviteError);
     }
-    await auditFor(req.org.id, req.viewer)('Added team member', `${entry.name} <${entry.email}> as ${entry.role}`);
-    res.json({ success: true, entry, invited });
+    await auditFor(req.org.id, req.viewer)('Added team member', `${entry.name} <${entry.email}> as ${entry.role}${invited ? '' : ' (invite email not sent)'}`);
+    res.json({ success: true, entry, invited, inviteError });
   } catch (e) { next(e); }
 });
 
