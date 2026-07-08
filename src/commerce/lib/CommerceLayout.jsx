@@ -4,6 +4,7 @@ import { listProducts } from '../lib/api.js';
 import { GlassShell } from '../../cms/lib/ui/Glass.jsx';
 import TopBar from '../../cms/lib/ui/TopBar.jsx';
 import FeedbackWidget from '../../cms/lib/FeedbackWidget.jsx';
+import AuthTokenBridge from '../../cms/lib/AuthTokenBridge.jsx';
 
 const SECTIONS = [
   { path: '', label: 'Home', end: true },
@@ -29,6 +30,7 @@ export default function CommerceLayout() {
 
   return (
     <GlassShell>
+      <AuthTokenBridge />
       <TopBar
         logoTo={base}
         logoLabel="Nexus Commerce"

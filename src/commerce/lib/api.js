@@ -4,22 +4,35 @@
 // lib/commerce/clerkAuth.js's fallback branch. This app is the admin
 // dashboard, so it always identifies itself as an admin locally; once Clerk
 // is configured these headers are ignored in favor of the real session.
+import { getAuthToken } from '../../cms/lib/authToken.js';
+
 const DEV_ADMIN_ID = 'dev-admin-dashboard';
 
 // Exposed for csvClient.js, which needs these headers on plain fetch/blob
 // downloads rather than going through request() below.
 export const commerceAuthHeaders = { 'X-User-Role': 'admin', 'X-Customer-Id': DEV_ADMIN_ID };
 
+// In production, admin access is resolved from the signed-in user's CMS role
+// (see requireCommerceTier), which needs the Clerk JWT in Authorization:
+// Bearer -- the same token the CMS client sends. Without it the server sees
+// an anonymous request and defaults to the "customer" tier. The X-User-Role
+// headers are only honored in local dev mode (no Clerk).
+async function authHeaders(extra = {}) {
+  const token = await getAuthToken();
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    'X-User-Role': 'admin',
+    'X-Customer-Id': DEV_ADMIN_ID,
+    ...extra,
+  };
+}
+
 async function request(path, options = {}) {
   const res = await fetch(`/api/commerce${path}`, {
     ...options,
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-User-Role': 'admin',
-      'X-Customer-Id': DEV_ADMIN_ID,
-      ...options.headers,
-    },
+    headers: await authHeaders(options.headers),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Request to ${path} failed`);
@@ -62,7 +75,7 @@ export const testIntegration = async (service) => {
   const res = await fetch(`/api/commerce/integrations/test/${service}`, {
     method: 'POST',
     credentials: 'include',
-    headers: { 'X-User-Role': 'admin', 'X-Customer-Id': DEV_ADMIN_ID },
+    headers: await authHeaders(),
   });
   return res.json();
 };
