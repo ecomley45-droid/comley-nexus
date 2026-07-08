@@ -18,6 +18,8 @@ import { mountNexusApi } from './lib/nexusRoutes.js';
 import { mountSuperAdminApi } from './lib/superAdminRoutes.js';
 import { mountBlockCatalogApi } from './lib/blockCatalogRoutes.js';
 import { mountMarketplaceApi } from './lib/marketplaceRoutes.js';
+import { mountEventsApi } from './lib/eventsRoutes.js';
+import { hydrateEventBlocks } from './lib/eventsHydrate.js';
 import {
   attachClerk, resolveViewer, requireRole, requireOrgMatch, requireSuperAdmin,
   isSuperAdminViewer, assertProductionAuth, requireAuth,
@@ -174,6 +176,7 @@ mountNexusApi(app);
 mountSuperAdminApi(app);
 mountBlockCatalogApi(app);
 mountMarketplaceApi(app);
+mountEventsApi(app);
 
 // ================= PAGES =================
 
@@ -972,6 +975,7 @@ const nexusSite = () => ({
   // load. Client custom domains are pure published sites and keep the
   // redirect-to-homepage behavior.
   isPlatform: true,
+  orgId: null,
   findRedirect: (p) => nexus.redirects.findMatch(p),
   applySchedules: () => nexus.pages.applyScheduledPublishes(),
   loadPages: () => nexus.pages.list(),
@@ -996,6 +1000,7 @@ function spaShell() {
 }
 
 const orgSite = (orgId, paused) => ({
+  orgId,
   paused: !!paused,
   findRedirect: (p) => storage.redirects.findMatch(orgId, p),
   applySchedules: () => applyDueSchedules(orgId),
@@ -1137,6 +1142,9 @@ app.use(async (req, res, next) => {
       if (!existing) res.cookie(cookieKey, variant.id, { maxAge: 30 * 24 * 60 * 60 * 1000 });
       await site.recordImpression(section.id, variant.id);
     }
+
+    // Hydrate any calendar-bound event blocks with live events before compile.
+    if (site.orgId) await hydrateEventBlocks(page, site.orgId, globalSettings?.timezone);
 
     const renderedHtml = compilePageHtml(page, pages, library, globalSettings, abChoices, `https://${req.headers.host}`);
     const analyticsHosts = process.env.ANALYTICS_HOSTS || '';

@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { GlassInput, GlassTextarea, GlassSelect } from '../ui/Glass.jsx';
 import { renderBlock, LAYOUT_TEMPLATES } from './blockRenderers.js';
 import BlockCatalogPicker from '../blocks/BlockCatalogPicker.jsx';
+import { getCalendars, getEvents } from '../api.js';
+import { EVENT_BOUND_TYPES, applyEventsToFields } from '../../../shared/eventsMap.js';
 
 // Structured-view counterpart to BlockRow's raw HTML textarea. Only usable
 // on blocks that carry `blockType` + `fields` (created via "Paste in" --
@@ -307,6 +309,30 @@ function LayoutBlockEditor({ fields, onChange }) {
 }
 
 export default function StructuredBlockEditor({ section, onChange }) {
+  // Hooks must run unconditionally, before any early return below.
+  const isBound = EVENT_BOUND_TYPES.includes(section.blockType);
+  const calId = section.fields?.calendarId;
+  const [calendars, setCalendars] = useState([]);
+  const [boundEvents, setBoundEvents] = useState([]);
+
+  useEffect(() => { if (isBound) getCalendars().then((d) => setCalendars(d.calendars)).catch(() => {}); }, [isBound]);
+  useEffect(() => {
+    if (isBound && calId) getEvents(calId === 'all' ? undefined : calId).then((d) => setBoundEvents(d.events)).catch(() => setBoundEvents([]));
+    else setBoundEvents([]);
+  }, [isBound, calId]);
+
+  // Regenerate the block html, applying the bound calendar's events when set
+  // (same mapper the server uses at serve time, so preview == published).
+  const renderHtml = (f) => (isBound && f.calendarId
+    ? (renderBlock(section.blockType, applyEventsToFields(section.blockType, f, boundEvents)) || section.html)
+    : (renderBlock(section.blockType, f) || section.html));
+
+  // Refresh the preview html once the bound events have loaded/changed.
+  useEffect(() => {
+    if (isBound && calId) onChange({ html: renderHtml(section.fields) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boundEvents]);
+
   if (!section.blockType || !section.fields) {
     return (
       <p className="text-xs text-zinc-500 py-3">
@@ -318,7 +344,7 @@ export default function StructuredBlockEditor({ section, onChange }) {
   const fields = section.fields;
   const setFields = (patch) => {
     const nextFields = { ...fields, ...patch };
-    onChange({ fields: nextFields, html: renderBlock(section.blockType, nextFields) || section.html });
+    onChange({ fields: nextFields, html: renderHtml(nextFields) });
   };
 
   // Layout is a container, not a content block -- headings/images/links
@@ -348,13 +374,29 @@ export default function StructuredBlockEditor({ section, onChange }) {
     );
   }
 
+  const boundToCalendar = isBound && !!fields.calendarId;
   return (
     <div className="pt-1">
+      {isBound && (
+        <div className="mb-3">
+          <label className="text-xs text-zinc-400 block mb-1">Calendar source</label>
+          <GlassSelect value={fields.calendarId || ''} onChange={(e) => setFields({ calendarId: e.target.value })} className="w-full">
+            <option value="">Manual — type events below</option>
+            <option value="all">All calendars</option>
+            {calendars.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </GlassSelect>
+          {boundToCalendar && (
+            <p className="text-[11px] text-zinc-500 mt-1">
+              Showing live events from this calendar ({boundEvents.length} found). Add or edit them on the Events page.
+            </p>
+          )}
+        </div>
+      )}
       <StringListEditor label="Headings" items={fields.headings || []} onChange={(headings) => setFields({ headings })} placeholder="Heading text" />
       <StringListEditor label="Paragraphs" items={fields.text || []} onChange={(text) => setFields({ text })} multiline placeholder="Paragraph text" />
-      <ImagesEditor images={fields.images || []} onChange={(images) => setFields({ images })} />
+      {!boundToCalendar && <ImagesEditor images={fields.images || []} onChange={(images) => setFields({ images })} />}
       <LinksEditor links={fields.links || []} onChange={(links) => setFields({ links })} />
-      {COLLECTION_TYPES.includes(section.blockType) && (
+      {COLLECTION_TYPES.includes(section.blockType) && !boundToCalendar && (
         <ItemsEditor items={fields.items || []} onChange={(items) => setFields({ items })} />
       )}
       {(section.blockType === 'pricing-table' || section.blockType === 'pricing-cards') && (

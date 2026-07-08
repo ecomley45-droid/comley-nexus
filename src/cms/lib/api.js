@@ -144,6 +144,16 @@ export const createBackup = (label) => request('/backups', { method: 'POST', bod
 export const restoreBackup = (id) => request(`/backups/${id}/restore`, { method: 'POST' });
 export const deleteBackup = (id) => request(`/backups/${id}`, { method: 'DELETE' });
 
+// ---- Central events (calendars + events) ----
+export const getCalendars = () => request('/calendars');
+export const createCalendar = (payload) => request('/calendars', { method: 'POST', body: JSON.stringify(payload) });
+export const updateCalendar = (id, patch) => request(`/calendars/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+export const deleteCalendar = (id) => request(`/calendars/${id}`, { method: 'DELETE' });
+export const getEvents = (calendarId) => request(calendarId ? `/events?calendarId=${encodeURIComponent(calendarId)}` : '/events');
+export const createEvent = (payload) => request('/events', { method: 'POST', body: JSON.stringify(payload) });
+export const updateEvent = (id, patch) => request(`/events/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+export const deleteEvent = (id) => request(`/events/${id}`, { method: 'DELETE' });
+
 // ---- Media ----
 export const getMedia = () => request('/media');
 export const uploadMedia = (name, mimeType, dataBase64) =>

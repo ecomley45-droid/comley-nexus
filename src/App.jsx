@@ -40,6 +40,7 @@ const AuditLogPage = lazy(() => import('./cms/pages/AuditLogPage.jsx'));
 const TemplateMarketplacePage = lazy(() => import('./cms/pages/TemplateMarketplacePage.jsx'));
 const TemplateDetailPage = lazy(() => import('./cms/pages/TemplateDetailPage.jsx'));
 const BackupsPage = lazy(() => import('./cms/pages/settings/BackupsPage.jsx'));
+const EventsPage = lazy(() => import('./cms/pages/EventsPage.jsx'));
 const ImportExportPage = lazy(() => import('./cms/pages/ImportExportPage.jsx'));
 const FeedbackPage = lazy(() => import('./cms/pages/FeedbackPage.jsx'));
 const OpsDashboardPage = lazy(() => import('./cms/pages/ops/DashboardPage.jsx'));
@@ -117,6 +118,7 @@ export default function App() {
           <Route path="blocks" element={<BlocksCatalogPage />} />
           <Route path="templates" element={<TemplateMarketplacePage />} />
           <Route path="templates/:id" element={<TemplateDetailPage />} />
+          <Route path="events" element={<EventsPage />} />
           <Route path="library" element={<LibraryPage />} />
           <Route path="media" element={<MediaPage />} />
           <Route path="redirects" element={<RedirectsPage />} />

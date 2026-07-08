@@ -19,6 +19,7 @@ const NAV_ITEMS = [
   { to: 'templates', label: 'Templates' },
   { to: 'library', label: 'Library' },
   { to: 'media', label: 'Media' },
+  { to: 'events', label: 'Events' },
   { to: 'redirects', label: 'Redirects' },
   { to: 'forms', label: 'Forms' },
   { to: 'comments', label: 'Comments' },
