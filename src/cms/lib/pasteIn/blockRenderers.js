@@ -458,6 +458,185 @@ ${(col.sections || []).map((s) => s.html || '').join('\n')}
 <div class="nx-layout">${colHtml}</div>`;
 }
 
+// ---------------------------------------------------------------------------
+// Polished block set ("px-" prefix). A richer, general-purpose family added
+// on top of the original plain "nx-" blocks -- modern layouts (split hero,
+// image+text, feature tiles, steps, price list, stat band, pull quote, CTA
+// band) inspired by the imported site templates. Every color uses a theme
+// variable WITH a sensible fallback (e.g. var(--color-accent,#6366f1)) so the
+// blocks look right both on a themed published page AND in the unthemed "Add
+// Block +" preview. They consume the same standard field shapes (headings,
+// text, images, links, items) as the rest of the catalog, so the structured
+// editor edits them with no special-casing.
+
+export function renderHeroSplit(fields) {
+  const img = fields.images?.[0];
+  const [primary, secondary] = fields.links || [];
+  return `<style>
+.px-hero-split { display:grid; grid-template-columns:1.1fr 1fr; gap:48px; align-items:center; max-width:1120px; margin:0 auto; padding:80px 24px; }
+.px-hero-split .px-copy h1 { font-size:clamp(2rem,4.2vw,3.4rem); line-height:1.05; letter-spacing:-0.02em; margin:0 0 18px; }
+.px-hero-split .px-copy p { color:var(--color-muted,#a1a1aa); font-size:1.1rem; line-height:1.6; margin:0 0 26px; max-width:48ch; }
+.px-hero-split .px-actions { display:flex; flex-wrap:wrap; gap:12px; }
+.px-hero-split .px-btn { display:inline-block; padding:13px 26px; border-radius:12px; text-decoration:none; font-weight:600; background:var(--color-accent,#6366f1); color:#fff; }
+.px-hero-split .px-btn.px-ghost { background:transparent; border:1px solid rgba(127,127,127,0.35); color:var(--color-text,#e2e8f0); }
+.px-hero-split .px-media { position:relative; }
+.px-hero-split .px-media img { width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:20px; }
+@media(max-width:760px){ .px-hero-split{ grid-template-columns:1fr; gap:28px; padding:52px 20px; } }
+</style>
+<div class="px-hero-split">
+  <div class="px-copy">
+    ${headingsHtml(fields.headings, 1)}
+    ${textHtml(fields.text)}
+    <div class="px-actions">
+      ${primary ? `<a class="px-btn" href="${esc(primary.href || '#')}">${esc(primary.label || 'Get started')}</a>` : ''}
+      ${secondary ? `<a class="px-btn px-ghost" href="${esc(secondary.href || '#')}">${esc(secondary.label || 'Learn more')}</a>` : ''}
+    </div>
+  </div>
+  <div class="px-media">${img ? `<img src="${esc(img.src)}" alt="${esc(img.alt || '')}" />` : ''}</div>
+</div>`;
+}
+
+export function renderSplitContent(fields) {
+  const img = fields.images?.[0];
+  return `<style>
+.px-split { display:grid; grid-template-columns:1fr 1fr; gap:44px; align-items:center; max-width:1080px; margin:0 auto; padding:56px 24px; }
+.px-split .px-media img { width:100%; border-radius:18px; aspect-ratio:5/4; object-fit:cover; }
+.px-split h2 { font-size:clamp(1.6rem,3vw,2.2rem); letter-spacing:-0.01em; margin:0 0 14px; }
+.px-split p { color:var(--color-muted,#a1a1aa); line-height:1.65; margin:0 0 12px; }
+.px-split a.px-link { color:var(--color-link,#a5b4fc); font-weight:600; text-decoration:none; }
+@media(max-width:720px){ .px-split{ grid-template-columns:1fr; gap:28px; } .px-split .px-media{ order:-1; } }
+</style>
+<div class="px-split">
+  <div class="px-media">${img ? `<img src="${esc(img.src)}" alt="${esc(img.alt || '')}" />` : ''}</div>
+  <div class="px-copy">
+    ${headingsHtml(fields.headings, 2)}
+    ${textHtml(fields.text)}
+    ${(fields.links || []).map((l) => `<a class="px-link" href="${esc(l.href || '#')}">${esc(l.label || 'Learn more')} →</a>`).join(' ')}
+  </div>
+</div>`;
+}
+
+export function renderFeatureIcons(fields) {
+  const items = fields.items || [];
+  return `<style>
+.px-features { max-width:1080px; margin:0 auto; padding:60px 24px; }
+.px-features .px-head { text-align:center; max-width:640px; margin:0 auto 40px; }
+.px-features h2 { font-size:clamp(1.6rem,3vw,2.2rem); margin:0 0 10px; letter-spacing:-0.01em; }
+.px-features .px-head p { color:var(--color-muted,#a1a1aa); margin:0; }
+.px-feature-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:18px; }
+.px-feature { padding:26px; border-radius:16px; border:1px solid rgba(127,127,127,0.18); background:rgba(127,127,127,0.06); }
+.px-feature .px-ico { width:46px; height:46px; border-radius:12px; display:grid; place-items:center; font-weight:700; color:#fff; background:linear-gradient(135deg,var(--color-accent,#6366f1),var(--color-secondary,#d946ef)); margin-bottom:16px; }
+.px-feature h3 { margin:0 0 8px; font-size:1.1rem; }
+.px-feature p { margin:0; color:var(--color-muted,#a1a1aa); font-size:.95rem; line-height:1.55; }
+</style>
+<div class="px-features">
+  <div class="px-head">${headingsHtml(fields.headings, 2)}${textHtml(fields.text)}</div>
+  <div class="px-feature-grid">
+    ${items.map((it) => `<div class="px-feature">
+      <div class="px-ico">${esc((it.heading || '•').trim().charAt(0).toUpperCase())}</div>
+      <h3>${esc(it.heading)}</h3>
+      <p>${esc(it.body)}</p>
+    </div>`).join('')}
+  </div>
+</div>`;
+}
+
+export function renderSteps(fields) {
+  const items = fields.items || [];
+  return `<style>
+.px-steps { max-width:900px; margin:0 auto; padding:60px 24px; }
+.px-steps .px-head { margin-bottom:24px; }
+.px-steps h2 { font-size:clamp(1.6rem,3vw,2.2rem); margin:0 0 10px; }
+.px-step { display:flex; gap:20px; padding:22px 0; border-top:1px solid rgba(127,127,127,0.18); }
+.px-step:first-of-type { border-top:0; }
+.px-step .px-num { flex:none; width:44px; height:44px; border-radius:12px; display:grid; place-items:center; font-weight:700; color:var(--color-accent,#6366f1); border:1px solid rgba(127,127,127,0.28); }
+.px-step h3 { margin:0 0 6px; }
+.px-step p { margin:0; color:var(--color-muted,#a1a1aa); line-height:1.6; }
+</style>
+<div class="px-steps">
+  <div class="px-head">${headingsHtml(fields.headings, 2)}${textHtml(fields.text)}</div>
+  ${items.map((it, i) => `<div class="px-step">
+    <div class="px-num">${String(i + 1).padStart(2, '0')}</div>
+    <div><h3>${esc(it.heading)}</h3><p>${esc(it.body)}</p></div>
+  </div>`).join('')}
+</div>`;
+}
+
+export function renderPriceList(fields) {
+  const items = fields.items || [];
+  return `<style>
+.px-pricelist { max-width:760px; margin:0 auto; padding:60px 24px; }
+.px-pricelist h2 { text-align:center; margin:0 0 6px; font-size:clamp(1.6rem,3vw,2.2rem); }
+.px-pricelist .px-sub { text-align:center; color:var(--color-muted,#a1a1aa); margin:0 0 28px; }
+.px-price-row { display:grid; grid-template-columns:1fr auto; align-items:baseline; column-gap:16px; padding:16px 0; border-bottom:1px solid rgba(127,127,127,0.18); }
+.px-price-row .px-name { font-weight:600; font-size:1.05rem; }
+.px-price-row .px-price { font-weight:700; color:var(--color-accent,#6366f1); font-size:1.05rem; white-space:nowrap; }
+.px-price-row .px-desc { grid-column:1 / -1; color:var(--color-muted,#a1a1aa); font-size:.9rem; margin-top:4px; }
+</style>
+<div class="px-pricelist">
+  ${headingsHtml(fields.headings, 2)}
+  ${(fields.text || []).map((t) => `<p class="px-sub">${esc(t)}</p>`).join('')}
+  ${items.map((it) => `<div class="px-price-row">
+    <span class="px-name">${esc(it.heading)}</span>
+    <span class="px-price">${esc(it.meta)}</span>
+    ${it.body ? `<span class="px-desc">${esc(it.body)}</span>` : ''}
+  </div>`).join('')}
+</div>`;
+}
+
+export function renderStatBand(fields) {
+  const items = fields.items || [];
+  return `<style>
+.px-statband { max-width:1080px; margin:0 auto; padding:24px; }
+.px-statband .px-inner { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:24px; padding:44px 28px; border-radius:22px; text-align:center; border:1px solid rgba(127,127,127,0.20); background:linear-gradient(135deg,rgba(99,102,241,0.16),rgba(217,70,239,0.10)); }
+.px-statband .px-num { font-size:2.5rem; font-weight:800; letter-spacing:-0.02em; line-height:1; background:linear-gradient(135deg,var(--color-accent,#6366f1),var(--color-secondary,#d946ef)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.px-statband .px-label { color:var(--color-muted,#a1a1aa); font-size:.9rem; margin-top:8px; }
+</style>
+<div class="px-statband"><div class="px-inner">
+  ${items.map((it) => `<div><div class="px-num">${esc(it.heading)}</div><div class="px-label">${esc(it.body)}</div></div>`).join('')}
+</div></div>`;
+}
+
+export function renderQuote(fields) {
+  const person = (fields.items || [])[0] || {};
+  const quote = (fields.text || [])[0] || (fields.headings || [])[0] || '';
+  return `<style>
+.px-quote { max-width:820px; margin:0 auto; padding:64px 24px; text-align:center; }
+.px-quote .px-mark { font-size:3rem; line-height:.4; color:var(--color-accent,#6366f1); }
+.px-quote blockquote { font-size:clamp(1.4rem,2.6vw,2rem); line-height:1.35; letter-spacing:-0.01em; font-weight:500; margin:12px 0 26px; }
+.px-quote .px-author { display:flex; gap:12px; align-items:center; justify-content:center; }
+.px-quote .px-author img { width:46px; height:46px; border-radius:50%; object-fit:cover; }
+.px-quote .px-name { font-weight:600; }
+.px-quote .px-role { color:var(--color-muted,#a1a1aa); font-size:.9rem; }
+</style>
+<div class="px-quote">
+  <div class="px-mark">&ldquo;</div>
+  <blockquote>${esc(quote)}</blockquote>
+  <div class="px-author">
+    ${person.image ? `<img src="${esc(person.image)}" alt="" />` : ''}
+    <div style="text-align:left;">
+      ${person.heading ? `<div class="px-name">${esc(person.heading)}</div>` : ''}
+      ${person.meta ? `<div class="px-role">${esc(person.meta)}</div>` : ''}
+    </div>
+  </div>
+</div>`;
+}
+
+export function renderCtaBand(fields) {
+  return `<style>
+.px-ctaband { max-width:1080px; margin:0 auto; padding:24px; }
+.px-ctaband .px-inner { padding:56px 32px; border-radius:24px; text-align:center; color:#fff; background:linear-gradient(135deg,var(--color-accent,#6366f1),var(--color-secondary,#d946ef)); }
+.px-ctaband h2 { font-size:clamp(1.7rem,3.4vw,2.6rem); letter-spacing:-0.02em; margin:0 0 12px; }
+.px-ctaband p { opacity:.92; margin:0 0 26px; font-size:1.1rem; }
+.px-ctaband a { display:inline-block; margin:6px; padding:14px 30px; border-radius:12px; background:#fff; color:#111; font-weight:700; text-decoration:none; }
+</style>
+<div class="px-ctaband"><div class="px-inner">
+  ${headingsHtml(fields.headings, 2)}
+  ${textHtml(fields.text)}
+  ${(fields.links || []).map((l) => `<a href="${esc(l.href || '#')}">${esc(l.label || 'Get started')}</a>`).join('')}
+</div></div>`;
+}
+
 export const BLOCK_RENDERERS = {
   header: renderHeader,
   navigation: renderNavigation,
@@ -488,6 +667,15 @@ export const BLOCK_RENDERERS = {
   product: renderProduct,
   script: renderScript,
   layout: renderLayout,
+  // Polished block set
+  'hero-split': renderHeroSplit,
+  'split-content': renderSplitContent,
+  'feature-icons': renderFeatureIcons,
+  steps: renderSteps,
+  'price-list': renderPriceList,
+  'stat-band': renderStatBand,
+  quote: renderQuote,
+  'cta-band': renderCtaBand,
 };
 
 // Regenerates `html` from `fields` for a given blockType. Returns null for

@@ -11,6 +11,10 @@ export const BLOCK_LABELS = {
   newsletter: 'Newsletter', image: 'Image', gallery: 'Gallery', video: 'Video',
   faq: 'FAQ', tabs: 'Tabs', countdown: 'Countdown', 'social-links': 'Social links',
   product: 'Product',
+  // Polished block set
+  'hero-split': 'Split hero', 'split-content': 'Image + text', 'feature-icons': 'Feature tiles',
+  steps: 'How it works', 'price-list': 'Price list', 'stat-band': 'Stat band',
+  quote: 'Pull quote', 'cta-band': 'CTA band',
 };
 
 export function labelForBlock(blockType) {

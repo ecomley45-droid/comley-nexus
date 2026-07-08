@@ -13,7 +13,9 @@ import BlockCatalogPicker from '../blocks/BlockCatalogPicker.jsx';
 // plain `unknown` content) have no structured representation to edit --
 // callers should fall back to the raw HTML view for those.
 
-const COLLECTION_TYPES = ['card-grid', 'scrolling-cards', 'list', 'stats', 'testimonials', 'team', 'faq', 'tabs'];
+const COLLECTION_TYPES = ['card-grid', 'scrolling-cards', 'list', 'stats', 'testimonials', 'team', 'faq', 'tabs',
+  // Polished block set (item-based)
+  'feature-icons', 'steps', 'price-list', 'stat-band', 'quote'];
 
 function StringListEditor({ label, items, onChange, multiline = false, placeholder }) {
   const Field = multiline ? GlassTextarea : GlassInput;
