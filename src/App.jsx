@@ -16,6 +16,7 @@ const SuperAdminDashboardPage = lazy(() => import('./cms/pages/super-admin/Super
 const OrgsPage = lazy(() => import('./cms/pages/super-admin/OrgsPage.jsx'));
 const NexusSettingsPage = lazy(() => import('./cms/pages/super-admin/NexusSettingsPage.jsx'));
 const TemplateManagerPage = lazy(() => import('./cms/pages/super-admin/TemplateManagerPage.jsx'));
+const TemplateImportPage = lazy(() => import('./cms/pages/super-admin/TemplateImportPage.jsx'));
 const SuperAdminBillingPage = lazy(() => import('./cms/pages/super-admin/BillingPage.jsx'));
 
 // --- CMS ---
@@ -102,6 +103,7 @@ export default function App() {
           <Route path="pages/:id" element={<PageEditorPage nexus />} />
           <Route path="blocks" element={<BlocksCatalogPage />} />
           <Route path="templates" element={<TemplateManagerPage />} />
+          <Route path="templates/import" element={<TemplateImportPage />} />
           <Route path="billing" element={<SuperAdminBillingPage />} />
           <Route path="settings" element={<NexusSettingsPage />} />
         </Route>

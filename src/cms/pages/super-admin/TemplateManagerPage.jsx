@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { getTemplates, getTemplate, createTemplate, updateTemplate, deleteTemplate } from '../../lib/api.js';
 import TemplatePreviewFrame from '../../lib/templates/TemplatePreviewFrame.jsx';
 import { GlassPanel, GlassButton, GlassInput, GlassTextarea, GlassSelect, Badge } from '../../lib/ui/Glass.jsx';
@@ -172,7 +173,10 @@ export default function TemplateManagerPage() {
     <div className="max-w-5xl">
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-2xl font-semibold">Templates</h1>
-        <GlassButton onClick={startNew}>New template</GlassButton>
+        <div className="flex gap-2">
+          <Link to="/super-admin/templates/import"><GlassButton variant="secondary">Import HTML files</GlassButton></Link>
+          <GlassButton onClick={startNew}>New template</GlassButton>
+        </div>
       </div>
       <p className="text-sm text-zinc-400 mb-6">
         Platform starter sites every workspace can install. Edits here don’t affect sites already installed — those are independent copies.
