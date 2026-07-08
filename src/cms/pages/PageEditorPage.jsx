@@ -9,7 +9,6 @@ import { useOrgBase } from '../lib/useMe.jsx';
 import PasteInModal from '../lib/pasteIn/PasteInModal.jsx';
 import StructuredBlockEditor from '../lib/pasteIn/StructuredBlockEditor.jsx';
 import BlockCatalogPicker from '../lib/blocks/BlockCatalogPicker.jsx';
-import ScaledPreviewFrame from '../lib/ScaledPreviewFrame.jsx';
 import { fetchBlockCatalog } from '../lib/blocks/catalog.js';
 
 const newSection = () => ({ id: 'sec-' + Date.now() + '-' + Math.floor(Math.random() * 1e6), name: 'New section', html: '<div class="p-8">New section</div>' });
@@ -563,8 +562,8 @@ export default function PageEditorPage({ nexus = false }) {
               {Object.keys(DEVICE_WIDTHS).map((label) => <option key={label} value={label}>{label} ({DEVICE_WIDTHS[label]})</option>)}
             </GlassSelect>
           </div>
-          <div className="w-full h-[calc(100%-2rem)] overflow-auto bg-black/20 rounded-xl">
-            <ScaledPreviewFrame srcDoc={previewHtml} baseWidth={previewWidth} autoHeight interactive bg="#fff" />
+          <div className="w-full h-[calc(100%-2rem)] overflow-auto flex justify-center bg-black/20 rounded-xl">
+            <iframe title="live-preview" srcDoc={previewHtml} className="h-full bg-white rounded-xl shrink-0" style={{ width: previewWidth }} />
           </div>
         </GlassPanel>
 
