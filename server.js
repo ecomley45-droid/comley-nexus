@@ -260,6 +260,34 @@ app.get('/api/nexus/preview-token/:pageId', requireSuperAdmin, (req, res) => {
   res.json({ token: `${exp}.${signPreviewToken(req.params.pageId, exp)}` });
 });
 
+// Org-explicit page preview. The public site handler resolves which workspace
+// to serve purely from the request HOST (orgIdForHost), so a workspace
+// without a matching custom domain -- most of them, on the shared platform
+// host -- couldn't be previewed there ("Open preview" opened the default
+// org's site instead). This renders one specific page of one specific
+// workspace by id, gated only by the signed preview token (which proves an
+// authorized editor generated the link), so it works regardless of host.
+app.get('/api/preview/:orgId/:pageId', async (req, res, next) => {
+  try {
+    if (!verifyPreviewToken(req.params.pageId, req.query.token)) {
+      return res.status(403).send('This preview link is invalid or has expired. Reopen it from the editor.');
+    }
+    const orgId = req.params.orgId;
+    const [pages, library, globalSettings] = await Promise.all([
+      storage.pages.list(orgId),
+      storage.library.list(orgId),
+      storage.settings.get(orgId),
+    ]);
+    const page = pages.find((p) => p.id === req.params.pageId);
+    if (!page) return res.status(404).send('Page not found.');
+    await hydrateEventBlocks(page, orgId, globalSettings?.timezone);
+    const html = compilePageHtml(page, pages, library, globalSettings, {}, `https://${req.headers.host}`);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('X-Robots-Tag', 'noindex');
+    res.send(html);
+  } catch (e) { next(e); }
+});
+
 // ================= VERSIONS =================
 
 app.get('/api/versions/:pageId', requireOrg, async (req, res, next) => {

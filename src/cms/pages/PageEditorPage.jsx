@@ -9,6 +9,7 @@ import { useOrgBase } from '../lib/useMe.jsx';
 import PasteInModal from '../lib/pasteIn/PasteInModal.jsx';
 import StructuredBlockEditor from '../lib/pasteIn/StructuredBlockEditor.jsx';
 import BlockCatalogPicker from '../lib/blocks/BlockCatalogPicker.jsx';
+import ScaledPreviewFrame from '../lib/ScaledPreviewFrame.jsx';
 import { fetchBlockCatalog } from '../lib/blocks/catalog.js';
 
 const newSection = () => ({ id: 'sec-' + Date.now() + '-' + Math.floor(Math.random() * 1e6), name: 'New section', html: '<div class="p-8">New section</div>' });
@@ -237,7 +238,7 @@ function LayoutPanel({ layout, globals, onChange }) {
 }
 
 export default function PageEditorPage({ nexus = false }) {
-  const { id } = useParams();
+  const { id, orgSlug } = useParams();
   const orgBase = useOrgBase();
   const base = nexus ? '/super-admin' : (orgBase || '/admin');
   const { pages, setPages, loading, error, save, saving, saveMessage, globalSettings } = usePagesStore(
@@ -435,7 +436,13 @@ export default function PageEditorPage({ nexus = false }) {
   const openPreview = async () => {
     try {
       const { token } = await getPreviewToken(page.id, nexus);
-      window.open(`/${fullPath}?preview=${encodeURIComponent(token)}`, '_blank', 'noopener');
+      // Nexus's own site is served on the platform host (isPlatform), so the
+      // host-based route works for it. A client workspace has no host mapping
+      // on the shared platform host, so it needs the org-explicit render route.
+      const url = nexus
+        ? `/${fullPath}?preview=${encodeURIComponent(token)}`
+        : `/api/preview/${encodeURIComponent(orgSlug)}/${encodeURIComponent(page.id)}?token=${encodeURIComponent(token)}`;
+      window.open(url, '_blank', 'noopener');
     } catch {
       window.open(`/${fullPath}`, '_blank', 'noopener');
     }
@@ -562,8 +569,8 @@ export default function PageEditorPage({ nexus = false }) {
               {Object.keys(DEVICE_WIDTHS).map((label) => <option key={label} value={label}>{label} ({DEVICE_WIDTHS[label]})</option>)}
             </GlassSelect>
           </div>
-          <div className="w-full h-[calc(100%-2rem)] overflow-auto flex justify-center bg-black/20 rounded-xl">
-            <iframe title="live-preview" srcDoc={previewHtml} className="h-full bg-white rounded-xl shrink-0" style={{ width: previewWidth }} />
+          <div className="w-full h-[calc(100%-2rem)] overflow-auto bg-black/20 rounded-xl">
+            <ScaledPreviewFrame srcDoc={previewHtml} baseWidth={previewWidth} autoHeight interactive bg="#fff" />
           </div>
         </GlassPanel>
 
