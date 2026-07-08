@@ -16,12 +16,13 @@ alter table orders    add column if not exists org_id text references orgs(id) o
 alter table customers add column if not exists org_id text references orgs(id) on delete cascade;
 alter table campaigns add column if not exists org_id text references orgs(id) on delete cascade;
 
--- Drop the old global uniques + the orders->campaigns FK.
+-- Drop the old global uniques. The orders->campaigns FK depends on
+-- campaigns_code_key, so it MUST be dropped first.
+alter table orders    drop constraint if exists orders_campaign_code_fkey;
 alter table products  drop constraint if exists products_sku_key;
 alter table campaigns drop constraint if exists campaigns_code_key;
 alter table customers drop constraint if exists customers_clerk_id_key;
 alter table customers drop constraint if exists customers_email_key;
-alter table orders    drop constraint if exists orders_campaign_code_fkey;
 
 -- Re-establish them per-org.
 create unique index if not exists uq_products_org_sku    on products(org_id, sku);
