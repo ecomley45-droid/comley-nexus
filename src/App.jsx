@@ -64,6 +64,8 @@ const ContentPage = lazy(() => import('./commerce/pages/admin/ContentPage.jsx'))
 const MarketsPage = lazy(() => import('./commerce/pages/admin/MarketsPage.jsx'));
 const FinancePage = lazy(() => import('./commerce/pages/admin/FinancePage.jsx'));
 const AnalyticsPage = lazy(() => import('./commerce/pages/admin/AnalyticsPage.jsx'));
+const InventoryPage = lazy(() => import('./commerce/pages/admin/InventoryPage.jsx'));
+const LocationsPage = lazy(() => import('./commerce/pages/admin/LocationsPage.jsx'));
 
 const routeFallback = (
   <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#070a13', color: '#a1a1aa', fontFamily: 'system-ui, sans-serif', fontSize: 14 }}>
@@ -151,6 +153,8 @@ export default function App() {
           <Route path="orders/:id" element={<OrderDetailPage />} />
           <Route path="products" element={<ProductsPage />} />
           <Route path="products/:id" element={<ProductEditPage />} />
+          <Route path="inventory" element={<InventoryPage />} />
+          <Route path="locations" element={<LocationsPage />} />
           <Route path="customers" element={<CustomersPage />} />
           <Route path="discounts" element={<DiscountsPage />} />
           <Route path="growth" element={<GrowthPage />} />

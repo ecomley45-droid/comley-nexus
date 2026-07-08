@@ -11,6 +11,8 @@ const SECTIONS = [
   { path: '', label: 'Home', end: true },
   { path: '/orders', label: 'Orders' },
   { path: '/products', label: 'Products' },
+  { path: '/inventory', label: 'Inventory' },
+  { path: '/locations', label: 'Locations' },
   { path: '/customers', label: 'Customers' },
   { path: '/growth', label: 'Growth' },
   { path: '/discounts', label: 'Discounts' },

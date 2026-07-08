@@ -46,6 +46,10 @@ export default function OrderDetailPage() {
         <h2 className="font-medium mb-2 text-zinc-300">Customer</h2>
         <p className="text-zinc-100">{order.customer_email || 'Guest checkout'}</p>
         {order.campaign_code && <p className="text-zinc-500 text-sm mt-1">Discount code: {order.campaign_code}</p>}
+        <div className="text-zinc-500 text-sm mt-2 flex flex-wrap gap-x-4">
+          <span>Channel: {order.channel === 'manual' ? 'In-store' : 'Online'}</span>
+          {order.sold_by && <span>Sold by: <span className="text-zinc-300">{order.sold_by}</span></span>}
+        </div>
       </GlassPanel>
 
       <GlassPanel className="p-4 mb-4">

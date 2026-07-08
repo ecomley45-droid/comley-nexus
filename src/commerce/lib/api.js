@@ -67,6 +67,23 @@ export const createCampaign = (campaign) => request('/campaigns', { method: 'POS
 export const updateCampaign = (code, patch) => request(`/campaigns/${code}`, { method: 'PUT', body: JSON.stringify(patch) });
 export const deleteCampaign = (code) => request(`/campaigns/${code}`, { method: 'DELETE' });
 
+// ---- Retail: locations, staff, inventory, manual sales ----
+export const listLocations = () => request('/locations');
+export const createLocation = (payload) => request('/locations', { method: 'POST', body: JSON.stringify(payload) });
+export const updateLocation = (id, patch) => request(`/locations/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+export const deleteLocation = (id) => request(`/locations/${id}`, { method: 'DELETE' });
+
+export const listStaff = () => request('/staff');
+export const createStaff = (payload) => request('/staff', { method: 'POST', body: JSON.stringify(payload) });
+export const updateStaff = (id, patch) => request(`/staff/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+export const deleteStaff = (id) => request(`/staff/${id}`, { method: 'DELETE' });
+
+export const getSellers = () => request('/sellers');
+export const listInventory = () => request('/inventory');
+export const setInventory = (productId, locationId, quantity) =>
+  request('/inventory', { method: 'PATCH', body: JSON.stringify({ productId, locationId, quantity }) });
+export const createManualOrder = (payload) => request('/orders', { method: 'POST', body: JSON.stringify(payload) });
+
 export const getIntegrationStatus = () => request('/integrations/status');
 
 // Doesn't use request()'s throw-on-!ok: a 503 here means "test ran and
