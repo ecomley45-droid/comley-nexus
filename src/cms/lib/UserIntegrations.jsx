@@ -17,6 +17,12 @@ const OAUTH_STRATEGIES = { google: 'oauth_google', github: 'oauth_github', slack
 const isOAuthProviderId = (id) => id in OAUTH_STRATEGIES;
 const isApiKeyProviderId = (id) => id === 'claude' || id === 'chatgpt';
 
+// Clerk's ExternalAccount.provider can be "google" or "oauth_google"
+// depending on SDK/version; normalize both to the bare id so an
+// already-linked account reads as connected (and Disconnect can find it).
+const accountMatches = (account, id) =>
+  String(account?.provider || '').toLowerCase().replace(/^oauth_/, '') === id;
+
 const INTEGRATIONS = [
   { id: 'google', name: 'Google', note: 'Sign-in identity. Disconnecting signs you out of the app.', signout: true },
   { id: 'github', name: 'GitHub', note: 'Required for the Git Pull page (repos, branches, pulls).' },
@@ -85,7 +91,7 @@ export default function UserIntegrations() {
 
   const statusLoaded = (id) => (isOAuthProviderId(id) ? clerkUser.isLoaded : isApiKeyProviderId(id) ? apiKeyStatusLoaded : true);
   const isConnected = (id) => {
-    if (isOAuthProviderId(id)) return !!user?.externalAccounts?.some((a) => a.provider === OAUTH_STRATEGIES[id]);
+    if (isOAuthProviderId(id)) return !!user?.externalAccounts?.some((a) => accountMatches(a, id));
     if (isApiKeyProviderId(id)) return !!apiKeyStatus[id];
     return !!state[id];
   };
@@ -109,7 +115,7 @@ export default function UserIntegrations() {
     }
   };
   const disconnectOAuth = async (id) => {
-    const account = user?.externalAccounts?.find((a) => a.provider === OAUTH_STRATEGIES[id]);
+    const account = user?.externalAccounts?.find((a) => accountMatches(a, id));
     if (!account) return;
     if (id === 'google' && !window.confirm("Disconnecting Google may sign you out if it's your only sign-in method. Continue?")) return;
     setOauthError('');

@@ -21,6 +21,11 @@ const clerkConfigured = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
 const OAUTH_STRATEGIES = { google: 'oauth_google', github: 'oauth_github', slack: 'oauth_slack' };
 const isOAuthProviderId = (id) => id in OAUTH_STRATEGIES;
 const isApiKeyProviderId = (id) => id === 'claude' || id === 'chatgpt';
+// Clerk reports ExternalAccount.provider as "google" or "oauth_google"
+// depending on version -- normalize both so a linked account reads as
+// connected and Disconnect can find it.
+const accountMatches = (account, id) =>
+  String(account?.provider || '').toLowerCase().replace(/^oauth_/, '') === id;
 
 const PERIODS = [
   { value: 'today', label: 'Today' },
@@ -244,7 +249,7 @@ function IntegrationsSection({ initial, initialAiSettings }) {
   const isApiKeyProvider = isApiKeyProviderId;
 
   const isConnected = (id) => {
-    if (isOAuthProvider(id)) return !!user?.externalAccounts?.some((a) => a.provider === OAUTH_STRATEGIES[id]);
+    if (isOAuthProvider(id)) return !!user?.externalAccounts?.some((a) => accountMatches(a, id));
     if (isApiKeyProvider(id)) return !!apiKeyStatus[id];
     return !!state[id]; // gemini
   };
@@ -277,7 +282,7 @@ function IntegrationsSection({ initial, initialAiSettings }) {
   };
 
   const disconnectOAuth = async (id) => {
-    const account = user?.externalAccounts?.find((a) => a.provider === OAUTH_STRATEGIES[id]);
+    const account = user?.externalAccounts?.find((a) => accountMatches(a, id));
     if (!account) return;
     if (id === 'google' && !window.confirm("Disconnecting Google may sign you out if it's your only sign-in method. Continue?")) return;
     setOauthError('');
