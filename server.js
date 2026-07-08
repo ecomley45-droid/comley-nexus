@@ -1238,7 +1238,29 @@ app.use(async (req, res, next) => {
 
     const renderedHtml = compilePageHtml(page, pages, library, globalSettings, abChoices, `https://${req.headers.host}`);
     const analyticsHosts = process.env.ANALYTICS_HOSTS || '';
-    res.setHeader('Content-Security-Policy', [
+
+    // Full HTML mode is the trusted-author escape hatch: it already bypasses
+    // sanitization, theme, and header/footer injection ("full document
+    // control", requires a workspace admin to save). Those pages are often
+    // hand-authored against runtime tools like the Tailwind Play CDN
+    // (needs 'unsafe-eval' for its in-browser JIT) and call third-party APIs,
+    // which the strict block-page CSP deliberately forbids. So we serve a
+    // looser policy for editorMode==='full-html' ONLY -- every normal
+    // block-based published page keeps the strict, hash-pinned CSP below.
+    const isFullHtml = page.editorMode === 'full-html';
+    res.setHeader('Content-Security-Policy', (isFullHtml ? [
+      `default-src 'self'`,
+      `script-src 'self' 'unsafe-inline' 'unsafe-eval' https: ${analyticsHosts}`.trim(),
+      `style-src 'self' 'unsafe-inline' https:`,
+      `img-src 'self' data: https:`,
+      `media-src 'self' data: blob: https:`,
+      `font-src 'self' data: https:`,
+      `connect-src 'self' https: ${analyticsHosts}`.trim(),
+      `frame-src https:`,
+      `frame-ancestors 'none'`,
+      `base-uri 'self'`,
+      `form-action 'self' https:`,
+    ] : [
       `default-src 'self'`,
       // Inline hashes: Script blocks + inline analytics snippets would be
       // silently blocked by 'self' alone. Hashed per-response, stays strict.
@@ -1257,7 +1279,7 @@ app.use(async (req, res, next) => {
       `frame-ancestors 'none'`,
       `base-uri 'self'`,
       `form-action 'self'`,
-    ].join('; '));
+    ]).join('; '));
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     // CDN caching for published pages: Vercel's edge absorbs repeat views
