@@ -92,7 +92,16 @@ export default function CmsLayout() {
       .catch(() => {});
   }, []);
 
-  const navItems = useMemo(() => rebaseNav(NAV_ITEMS, base), [base]);
+  // Commerce is a real nav item (not the single "extra" slot, which the
+  // Super Admin link owns) so it shows for admins and super-admins alike when
+  // the store is enabled. Enabled via Settings > Workspace > Online store, or
+  // the per-org feature flag.
+  const commerceOn = commerceEnabled || !!me?.org?.feature_flags?.commerce;
+  const navItems = useMemo(() => {
+    const items = rebaseNav(NAV_ITEMS, base);
+    if (commerceOn) items.push({ to: `${base}/commerce`, label: 'Commerce' });
+    return items;
+  }, [base, commerceOn]);
 
   // White-label (Agency tier): a workspace with feature_flags.white_label
   // shows the agency's brand instead of Nexus anywhere in the client-facing
@@ -124,7 +133,7 @@ export default function CmsLayout() {
         logoTo={base}
         logoLabel={logoLabel}
         navItems={navItems}
-        extraNavItem={superAdminExtra || (commerceEnabled ? { to: `${base}/commerce`, label: 'Commerce dashboard →' } : null)}
+        extraNavItem={superAdminExtra}
         searchItems={pages.map((p) => ({ label: p.name, to: `${base}/pages/${p.id}` }))}
         searchPlaceholder="Search pages…"
       />
