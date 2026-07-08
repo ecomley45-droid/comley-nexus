@@ -21,6 +21,8 @@ export const BLOCK_LABELS = {
   'testimonial-grid': 'Testimonial grid', 'team-grid': 'Team grid', 'faq-accordion': 'FAQ accordion',
   'contact-split': 'Contact + form', 'gallery-masonry': 'Masonry gallery', 'cta-split': 'CTA split',
   'blog-cards': 'Blog cards', 'banner-image': 'Image banner',
+  // Parallax + video
+  parallax: 'Parallax banner', 'video-bg': 'Background video', 'video-split': 'Video + text',
 };
 
 export function labelForBlock(blockType) {

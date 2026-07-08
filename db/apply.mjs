@@ -60,6 +60,7 @@ const files = [
   'migrations/016_template_installs.sql',
   'migrations/017_polished_blocks.sql',
   'migrations/018_more_blocks.sql',
+  'migrations/019_parallax_video_blocks.sql',
 ];
 // If you add a new migration, add it here so `node db/apply.mjs` picks
 // it up. Order matters — migrations must remain idempotent.

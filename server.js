@@ -1147,6 +1147,10 @@ app.use(async (req, res, next) => {
       `script-src 'self' ${analyticsHosts} ${inlineScriptHashes(renderedHtml)}`.trim(),
       `style-src 'self' 'unsafe-inline'`,
       `img-src 'self' data: https:`,
+      // Video/Background Video blocks: <video> sources from same-origin,
+      // any https CDN, or inline data/blob. Without this, default-src 'self'
+      // blocks external mp4s (same class of allowance as img-src above).
+      `media-src 'self' data: blob: https:`,
       `font-src 'self' data:`,
       `connect-src 'self' ${analyticsHosts}`,
       // Video Embed block: default-src 'self' was blocking YouTube/Vimeo

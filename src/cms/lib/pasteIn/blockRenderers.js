@@ -936,6 +936,86 @@ export function renderBannerImage(fields) {
 </div>`;
 }
 
+// --- Parallax + video --------------------------------------------------------
+
+// CSS-only parallax: a fixed background image with content on top. No
+// JavaScript (works under the published-page CSP as-is). background-attachment
+// gracefully degrades to a normal scroll on mobile browsers that ignore it.
+export function renderParallax(fields) {
+  const img = fields.images?.[0];
+  const link = fields.links?.[0];
+  const items = fields.items || [];
+  return `<style>
+.px-parallax { position:relative; min-height:420px; display:grid; place-items:center; text-align:center; padding:80px 24px; color:#fff; background-image:linear-gradient(rgba(0,0,0,0.45),rgba(0,0,0,0.55))${img ? `,url('${esc(img.src)}')` : ''}; background-size:cover; background-position:center; background-attachment:fixed; }
+.px-parallax .px-inner { max-width:720px; }
+.px-parallax h2 { font-size:clamp(1.9rem,4vw,3rem); letter-spacing:-0.02em; margin:0 0 14px; }
+.px-parallax p { opacity:.92; font-size:1.15rem; line-height:1.6; margin:0 0 22px; }
+.px-parallax a { display:inline-block; padding:13px 28px; border-radius:12px; background:#fff; color:#111; font-weight:700; text-decoration:none; }
+.px-parallax .px-stats { display:flex; flex-wrap:wrap; gap:36px; justify-content:center; margin-top:8px; }
+.px-parallax .px-stat .px-n { font-size:2.4rem; font-weight:800; letter-spacing:-0.02em; }
+.px-parallax .px-stat .px-l { opacity:.85; font-size:.9rem; }
+</style>
+<div class="px-parallax"><div class="px-inner">
+  ${headingsHtml(fields.headings, 2)}
+  ${textHtml(fields.text)}
+  ${items.length ? `<div class="px-stats">${items.map((it) => `<div class="px-stat"><div class="px-n">${esc(it.heading)}</div><div class="px-l">${esc(it.body)}</div></div>`).join('')}</div>` : ''}
+  ${link ? `<a href="${esc(link.href || '#')}">${esc(link.label || 'Learn more')}</a>` : ''}
+</div></div>`;
+}
+
+// Full-bleed background video hero. Uses a native muted+loop+autoplay <video>
+// (allowed by the sanitizer; external mp4s allowed by the CSP's media-src).
+// `images[0]` is the poster, shown before the video loads and as a graceful
+// fallback when no videoUrl is set.
+export function renderVideoBg(fields) {
+  const poster = fields.images?.[0];
+  const link = fields.links?.[0];
+  const src = fields.videoUrl ? esc(fields.videoUrl) : '';
+  return `<style>
+.px-videobg { position:relative; min-height:460px; display:grid; place-items:center; text-align:center; padding:80px 24px; overflow:hidden; border-radius:0; color:#fff; }
+.px-videobg video, .px-videobg .px-poster { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; }
+.px-videobg::after { content:""; position:absolute; inset:0; background:linear-gradient(rgba(0,0,0,0.4),rgba(0,0,0,0.6)); z-index:1; }
+.px-videobg .px-inner { position:relative; z-index:2; max-width:720px; }
+.px-videobg h2 { font-size:clamp(2rem,4.4vw,3.2rem); letter-spacing:-0.02em; margin:0 0 14px; }
+.px-videobg p { opacity:.92; font-size:1.15rem; line-height:1.6; margin:0 0 22px; }
+.px-videobg a { display:inline-block; padding:13px 28px; border-radius:12px; background:#fff; color:#111; font-weight:700; text-decoration:none; }
+</style>
+<div class="px-videobg">
+  ${src
+    ? `<video autoplay muted loop playsinline ${poster ? `poster="${esc(poster.src)}"` : ''}><source src="${src}" type="video/mp4" /></video>`
+    : (poster ? `<img class="px-poster" src="${esc(poster.src)}" alt="${esc(poster.alt || '')}" />` : '')}
+  <div class="px-inner">
+    ${headingsHtml(fields.headings, 2)}
+    ${textHtml(fields.text)}
+    ${link ? `<a href="${esc(link.href || '#')}">${esc(link.label || 'Watch')}</a>` : ''}
+  </div>
+</div>`;
+}
+
+// Video (YouTube/Vimeo embed) beside a heading + copy + link. Reuses
+// toEmbedUrl so a normal watch/share URL works. Embeds are already allowed by
+// the CSP's frame-src.
+export function renderVideoSplit(fields) {
+  const embed = fields.videoUrl ? esc(toEmbedUrl(fields.videoUrl)) : '';
+  return `<style>
+.px-vsplit { display:grid; grid-template-columns:1.1fr 1fr; gap:44px; align-items:center; max-width:1080px; margin:0 auto; padding:56px 24px; }
+.px-vsplit h2 { font-size:clamp(1.6rem,3vw,2.3rem); letter-spacing:-0.01em; margin:0 0 14px; }
+.px-vsplit p { color:var(--color-muted,#a1a1aa); line-height:1.65; margin:0 0 18px; }
+.px-vsplit a { color:var(--color-link,#a5b4fc); font-weight:600; text-decoration:none; }
+.px-vsplit .px-frame { position:relative; padding-bottom:56.25%; height:0; border-radius:16px; overflow:hidden; background:var(--surface,rgba(127,127,127,0.08)); }
+.px-vsplit .px-frame iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
+@media(max-width:760px){ .px-vsplit{ grid-template-columns:1fr; gap:24px; } }
+</style>
+<div class="px-vsplit">
+  <div>
+    ${headingsHtml(fields.headings, 2)}
+    ${textHtml(fields.text)}
+    ${(fields.links || []).map((l) => `<a href="${esc(l.href || '#')}">${esc(l.label || 'Learn more')} →</a>`).join(' ')}
+  </div>
+  <div class="px-frame">${embed ? `<iframe src="${embed}" title="Video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>` : ''}</div>
+</div>`;
+}
+
 export const BLOCK_RENDERERS = {
   header: renderHeader,
   navigation: renderNavigation,
@@ -990,6 +1070,10 @@ export const BLOCK_RENDERERS = {
   'cta-split': renderCtaSplit,
   'blog-cards': renderBlogCards,
   'banner-image': renderBannerImage,
+  // Parallax + video
+  parallax: renderParallax,
+  'video-bg': renderVideoBg,
+  'video-split': renderVideoSplit,
 };
 
 // Regenerates `html` from `fields` for a given blockType. Returns null for
