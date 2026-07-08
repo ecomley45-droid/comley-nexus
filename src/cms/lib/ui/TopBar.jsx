@@ -3,6 +3,7 @@ import { NavLink, Link, useLocation } from 'react-router-dom';
 import { Menu, X, ChevronDown } from 'lucide-react';
 import { GlassPanel, GlassInput } from './Glass.jsx';
 import ProfileChip from '../ProfileChip.jsx';
+import ThemeToggle from './ThemeToggle.jsx';
 
 // Shared top-bar chrome for CmsLayout and CommerceLayout: logo, a hamburger
 // that opens a slide-over drawer with the full nav list (replacing a
@@ -66,6 +67,7 @@ export default function TopBar({ logoTo, logoLabel, navItems, extraNavItem, sear
 
         <div className="shrink-0 flex items-center gap-2">
           {rightSlot}
+          <ThemeToggle />
           <ProfileChip variant="compact" />
         </div>
       </GlassPanel>

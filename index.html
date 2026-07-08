@@ -6,6 +6,8 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Nexus CMS Workspace</title>
+  <!-- Apply the saved CMS console theme before first paint to avoid a flash. -->
+  <script>try{document.documentElement.dataset.theme=localStorage.getItem('cms-theme')||'dark';}catch(e){document.documentElement.dataset.theme='dark';}</script>
 </head>
 
 <body>
