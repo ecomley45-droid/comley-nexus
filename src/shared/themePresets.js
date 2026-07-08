@@ -59,4 +59,34 @@ export const THEME_PRESETS = [
       fontFamily: 'rounded', fontScale: 'comfortable',
     },
   },
+  // Light presets -- blocks derive their surfaces/borders/on-accent from the
+  // theme (see buildThemeStyleBlock's deriveSurfaceVars), so a light `bg`
+  // flips every block to a light-appropriate look automatically.
+  {
+    id: 'clean-light',
+    name: 'Clean Light',
+    theme: {
+      primary: '#4f46e5', secondary: '#db2777', bg: '#ffffff', text: '#18181b',
+      accent: '#4f46e5', link: '#4f46e5', muted: '#6b7280',
+      fontFamily: 'system', fontScale: 'comfortable',
+    },
+  },
+  {
+    id: 'warm-light',
+    name: 'Warm Light',
+    theme: {
+      primary: '#b45309', secondary: '#9a3412', bg: '#faf6f0', text: '#2b2420',
+      accent: '#c2560c', link: '#b45309', muted: '#8a7c6d',
+      fontFamily: 'serif', fontScale: 'comfortable',
+    },
+  },
+  {
+    id: 'editorial-light',
+    name: 'Editorial Light',
+    theme: {
+      primary: '#111827', secondary: '#6b7280', bg: '#f8f8f6', text: '#1a1a1a',
+      accent: '#111827', link: '#374151', muted: '#6b7280',
+      fontFamily: 'classic', fontScale: 'comfortable',
+    },
+  },
 ];
