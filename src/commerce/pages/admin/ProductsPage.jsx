@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { listProducts, deleteProduct } from '../../lib/api.js';
 import { GlassPanel, GlassButton, Badge } from '../../../cms/lib/ui/Glass.jsx';
+import { useCommerceBase } from '../../lib/useCommerceBase.js';
 
 export default function ProductsPage() {
+  const base = useCommerceBase();
   const [products, setProducts] = useState(null);
   const [error, setError] = useState('');
 
@@ -23,7 +25,7 @@ export default function ProductsPage() {
     <div>
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-semibold">Products</h1>
-        <Link to="/admin/commerce/products/new"><GlassButton>New product</GlassButton></Link>
+        <Link to={`${base}/products/new`}><GlassButton>New product</GlassButton></Link>
       </div>
       {products.length === 0 && <p className="text-zinc-500">No products yet.</p>}
       <GlassPanel className="p-2">
@@ -42,7 +44,7 @@ export default function ProductsPage() {
             {products.map((p) => (
               <tr key={p.id} className="border-b border-white/5 hover:bg-white/5">
                 <td className="py-2 px-2">
-                  <Link to={`/admin/commerce/products/${p.id}`} className="text-glass-sky hover:underline">{p.name}</Link>
+                  <Link to={`${base}/products/${p.id}`} className="text-glass-sky hover:underline">{p.name}</Link>
                 </td>
                 <td className="text-zinc-400">{p.sku}</td>
                 <td className="text-zinc-100">${Number(p.price).toFixed(2)}</td>

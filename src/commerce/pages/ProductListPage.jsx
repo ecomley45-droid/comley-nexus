@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { listProducts, searchProducts } from '../lib/api.js';
 import { GlassShell, GlassPanel, GlassButton, GlassInput } from '../../cms/lib/ui/Glass.jsx';
+import { useCommerceBase } from '../lib/useCommerceBase.js';
 
 export default function ProductListPage() {
+  const base = useCommerceBase();
   const [products, setProducts] = useState([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -39,7 +41,7 @@ export default function ProductListPage() {
         {!loading && products.length === 0 && (
           <p className="text-zinc-500">
             No products yet. Add one via <code>POST /api/commerce/products</code> or the{' '}
-            <Link className="underline text-glass-sky" to="/admin/commerce">admin panel</Link>.
+            <Link className="underline text-glass-sky" to={`${base}`}>admin panel</Link>.
           </p>
         )}
 

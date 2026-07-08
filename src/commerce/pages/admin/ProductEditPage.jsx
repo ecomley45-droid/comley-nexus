@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getProduct, createProduct, updateProduct } from '../../lib/api.js';
 import { GlassPanel, GlassButton, GlassInput, GlassTextarea, GlassSelect } from '../../../cms/lib/ui/Glass.jsx';
+import { useCommerceBase } from '../../lib/useCommerceBase.js';
 
 const EMPTY = { name: '', sku: '', price: '', wholesale_price: '', description: '', inventory: 0, status: 'active', image_url: '' };
 
 export default function ProductEditPage() {
+  const base = useCommerceBase();
   const { id } = useParams();
   const isNew = id === 'new';
   const navigate = useNavigate();
@@ -35,10 +37,10 @@ export default function ProductEditPage() {
     try {
       if (isNew) {
         const { product } = await createProduct(payload);
-        navigate(`/admin/commerce/products/${product.id}`);
+        navigate(`${base}/products/${product.id}`);
       } else {
         await updateProduct(id, payload);
-        navigate('/admin/commerce/products');
+        navigate(`${base}/products`);
       }
     } catch (err) {
       setError(err.message);
@@ -51,7 +53,7 @@ export default function ProductEditPage() {
 
   return (
     <div className="max-w-xl">
-      <Link to="/admin/commerce/products" className="text-sm text-zinc-400 hover:text-white">← Products</Link>
+      <Link to={`${base}/products`} className="text-sm text-zinc-400 hover:text-white">← Products</Link>
       <h1 className="text-2xl font-semibold mt-2 mb-4">{isNew ? 'New product' : 'Edit product'}</h1>
       {error && <p className="text-red-400 mb-2">{error}</p>}
       <GlassPanel className="p-4">

@@ -764,6 +764,9 @@ app.get('/api/public/buy/:productId', buyLimit, async (req, res, next) => {
       }],
       metadata: {
         commerce_item: JSON.stringify({ productId: product.id, variantId: null, quantity, name: product.name, price: product.price }),
+        // Attribute the resulting order to the product's workspace (the
+        // webhook reads this to set order.org_id).
+        org_id: product.org_id || '',
       },
       success_url: `${back}/?purchased=1`,
       cancel_url: req.headers.referer || back,

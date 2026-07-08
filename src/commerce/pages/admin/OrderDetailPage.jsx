@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getOrder, setOrderStatus } from '../../lib/api.js';
 import { GlassPanel, GlassButton, Badge } from '../../../cms/lib/ui/Glass.jsx';
+import { useCommerceBase } from '../../lib/useCommerceBase.js';
 
 const STATUS_TONE = { paid: 'published', pending: 'default', refunded: 'draft', cancelled: 'draft' };
 
 export default function OrderDetailPage() {
+  const base = useCommerceBase();
   const { id } = useParams();
   const [order, setOrder] = useState(null);
   const [error, setError] = useState('');
@@ -31,7 +33,7 @@ export default function OrderDetailPage() {
 
   return (
     <div className="max-w-2xl">
-      <Link to="/admin/commerce/orders" className="text-sm text-zinc-400 hover:text-white">← Orders</Link>
+      <Link to={`${base}/orders`} className="text-sm text-zinc-400 hover:text-white">← Orders</Link>
       <div className="flex justify-between items-start mt-2 mb-4">
         <div>
           <h1 className="text-2xl font-semibold">Order #{order.id.slice(0, 8)}</h1>

@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { listOrders } from '../../lib/api.js';
 import { GlassPanel, Badge } from '../../../cms/lib/ui/Glass.jsx';
+import { useCommerceBase } from '../../lib/useCommerceBase.js';
 
 const STATUS_TONE = { paid: 'published', pending: 'default', refunded: 'draft', cancelled: 'draft' };
 
 export default function OrdersPage() {
+  const base = useCommerceBase();
   const [orders, setOrders] = useState(null);
   const [error, setError] = useState('');
 
@@ -34,7 +36,7 @@ export default function OrdersPage() {
             {orders.map((o) => (
               <tr key={o.id} className="border-b border-white/5 hover:bg-white/5">
                 <td className="py-2 px-2">
-                  <Link to={`/admin/commerce/orders/${o.id}`} className="text-glass-sky hover:underline">#{o.id.slice(0, 8)}</Link>
+                  <Link to={`${base}/orders/${o.id}`} className="text-glass-sky hover:underline">#{o.id.slice(0, 8)}</Link>
                 </td>
                 <td className="text-zinc-300">{o.customer_email || 'guest'}</td>
                 <td className="text-zinc-400">{o.items.reduce((n, i) => n + i.quantity, 0)}</td>

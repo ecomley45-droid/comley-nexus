@@ -6,6 +6,7 @@ import {
   topProductsByRevenue, lowInventoryProducts,
 } from '../../lib/metrics.js';
 import { GlassPanel, Badge } from '../../../cms/lib/ui/Glass.jsx';
+import { useCommerceBase } from '../../lib/useCommerceBase.js';
 
 const STATUS_TONE = { paid: 'published', pending: 'default', refunded: 'draft', cancelled: 'draft' };
 const STATUS_LABEL = { paid: 'Paid', pending: 'Pending', refunded: 'Refunded', cancelled: 'Cancelled' };
@@ -20,6 +21,7 @@ function StatTile({ label, value }) {
 }
 
 export default function HomePage() {
+  const base = useCommerceBase();
   const [orders, setOrders] = useState(null);
   const [customers, setCustomers] = useState(null);
   const [products, setProducts] = useState(null);
@@ -109,7 +111,7 @@ export default function HomePage() {
           {lowStock.length === 0 && <p className="text-zinc-500 text-sm">Nothing running low.</p>}
           {lowStock.map((p) => (
             <div key={p.id} className="flex justify-between text-sm py-1.5 border-b border-white/5 last:border-0">
-              <Link to={`/admin/commerce/products/${p.id}`} className="text-zinc-200 hover:text-glass-sky">{p.name}</Link>
+              <Link to={`${base}/products/${p.id}`} className="text-zinc-200 hover:text-glass-sky">{p.name}</Link>
               <span className={p.inventory === 0 ? 'text-red-400' : 'text-amber-400'}>{p.inventory} left</span>
             </div>
           ))}
@@ -124,7 +126,7 @@ export default function HomePage() {
             {recent.map((o) => (
               <tr key={o.id} className="border-b border-white/5 last:border-0">
                 <td className="py-2 px-2">
-                  <Link to={`/admin/commerce/orders/${o.id}`} className="text-glass-sky hover:underline">#{o.id.slice(0, 8)}</Link>
+                  <Link to={`${base}/orders/${o.id}`} className="text-glass-sky hover:underline">#{o.id.slice(0, 8)}</Link>
                 </td>
                 <td className="text-zinc-400">{o.customer_email || 'guest'}</td>
                 <td className="text-zinc-100">${o.total.toFixed(2)}</td>

@@ -1,36 +1,40 @@
-import { Outlet } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { Outlet, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
 import { listProducts } from '../lib/api.js';
 import { GlassShell } from '../../cms/lib/ui/Glass.jsx';
 import TopBar from '../../cms/lib/ui/TopBar.jsx';
 import FeedbackWidget from '../../cms/lib/FeedbackWidget.jsx';
 
-const NAV_ITEMS = [
-  { to: '/admin/commerce', label: 'Home', end: true },
-  { to: '/admin/commerce/orders', label: 'Orders' },
-  { to: '/admin/commerce/products', label: 'Products' },
-  { to: '/admin/commerce/customers', label: 'Customers' },
-  { to: '/admin/commerce/growth', label: 'Growth' },
-  { to: '/admin/commerce/discounts', label: 'Discounts' },
-  { to: '/admin/commerce/content', label: 'Content' },
-  { to: '/admin/commerce/markets', label: 'Markets' },
-  { to: '/admin/commerce/finance', label: 'Finance' },
-  { to: '/admin/commerce/analytics', label: 'Analytics' },
+const SECTIONS = [
+  { path: '', label: 'Home', end: true },
+  { path: '/orders', label: 'Orders' },
+  { path: '/products', label: 'Products' },
+  { path: '/customers', label: 'Customers' },
+  { path: '/growth', label: 'Growth' },
+  { path: '/discounts', label: 'Discounts' },
+  { path: '/content', label: 'Content' },
+  { path: '/markets', label: 'Markets' },
+  { path: '/finance', label: 'Finance' },
+  { path: '/analytics', label: 'Analytics' },
 ];
 
 export default function CommerceLayout() {
+  const { orgSlug } = useParams();
+  const base = `/${orgSlug}/commerce`;
   const [products, setProducts] = useState([]);
 
   useEffect(() => { listProducts().then(setProducts).catch(() => {}); }, []);
 
+  const navItems = useMemo(() => SECTIONS.map((s) => ({ to: `${base}${s.path}`, label: s.label, end: s.end })), [base]);
+
   return (
     <GlassShell>
       <TopBar
-        logoTo="/admin/commerce"
+        logoTo={base}
         logoLabel="Nexus Commerce"
-        navItems={NAV_ITEMS}
-        extraNavItem={{ to: '/admin', label: '← Back to CMS' }}
-        searchItems={products.map((p) => ({ label: p.name, to: `/admin/commerce/products/${p.id}` }))}
+        navItems={navItems}
+        extraNavItem={{ to: `/${orgSlug}`, label: '← Back to CMS' }}
+        searchItems={products.map((p) => ({ label: p.name, to: `${base}/products/${p.id}` }))}
         searchPlaceholder="Search products…"
       />
       <main className="p-6">
