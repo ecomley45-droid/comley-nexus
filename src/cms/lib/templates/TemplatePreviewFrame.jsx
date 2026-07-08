@@ -25,10 +25,15 @@ body { margin: 0; }
 </head><body>${renderSectionsHtml(sections)}</body></html>`;
 }
 
-export default function TemplatePreviewFrame({ sections = [], theme = {}, height = 220, autoHeight = false, interactive = false }) {
+// `fullHtml`, when provided, is a complete standalone document (a "keep
+// original design" / Full-HTML template page) and is previewed verbatim --
+// its own CSS intact -- instead of rendering sections through the block
+// renderers + theme.
+export default function TemplatePreviewFrame({ sections = [], theme = {}, fullHtml = null, height = 220, autoHeight = false, interactive = false }) {
+  const srcDoc = fullHtml && fullHtml.trim() ? fullHtml : wrap(sections, theme);
   return (
     <ScaledPreviewFrame
-      srcDoc={wrap(sections, theme)}
+      srcDoc={srcDoc}
       baseWidth={1440}
       height={height}
       autoHeight={autoHeight}

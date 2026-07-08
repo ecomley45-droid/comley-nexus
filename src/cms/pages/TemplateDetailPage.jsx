@@ -113,6 +113,7 @@ export default function TemplateDetailPage() {
             <div className="max-h-[75vh] overflow-y-auto">
               <TemplatePreviewFrame
                 sections={pages[activePage]?.sections || []}
+                fullHtml={pages[activePage]?.editorMode === 'full-html' ? pages[activePage].fullHtml : null}
                 theme={theme}
                 height={560}
                 autoHeight
@@ -138,14 +139,22 @@ export default function TemplateDetailPage() {
           )}
 
           <GlassPanel className="p-4">
-            <h2 className="text-xs uppercase tracking-wider text-zinc-500 mb-2">Blocks used</h2>
-            <div className="flex flex-wrap gap-1.5">
-              {blockCounts.map(([type, count]) => (
-                <span key={type} className="text-xs px-2 py-1 rounded-lg bg-white/[0.06] border border-white/10 text-zinc-300">
-                  {labelForBlock(type)}{count > 1 ? ` ×${count}` : ''}
-                </span>
-              ))}
-            </div>
+            <h2 className="text-xs uppercase tracking-wider text-zinc-500 mb-2">
+              {template.summary?.fullHtmlPages > 0 && blockCounts.length === 0 ? 'Format' : 'Blocks used'}
+            </h2>
+            {template.summary?.fullHtmlPages > 0 && blockCounts.length === 0 ? (
+              <p className="text-sm text-zinc-300">
+                Original HTML design — installs pixel-for-pixel from the source, edited as raw HTML rather than blocks.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {blockCounts.map(([type, count]) => (
+                  <span key={type} className="text-xs px-2 py-1 rounded-lg bg-white/[0.06] border border-white/10 text-zinc-300">
+                    {labelForBlock(type)}{count > 1 ? ` ×${count}` : ''}
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="text-[11px] text-zinc-500 mt-3">
               {template.summary?.pageCount} pages · {template.summary?.sectionCount} sections
             </div>

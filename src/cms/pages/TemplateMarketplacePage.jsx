@@ -107,7 +107,7 @@ export default function TemplateMarketplacePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {visible.map((t) => (
                 <GlassPanel key={t.id} className="overflow-hidden flex flex-col">
-                  <TemplatePreviewFrame sections={t.previewSections} theme={t.theme} height={180} />
+                  <TemplatePreviewFrame sections={t.previewSections} theme={t.theme} fullHtml={t.previewFullHtml} height={180} />
                   <div className="p-4 flex flex-col gap-2 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <div className="text-sm font-medium text-zinc-100">{t.name}</div>

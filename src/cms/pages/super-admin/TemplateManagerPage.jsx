@@ -157,7 +157,13 @@ export default function TemplateManagerPage() {
             </div>
             <GlassPanel className="overflow-hidden sticky top-6">
               <div className="max-h-[70vh] overflow-y-auto">
-                <TemplatePreviewFrame sections={previewPages[previewPage]?.sections || []} theme={previewTheme} height={480} autoHeight />
+                <TemplatePreviewFrame
+                  sections={previewPages[previewPage]?.sections || []}
+                  fullHtml={previewPages[previewPage]?.editorMode === 'full-html' ? previewPages[previewPage].fullHtml : null}
+                  theme={previewTheme}
+                  height={480}
+                  autoHeight
+                />
               </div>
             </GlassPanel>
             <p className="text-xs text-zinc-500 mt-2">Live desktop preview of the payload, exactly as it will install.</p>
@@ -190,7 +196,7 @@ export default function TemplateManagerPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {platform.map((t) => (
             <GlassPanel key={t.id} className="overflow-hidden flex flex-col">
-              <TemplatePreviewFrame sections={t.previewSections} theme={t.theme} height={150} />
+              <TemplatePreviewFrame sections={t.previewSections} theme={t.theme} fullHtml={t.previewFullHtml} height={150} />
               <div className="p-4 flex flex-col gap-2 flex-1">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-sm font-medium text-zinc-100">{t.name}</div>
