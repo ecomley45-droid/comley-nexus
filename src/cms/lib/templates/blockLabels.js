@@ -23,6 +23,9 @@ export const BLOCK_LABELS = {
   'blog-cards': 'Blog cards', 'banner-image': 'Image banner',
   // Parallax + video
   parallax: 'Parallax banner', 'video-bg': 'Background video', 'video-split': 'Video + text',
+  // Events, sliders, marquees
+  'events-list': 'Events list', calendar: 'Calendar', 'flyer-slider': 'Flyer slider',
+  'logo-marquee': 'Logo marquee', 'testimonial-marquee': 'Scrolling testimonials',
 };
 
 export function labelForBlock(blockType) {

@@ -17,7 +17,7 @@ const COLLECTION_TYPES = ['card-grid', 'scrolling-cards', 'list', 'stats', 'test
   // Polished block set (item-based)
   'feature-icons', 'steps', 'price-list', 'stat-band', 'quote',
   'checklist', 'feature-rows', 'metric-cards', 'testimonial-grid', 'team-grid', 'faq-accordion', 'blog-cards',
-  'parallax'];
+  'parallax', 'events-list', 'calendar', 'testimonial-marquee'];
 
 function StringListEditor({ label, items, onChange, multiline = false, placeholder }) {
   const Field = multiline ? GlassTextarea : GlassInput;
@@ -364,6 +364,12 @@ export default function StructuredBlockEditor({ section, onChange }) {
         <div className="mb-3">
           <label className="text-xs text-zinc-400 block mb-1">Video URL (YouTube or Vimeo)</label>
           <GlassInput value={fields.videoUrl || ''} onChange={(e) => setFields({ videoUrl: e.target.value })} placeholder="https://www.youtube.com/watch?v=…" className="w-full" />
+        </div>
+      )}
+      {section.blockType === 'calendar' && (
+        <div className="mb-3">
+          <label className="text-xs text-zinc-400 block mb-1">Month to show (YYYY-MM) — items use a YYYY-MM-DD date in their "meta" field</label>
+          <GlassInput type="month" value={fields.month || ''} onChange={(e) => setFields({ month: e.target.value })} className="w-full" />
         </div>
       )}
       {section.blockType === 'video-bg' && (

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { usePagesStore } from '../../lib/usePagesStore.js';
-import { getMe, requestCustomDomain } from '../../lib/api.js';
+import { getMe, requestCustomDomain, getPreferences, savePreferences } from '../../lib/api.js';
 import { GlassPanel, GlassButton, GlassInput, GlassSelect } from '../../lib/ui/Glass.jsx';
 
 // "Workspace" bucket: the identity + operational settings for the org
@@ -42,6 +42,8 @@ export default function WorkspaceSettingsPage() {
           {TIMEZONES.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
         </GlassSelect>
       </GlassPanel>
+
+      <CommerceTogglePanel />
 
       <CustomDomainPanel me={me} onUpdated={setMe} />
 
@@ -99,6 +101,50 @@ export default function WorkspaceSettingsPage() {
         </p>
       </GlassPanel>
     </div>
+  );
+}
+
+// Online store (Commerce) is a per-account opt-in -- the admin console's nav
+// (CmsLayout) shows the Commerce dashboard only when this preference is on.
+// Previously there was no UI to flip it, so the whole storefront/admin was
+// effectively hidden regardless of plan; this is that switch.
+function CommerceTogglePanel() {
+  const [enabled, setEnabled] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    getPreferences()
+      .then((p) => setEnabled(!!p?.integrations?.commerce_enabled))
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, []);
+
+  const toggle = async (value) => {
+    setEnabled(value);
+    setMessage('');
+    try {
+      await savePreferences({ integrations: { commerce_enabled: value } });
+      setMessage(value ? 'Store enabled — reload to see “Commerce dashboard →” in the top nav.' : 'Store hidden.');
+    } catch (e) {
+      setMessage(e.message);
+      setEnabled(!value);
+    }
+  };
+
+  return (
+    <GlassPanel className="p-4 mb-4">
+      <h2 className="font-medium mb-1">Online store</h2>
+      <p className="text-xs text-zinc-500 mb-3">
+        Turn on the built-in store to sell products — it adds a Commerce dashboard
+        (products, orders, customers, checkout) to this workspace.
+      </p>
+      <label className="flex items-center gap-2 text-sm text-zinc-300">
+        <input type="checkbox" disabled={!loaded} checked={enabled} onChange={(e) => toggle(e.target.checked)} className="w-4 h-4" />
+        Enable online store (Commerce)
+      </label>
+      {message && <p className="text-xs text-zinc-400 mt-2">{message}</p>}
+    </GlassPanel>
   );
 }
 

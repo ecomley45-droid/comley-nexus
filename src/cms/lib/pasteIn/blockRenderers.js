@@ -1016,6 +1016,148 @@ export function renderVideoSplit(fields) {
 </div>`;
 }
 
+// --- Events, sliders, marquees -----------------------------------------------
+
+// A clean agenda of upcoming events. Each item: meta = the date/time chip
+// text (e.g. "Fri, Aug 12 · 7pm"), heading = title, body = venue/details,
+// optional link = ticket/details URL.
+export function renderEventsList(fields) {
+  const items = fields.items || [];
+  return `<style>
+.px-events { max-width:820px; margin:0 auto; padding:56px 24px; }
+.px-events .px-head { margin-bottom:24px; }
+.px-events h2 { font-size:clamp(1.6rem,3vw,2.2rem); margin:0 0 8px; }
+.px-event { display:grid; grid-template-columns:auto 1fr auto; gap:18px; align-items:center; padding:18px 0; border-top:1px solid var(--border,rgba(127,127,127,0.18)); }
+.px-event:first-of-type { border-top:0; }
+.px-event .px-date { min-width:96px; text-align:center; padding:10px 12px; border-radius:12px; background:var(--accent-soft,rgba(99,102,241,0.12)); color:var(--color-accent,#6366f1); font-weight:700; font-size:.9rem; line-height:1.2; }
+.px-event .px-title { font-weight:600; font-size:1.1rem; }
+.px-event .px-meta { color:var(--color-muted,#a1a1aa); font-size:.92rem; margin-top:2px; }
+.px-event a { flex:none; padding:9px 18px; border-radius:10px; background:var(--color-accent,#6366f1); color:var(--on-accent,#fff); text-decoration:none; font-weight:600; font-size:.9rem; white-space:nowrap; }
+@media(max-width:560px){ .px-event{ grid-template-columns:auto 1fr; } .px-event a{ grid-column:2; justify-self:start; } }
+</style>
+<div class="px-events">
+  <div class="px-head">${headingsHtml(fields.headings, 2)}${textHtml(fields.text)}</div>
+  ${items.map((it) => `<div class="px-event">
+    <div class="px-date">${esc(it.meta || 'TBD')}</div>
+    <div><div class="px-title">${esc(it.heading)}</div>${it.body ? `<div class="px-meta">${esc(it.body)}</div>` : ''}</div>
+    ${it.link ? `<a href="${esc(it.link)}">Details</a>` : ''}
+  </div>`).join('')}
+</div>`;
+}
+
+// A month calendar. `month` is "YYYY-MM" (defaults to the first event's month,
+// else today's). Events are items whose meta is a "YYYY-MM-DD" date; matching
+// days are highlighted and listed in the agenda below the grid.
+export function renderCalendar(fields) {
+  const items = fields.items || [];
+  const parse = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || '')); return m ? { y: +m[1], mo: +m[2], d: +m[3] } : null; };
+  const events = items.map((it) => ({ ...it, date: parse(it.meta) })).filter((e) => e.date);
+  const mm = /^(\d{4})-(\d{2})/.exec(String(fields.month || ''));
+  const base = mm ? { y: +mm[1], mo: +mm[2] } : (events[0]?.date || (() => { const n = new Date(); return { y: n.getFullYear(), mo: n.getMonth() + 1 }; })());
+  const first = new Date(base.y, base.mo - 1, 1);
+  const startDow = first.getDay();
+  const daysIn = new Date(base.y, base.mo, 0).getDate();
+  const monthName = first.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  const byDay = {};
+  for (const e of events) if (e.date.y === base.y && e.date.mo === base.mo) (byDay[e.date.d] ||= []).push(e.heading);
+  const cells = [];
+  for (let i = 0; i < startDow; i++) cells.push('<div class="px-cell px-empty"></div>');
+  for (let d = 1; d <= daysIn; d++) {
+    const has = byDay[d];
+    cells.push(`<div class="px-cell${has ? ' px-has' : ''}"><span class="px-d">${d}</span>${has ? `<span class="px-dot"></span><span class="px-ev">${esc(has[0])}</span>` : ''}</div>`);
+  }
+  const dows = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  return `<style>
+.px-cal { max-width:860px; margin:0 auto; padding:48px 24px; }
+.px-cal .px-calhead { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+.px-cal h2 { margin:0; font-size:clamp(1.4rem,2.6vw,1.9rem); }
+.px-cal .px-month { color:var(--color-accent,#6366f1); font-weight:700; }
+.px-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+.px-dow { text-align:center; font-size:.72rem; text-transform:uppercase; letter-spacing:.04em; color:var(--color-muted,#a1a1aa); padding:4px 0; }
+.px-cell { min-height:74px; border:1px solid var(--border,rgba(127,127,127,0.16)); border-radius:10px; padding:6px 8px; position:relative; background:var(--surface,rgba(127,127,127,0.03)); }
+.px-cell.px-empty { border:0; background:transparent; }
+.px-cell .px-d { font-size:.8rem; color:var(--color-muted,#a1a1aa); }
+.px-cell.px-has { background:var(--accent-soft,rgba(99,102,241,0.12)); border-color:var(--color-accent,#6366f1); }
+.px-cell.px-has .px-d { color:var(--color-text,#e2e8f0); font-weight:700; }
+.px-cell .px-dot { position:absolute; top:8px; right:8px; width:7px; height:7px; border-radius:50%; background:var(--color-accent,#6366f1); }
+.px-cell .px-ev { display:block; margin-top:4px; font-size:.72rem; line-height:1.2; overflow:hidden; }
+.px-agenda { margin-top:20px; display:flex; flex-direction:column; gap:8px; }
+.px-agenda .px-arow { display:flex; gap:12px; font-size:.92rem; }
+.px-agenda .px-adate { color:var(--color-accent,#6366f1); font-weight:700; min-width:64px; }
+</style>
+<div class="px-cal">
+  <div class="px-calhead">${headingsHtml(fields.headings, 2) || '<h2>Events</h2>'}<span class="px-month">${esc(monthName)}</span></div>
+  <div class="px-grid">${dows.map((d) => `<div class="px-dow">${d}</div>`).join('')}${cells.join('')}</div>
+  ${events.length ? `<div class="px-agenda">${events.slice(0, 12).map((e) => `<div class="px-arow"><span class="px-adate">${e.date.mo}/${e.date.d}</span><span>${esc(e.heading)}</span></div>`).join('')}</div>` : ''}
+</div>`;
+}
+
+// A swipeable flyer/poster slider (CSS scroll-snap, no JS). Each image is a
+// slide; alt doubles as an optional caption.
+export function renderFlyerSlider(fields) {
+  const images = fields.images || [];
+  return `<style>
+.px-slider-wrap { max-width:1100px; margin:0 auto; padding:40px 24px; }
+.px-slider-wrap h2 { margin:0 0 16px; }
+.px-slider { display:flex; gap:16px; overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:10px; -webkit-overflow-scrolling:touch; }
+.px-slide { flex:0 0 auto; width:min(78%,340px); scroll-snap-align:center; }
+.px-slide img { width:100%; border-radius:16px; display:block; box-shadow:0 8px 30px rgba(0,0,0,0.18); }
+.px-slide figcaption { text-align:center; color:var(--color-muted,#a1a1aa); font-size:.9rem; margin-top:8px; }
+.px-slider-hint { text-align:center; color:var(--color-muted,#a1a1aa); font-size:.8rem; margin-top:6px; }
+</style>
+<div class="px-slider-wrap">
+  ${headingsHtml(fields.headings, 2)}
+  <div class="px-slider">
+    ${images.map((im) => `<figure class="px-slide"><img src="${esc(im.src)}" alt="${esc(im.alt || '')}" />${im.alt ? `<figcaption>${esc(im.alt)}</figcaption>` : ''}</figure>`).join('')}
+  </div>
+  <div class="px-slider-hint">← swipe / scroll →</div>
+</div>`;
+}
+
+// An auto-scrolling logo strip (CSS animation, no JS). The set is duplicated
+// so the loop is seamless.
+export function renderLogoMarquee(fields) {
+  const images = fields.images || [];
+  const strip = [...images, ...images];
+  return `<style>
+.px-lm { padding:32px 0; overflow:hidden; }
+.px-lm .px-head { text-align:center; color:var(--color-muted,#a1a1aa); font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; margin-bottom:18px; }
+.px-lm-track { display:flex; gap:56px; width:max-content; animation:px-marquee 28s linear infinite; align-items:center; }
+.px-lm-track img { height:34px; filter:grayscale(1); opacity:.7; }
+@keyframes px-marquee { from{ transform:translateX(0);} to{ transform:translateX(-50%);} }
+</style>
+<div class="px-lm">
+  ${(fields.headings || [])[0] ? `<div class="px-head">${esc(fields.headings[0])}</div>` : ''}
+  <div class="px-lm-track">${strip.map((im) => `<img src="${esc(im.src)}" alt="${esc(im.alt || '')}" />`).join('')}</div>
+</div>`;
+}
+
+// Auto-scrolling testimonial cards (CSS animation, no JS). item: heading =
+// name, meta = role, body = quote, image = avatar.
+export function renderTestimonialMarquee(fields) {
+  const items = fields.items || [];
+  const strip = [...items, ...items];
+  return `<style>
+.px-tm-wrap { padding:48px 0; overflow:hidden; }
+.px-tm-wrap .px-head { text-align:center; margin:0 24px 24px; }
+.px-tm-track { display:flex; gap:16px; width:max-content; animation:px-tmarquee 40s linear infinite; }
+.px-tm-wrap:hover .px-tm-track { animation-play-state:paused; }
+.px-tmc { flex:0 0 auto; width:320px; padding:22px; border-radius:16px; border:1px solid var(--border,rgba(127,127,127,0.18)); background:var(--surface,rgba(127,127,127,0.05)); }
+.px-tmc .px-q { line-height:1.6; margin:0 0 14px; }
+.px-tmc .px-who { display:flex; gap:10px; align-items:center; }
+.px-tmc .px-who img { width:38px; height:38px; border-radius:50%; object-fit:cover; }
+.px-tmc .px-n { font-weight:600; font-size:.92rem; }
+.px-tmc .px-r { color:var(--color-muted,#a1a1aa); font-size:.82rem; }
+@keyframes px-tmarquee { from{ transform:translateX(0);} to{ transform:translateX(-50%);} }
+</style>
+<div class="px-tm-wrap">
+  <div class="px-head">${headingsHtml(fields.headings, 2)}</div>
+  <div class="px-tm-track">
+    ${strip.map((it) => `<div class="px-tmc"><p class="px-q">${esc(it.body)}</p><div class="px-who">${it.image ? `<img src="${esc(it.image)}" alt="" />` : ''}<div><div class="px-n">${esc(it.heading)}</div>${it.meta ? `<div class="px-r">${esc(it.meta)}</div>` : ''}</div></div></div>`).join('')}
+  </div>
+</div>`;
+}
+
 export const BLOCK_RENDERERS = {
   header: renderHeader,
   navigation: renderNavigation,
@@ -1074,6 +1216,12 @@ export const BLOCK_RENDERERS = {
   parallax: renderParallax,
   'video-bg': renderVideoBg,
   'video-split': renderVideoSplit,
+  // Events, sliders, marquees
+  'events-list': renderEventsList,
+  calendar: renderCalendar,
+  'flyer-slider': renderFlyerSlider,
+  'logo-marquee': renderLogoMarquee,
+  'testimonial-marquee': renderTestimonialMarquee,
 };
 
 // Regenerates `html` from `fields` for a given blockType. Returns null for
