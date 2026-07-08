@@ -637,6 +637,305 @@ export function renderCtaBand(fields) {
 </div></div>`;
 }
 
+// --- Expanded polished set: more ready-made section variations ---------------
+
+export function renderHeroCentered(fields) {
+  const img = fields.images?.[0];
+  return `<style>
+.px-heroc { max-width:840px; margin:0 auto; padding:88px 24px; text-align:center; }
+.px-heroc h1 { font-size:clamp(2.2rem,5vw,3.6rem); line-height:1.05; letter-spacing:-0.02em; margin:0 0 18px; }
+.px-heroc p { color:var(--color-muted,#a1a1aa); font-size:1.15rem; line-height:1.6; margin:0 auto 26px; max-width:52ch; }
+.px-heroc .px-actions a { display:inline-block; margin:6px; padding:13px 28px; border-radius:12px; text-decoration:none; font-weight:600; }
+.px-heroc .px-actions a:first-child { background:var(--color-accent,#6366f1); color:var(--on-accent,#fff); }
+.px-heroc .px-actions a+a { border:1px solid var(--border,rgba(127,127,127,0.25)); color:var(--color-text,#e2e8f0); }
+.px-heroc .px-media { margin-top:44px; }
+.px-heroc .px-media img { width:100%; border-radius:20px; }
+</style>
+<div class="px-heroc">
+  ${headingsHtml(fields.headings, 1)}
+  ${textHtml(fields.text)}
+  <div class="px-actions">${(fields.links || []).map((l) => `<a href="${esc(l.href || '#')}">${esc(l.label || 'Learn more')}</a>`).join('')}</div>
+  ${img ? `<div class="px-media"><img src="${esc(img.src)}" alt="${esc(img.alt || '')}" /></div>` : ''}
+</div>`;
+}
+
+export function renderAnnouncement(fields) {
+  const link = fields.links?.[0];
+  return `<style>
+.px-announce { background:var(--color-accent,#6366f1); color:var(--on-accent,#fff); text-align:center; padding:10px 16px; font-size:.92rem; }
+.px-announce a { color:var(--on-accent,#fff); font-weight:700; text-decoration:underline; margin-left:6px; }
+</style>
+<div class="px-announce">${esc((fields.text || [])[0] || '')}${link ? `<a href="${esc(link.href || '#')}">${esc(link.label || 'Learn more')} →</a>` : ''}</div>`;
+}
+
+export function renderChecklist(fields) {
+  const items = fields.items || [];
+  return `<style>
+.px-checklist { max-width:900px; margin:0 auto; padding:56px 24px; }
+.px-checklist .px-head { text-align:center; margin-bottom:32px; }
+.px-checklist h2 { font-size:clamp(1.6rem,3vw,2.2rem); margin:0 0 8px; }
+.px-check-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px 32px; }
+.px-check { display:flex; gap:12px; align-items:flex-start; }
+.px-check .px-tick { flex:none; width:24px; height:24px; border-radius:50%; display:grid; place-items:center; background:var(--accent-soft,rgba(99,102,241,0.14)); color:var(--color-accent,#6366f1); font-weight:800; font-size:.75rem; }
+.px-check .px-t { font-weight:600; }
+.px-check .px-d { color:var(--color-muted,#a1a1aa); font-size:.9rem; margin-top:2px; }
+</style>
+<div class="px-checklist">
+  <div class="px-head">${headingsHtml(fields.headings, 2)}${textHtml(fields.text)}</div>
+  <div class="px-check-grid">
+    ${items.map((it) => `<div class="px-check"><span class="px-tick">✓</span><div><div class="px-t">${esc(it.heading)}</div>${it.body ? `<div class="px-d">${esc(it.body)}</div>` : ''}</div></div>`).join('')}
+  </div>
+</div>`;
+}
+
+export function renderFeatureRows(fields) {
+  const items = fields.items || [];
+  return `<style>
+.px-frows { max-width:1040px; margin:0 auto; padding:40px 24px; }
+.px-frow { display:grid; grid-template-columns:1fr 1fr; gap:44px; align-items:center; padding:32px 0; }
+.px-frow:nth-of-type(even) .px-media { order:2; }
+.px-frow .px-media img { width:100%; border-radius:16px; aspect-ratio:4/3; object-fit:cover; }
+.px-frow h3 { font-size:clamp(1.3rem,2.4vw,1.7rem); margin:0 0 10px; letter-spacing:-0.01em; }
+.px-frow p { color:var(--color-muted,#a1a1aa); line-height:1.65; margin:0; }
+@media(max-width:720px){ .px-frow{ grid-template-columns:1fr; gap:20px; } .px-frow .px-media{ order:-1 !important; } }
+</style>
+<div class="px-frows">
+  ${items.map((it) => `<div class="px-frow">
+    <div class="px-media">${it.image ? `<img src="${esc(it.image)}" alt="" />` : ''}</div>
+    <div><h3>${esc(it.heading)}</h3><p>${esc(it.body)}</p></div>
+  </div>`).join('')}
+</div>`;
+}
+
+export function renderMetricCards(fields) {
+  const items = fields.items || [];
+  return `<style>
+.px-metrics { max-width:1080px; margin:0 auto; padding:56px 24px; }
+.px-metrics .px-head { text-align:center; margin-bottom:32px; }
+.px-metric-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:16px; }
+.px-metric { padding:26px; border-radius:16px; border:1px solid var(--border,rgba(127,127,127,0.18)); background:var(--surface,rgba(127,127,127,0.05)); }
+.px-metric .px-n { font-size:2.2rem; font-weight:800; letter-spacing:-0.02em; color:var(--color-accent,#6366f1); }
+.px-metric .px-l { font-weight:600; margin-top:4px; }
+.px-metric .px-s { color:var(--color-muted,#a1a1aa); font-size:.9rem; margin-top:4px; }
+</style>
+<div class="px-metrics">
+  <div class="px-head">${headingsHtml(fields.headings, 2)}</div>
+  <div class="px-metric-grid">
+    ${items.map((it) => `<div class="px-metric"><div class="px-n">${esc(it.heading)}</div><div class="px-l">${esc(it.body)}</div>${it.meta ? `<div class="px-s">${esc(it.meta)}</div>` : ''}</div>`).join('')}
+  </div>
+</div>`;
+}
+
+export function renderPricingCards(fields) {
+  const plans = fields.plans || [];
+  return `<style>
+.px-pricing { max-width:1080px; margin:0 auto; padding:56px 24px; }
+.px-pricing .px-head { text-align:center; margin-bottom:36px; }
+.px-pricing-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:18px; align-items:stretch; }
+.px-plan { display:flex; flex-direction:column; padding:28px; border-radius:18px; border:1px solid var(--border,rgba(127,127,127,0.18)); background:var(--surface,rgba(127,127,127,0.04)); }
+.px-plan.px-hot { border-color:var(--color-accent,#6366f1); box-shadow:0 0 0 1px var(--color-accent,#6366f1) inset; position:relative; }
+.px-plan .px-badge { position:absolute; top:-11px; left:50%; transform:translateX(-50%); background:var(--color-accent,#6366f1); color:var(--on-accent,#fff); font-size:.7rem; font-weight:700; padding:4px 12px; border-radius:999px; letter-spacing:.04em; }
+.px-plan .px-name { font-weight:700; }
+.px-plan .px-price { font-size:2.4rem; font-weight:800; letter-spacing:-0.02em; margin:8px 0 2px; }
+.px-plan .px-per { color:var(--color-muted,#a1a1aa); font-size:.9rem; }
+.px-plan ul { list-style:none; padding:0; margin:18px 0; display:flex; flex-direction:column; gap:9px; font-size:.95rem; }
+.px-plan li { display:flex; gap:8px; }
+.px-plan li::before { content:"✓"; color:var(--color-accent,#6366f1); font-weight:800; }
+.px-plan a { margin-top:auto; text-align:center; padding:12px; border-radius:12px; text-decoration:none; font-weight:600; background:var(--color-accent,#6366f1); color:var(--on-accent,#fff); }
+.px-plan:not(.px-hot) a { background:var(--surface-strong,rgba(127,127,127,0.1)); color:var(--color-text,#e2e8f0); border:1px solid var(--border,rgba(127,127,127,0.2)); }
+</style>
+<div class="px-pricing">
+  <div class="px-head">${headingsHtml(fields.headings, 2)}${textHtml(fields.text)}</div>
+  <div class="px-pricing-grid">
+    ${plans.map((p) => `<div class="px-plan${p.highlighted ? ' px-hot' : ''}">
+      ${p.highlighted ? '<span class="px-badge">Most popular</span>' : ''}
+      <div class="px-name">${esc(p.name)}</div>
+      <div class="px-price">${esc(p.price)}<span class="px-per"> ${esc(p.period || '')}</span></div>
+      <ul>${(p.features || []).map((f) => `<li>${esc(f)}</li>`).join('')}</ul>
+      <a href="${esc(p.ctaHref || '#')}">${esc(p.ctaLabel || 'Choose plan')}</a>
+    </div>`).join('')}
+  </div>
+</div>`;
+}
+
+export function renderTestimonialGrid(fields) {
+  const items = fields.items || [];
+  return `<style>
+.px-tgrid { max-width:1080px; margin:0 auto; padding:56px 24px; }
+.px-tgrid .px-head { text-align:center; margin-bottom:32px; }
+.px-tgrid-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:18px; }
+.px-tcard { padding:26px; border-radius:16px; border:1px solid var(--border,rgba(127,127,127,0.18)); background:var(--surface,rgba(127,127,127,0.05)); }
+.px-tcard .px-stars { color:var(--color-accent,#6366f1); letter-spacing:2px; margin-bottom:12px; }
+.px-tcard .px-body { line-height:1.6; margin:0 0 18px; }
+.px-tcard .px-who { display:flex; gap:12px; align-items:center; }
+.px-tcard .px-who img { width:42px; height:42px; border-radius:50%; object-fit:cover; }
+.px-tcard .px-name { font-weight:600; }
+.px-tcard .px-role { color:var(--color-muted,#a1a1aa); font-size:.85rem; }
+</style>
+<div class="px-tgrid">
+  <div class="px-head">${headingsHtml(fields.headings, 2)}</div>
+  <div class="px-tgrid-grid">
+    ${items.map((it) => `<div class="px-tcard">
+      <div class="px-stars">★★★★★</div>
+      <p class="px-body">${esc(it.body)}</p>
+      <div class="px-who">${it.image ? `<img src="${esc(it.image)}" alt="" />` : ''}<div><div class="px-name">${esc(it.heading)}</div>${it.meta ? `<div class="px-role">${esc(it.meta)}</div>` : ''}</div></div>
+    </div>`).join('')}
+  </div>
+</div>`;
+}
+
+export function renderTeamGrid(fields) {
+  const items = fields.items || [];
+  return `<style>
+.px-team { max-width:1080px; margin:0 auto; padding:56px 24px; }
+.px-team .px-head { text-align:center; margin-bottom:32px; }
+.px-team-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:20px; }
+.px-tm { text-align:center; }
+.px-tm img { width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:16px; margin-bottom:12px; }
+.px-tm .px-name { font-weight:600; }
+.px-tm .px-role { color:var(--color-accent,#6366f1); font-size:.85rem; }
+.px-tm .px-bio { color:var(--color-muted,#a1a1aa); font-size:.9rem; margin-top:6px; }
+</style>
+<div class="px-team">
+  <div class="px-head">${headingsHtml(fields.headings, 2)}</div>
+  <div class="px-team-grid">
+    ${items.map((it) => `<div class="px-tm">${it.image ? `<img src="${esc(it.image)}" alt="${esc(it.heading || '')}" />` : ''}<div class="px-name">${esc(it.heading)}</div>${it.meta ? `<div class="px-role">${esc(it.meta)}</div>` : ''}${it.body ? `<div class="px-bio">${esc(it.body)}</div>` : ''}</div>`).join('')}
+  </div>
+</div>`;
+}
+
+export function renderFaqAccordion(fields) {
+  const items = fields.items || [];
+  return `<style>
+.px-faq { max-width:760px; margin:0 auto; padding:56px 24px; }
+.px-faq h2 { text-align:center; margin:0 0 28px; font-size:clamp(1.6rem,3vw,2.2rem); }
+.px-faq details { border:1px solid var(--border,rgba(127,127,127,0.18)); border-radius:14px; padding:16px 20px; margin-bottom:10px; background:var(--surface,rgba(127,127,127,0.04)); }
+.px-faq summary { cursor:pointer; font-weight:600; list-style:none; display:flex; justify-content:space-between; align-items:center; }
+.px-faq summary::-webkit-details-marker { display:none; }
+.px-faq summary::after { content:"+"; color:var(--color-accent,#6366f1); font-size:1.4rem; font-weight:400; line-height:1; }
+.px-faq details[open] summary::after { content:"–"; }
+.px-faq p { margin:12px 0 0; color:var(--color-muted,#a1a1aa); line-height:1.6; }
+</style>
+<div class="px-faq">
+  ${headingsHtml(fields.headings, 2)}
+  ${items.map((it) => `<details><summary>${esc(it.heading)}</summary><p>${esc(it.body)}</p></details>`).join('')}
+</div>`;
+}
+
+export function renderContactSplit(fields) {
+  return `<style>${FORM_STYLE}
+.px-contact { display:grid; grid-template-columns:1fr 1fr; gap:44px; max-width:1000px; margin:0 auto; padding:56px 24px; align-items:start; }
+.px-contact h2 { font-size:clamp(1.6rem,3vw,2.2rem); margin:0 0 12px; }
+.px-contact .px-info p { color:var(--color-muted,#a1a1aa); line-height:1.6; }
+.px-contact .px-info a { display:block; color:var(--color-link,#a5b4fc); text-decoration:none; margin-top:6px; }
+.px-contact .nx-form { margin:0; padding:0; max-width:none; }
+@media(max-width:720px){ .px-contact{ grid-template-columns:1fr; gap:28px; } }
+</style>
+<div class="px-contact">
+  <div class="px-info">
+    ${headingsHtml(fields.headings, 2)}
+    ${textHtml(fields.text)}
+    ${(fields.links || []).map((l) => `<a href="${esc(l.href || '#')}">${esc(l.label || l.href)}</a>`).join('')}
+  </div>
+  <div class="nx-form">
+    <form action="/api/public/forms" method="POST">
+      <input type="hidden" name="_form" value="Contact form" />
+      <input type="text" name="_hp" class="nx-hp" tabindex="-1" autocomplete="off" />
+      <label for="pxc-name">Name</label>
+      <input type="text" id="pxc-name" name="name" required />
+      <label for="pxc-email">Email</label>
+      <input type="email" id="pxc-email" name="email" required />
+      <label for="pxc-msg">Message</label>
+      <textarea id="pxc-msg" name="message" rows="4" required></textarea>
+      <button type="submit">Send message</button>
+    </form>
+  </div>
+</div>`;
+}
+
+export function renderGalleryMasonry(fields) {
+  const images = fields.images || [];
+  return `<style>
+.px-masonry-wrap { max-width:1100px; margin:0 auto; padding:40px 24px; }
+.px-masonry-wrap h2 { text-align:center; margin:0 0 24px; }
+.px-masonry { column-count:3; column-gap:14px; }
+.px-masonry img { width:100%; margin:0 0 14px; border-radius:12px; break-inside:avoid; display:block; }
+@media(max-width:820px){ .px-masonry{ column-count:2; } }
+@media(max-width:480px){ .px-masonry{ column-count:1; } }
+</style>
+<div class="px-masonry-wrap">
+  ${headingsHtml(fields.headings, 2)}
+  <div class="px-masonry">${images.map((im) => `<img src="${esc(im.src)}" alt="${esc(im.alt || '')}" />`).join('')}</div>
+</div>`;
+}
+
+export function renderCtaSplit(fields) {
+  const link = fields.links?.[0];
+  return `<style>
+.px-ctasplit { max-width:1080px; margin:0 auto; padding:24px; }
+.px-ctasplit .px-inner { display:flex; flex-wrap:wrap; gap:20px; align-items:center; justify-content:space-between; padding:36px 32px; border-radius:20px; background:var(--accent-soft,rgba(99,102,241,0.12)); border:1px solid var(--border,rgba(127,127,127,0.18)); }
+.px-ctasplit h2 { margin:0 0 4px; font-size:clamp(1.4rem,2.6vw,1.9rem); }
+.px-ctasplit p { margin:0; color:var(--color-muted,#a1a1aa); }
+.px-ctasplit a { flex:none; padding:14px 30px; border-radius:12px; background:var(--color-accent,#6366f1); color:var(--on-accent,#fff); font-weight:700; text-decoration:none; }
+</style>
+<div class="px-ctasplit"><div class="px-inner">
+  <div>${headingsHtml(fields.headings, 2)}${textHtml(fields.text)}</div>
+  ${link ? `<a href="${esc(link.href || '#')}">${esc(link.label || 'Get started')}</a>` : ''}
+</div></div>`;
+}
+
+export function renderBlogCards(fields) {
+  const items = fields.items || [];
+  return `<style>
+.px-blog { max-width:1080px; margin:0 auto; padding:56px 24px; }
+.px-blog .px-head { margin-bottom:28px; }
+.px-blog-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:20px; }
+.px-post { border-radius:16px; overflow:hidden; border:1px solid var(--border,rgba(127,127,127,0.18)); background:var(--surface,rgba(127,127,127,0.04)); display:flex; flex-direction:column; }
+.px-post img { width:100%; aspect-ratio:16/9; object-fit:cover; }
+.px-post .px-body { padding:20px; display:flex; flex-direction:column; gap:8px; flex:1; }
+.px-post .px-meta { color:var(--color-accent,#6366f1); font-size:.8rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+.px-post h3 { margin:0; font-size:1.15rem; }
+.px-post p { margin:0; color:var(--color-muted,#a1a1aa); font-size:.95rem; line-height:1.55; flex:1; }
+.px-post a { color:var(--color-link,#a5b4fc); font-weight:600; text-decoration:none; }
+</style>
+<div class="px-blog">
+  <div class="px-head">${headingsHtml(fields.headings, 2)}</div>
+  <div class="px-blog-grid">
+    ${items.map((it) => `<div class="px-post">
+      ${it.image ? `<img src="${esc(it.image)}" alt="" />` : ''}
+      <div class="px-body">
+        ${it.meta ? `<div class="px-meta">${esc(it.meta)}</div>` : ''}
+        <h3>${esc(it.heading)}</h3>
+        <p>${esc(it.body)}</p>
+        ${it.link ? `<a href="${esc(it.link)}">Read more →</a>` : ''}
+      </div>
+    </div>`).join('')}
+  </div>
+</div>`;
+}
+
+export function renderBannerImage(fields) {
+  const img = fields.images?.[0];
+  const link = fields.links?.[0];
+  return `<style>
+.px-bannerimg { position:relative; max-width:1120px; margin:24px auto; min-height:360px; display:grid; place-items:center; text-align:center; border-radius:20px; overflow:hidden; padding:48px 24px; }
+.px-bannerimg > img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; }
+.px-bannerimg::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg,rgba(0,0,0,0.3),rgba(0,0,0,0.6)); z-index:1; }
+.px-bannerimg .px-inner { position:relative; z-index:2; color:#fff; max-width:640px; }
+.px-bannerimg h2 { font-size:clamp(1.8rem,4vw,2.8rem); margin:0 0 12px; letter-spacing:-0.02em; }
+.px-bannerimg p { opacity:.92; margin:0 0 22px; font-size:1.1rem; }
+.px-bannerimg a { display:inline-block; padding:13px 28px; border-radius:12px; background:#fff; color:#111; font-weight:700; text-decoration:none; }
+</style>
+<div class="px-bannerimg">
+  ${img ? `<img src="${esc(img.src)}" alt="${esc(img.alt || '')}" />` : ''}
+  <div class="px-inner">
+    ${headingsHtml(fields.headings, 2)}
+    ${textHtml(fields.text)}
+    ${link ? `<a href="${esc(link.href || '#')}">${esc(link.label || 'Learn more')}</a>` : ''}
+  </div>
+</div>`;
+}
+
 export const BLOCK_RENDERERS = {
   header: renderHeader,
   navigation: renderNavigation,
@@ -676,6 +975,21 @@ export const BLOCK_RENDERERS = {
   'stat-band': renderStatBand,
   quote: renderQuote,
   'cta-band': renderCtaBand,
+  // Expanded polished set
+  'hero-centered': renderHeroCentered,
+  announcement: renderAnnouncement,
+  checklist: renderChecklist,
+  'feature-rows': renderFeatureRows,
+  'metric-cards': renderMetricCards,
+  'pricing-cards': renderPricingCards,
+  'testimonial-grid': renderTestimonialGrid,
+  'team-grid': renderTeamGrid,
+  'faq-accordion': renderFaqAccordion,
+  'contact-split': renderContactSplit,
+  'gallery-masonry': renderGalleryMasonry,
+  'cta-split': renderCtaSplit,
+  'blog-cards': renderBlogCards,
+  'banner-image': renderBannerImage,
 };
 
 // Regenerates `html` from `fields` for a given blockType. Returns null for

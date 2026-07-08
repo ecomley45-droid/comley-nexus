@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { GlassPanel, GlassButton } from '../ui/Glass.jsx';
-import { FONT_STACKS, FONT_SCALES } from '../../../shared/theme.js';
+import { FONT_STACKS, FONT_SCALES, isLightTheme } from '../../../shared/theme.js';
 import { THEME_PRESETS } from '../../../shared/themePresets.js';
 import { buildMockupHtml } from './themeMockup.js';
 import ScaledPreviewFrame from '../ScaledPreviewFrame.jsx';
@@ -32,11 +32,25 @@ const COLOR_FIELDS = [
 ];
 
 function PresetStep({ theme, onPick }) {
+  const [mode, setMode] = useState('all'); // all | light | dark
+  const presets = THEME_PRESETS.filter((p) =>
+    mode === 'all' ? true : (mode === 'light' ? isLightTheme(p.theme) : !isLightTheme(p.theme)));
   return (
     <>
-      <p className="text-sm text-zinc-400 mb-4">Pick a starting point -- you can change anything after.</p>
+      <p className="text-sm text-zinc-400 mb-3">Pick a starting point -- you can change anything after.</p>
+      <div className="inline-flex mb-4 p-0.5 rounded-lg bg-white/[0.05] border border-white/10">
+        {['all', 'light', 'dark'].map((m) => (
+          <button
+            key={m}
+            onClick={() => setMode(m)}
+            className={`text-xs capitalize px-3 py-1 rounded-md transition ${mode === m ? 'bg-white/15 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
+          >
+            {m}
+          </button>
+        ))}
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {THEME_PRESETS.map((preset) => (
+        {presets.map((preset) => (
           <button
             key={preset.id}
             onClick={() => onPick(preset.theme)}

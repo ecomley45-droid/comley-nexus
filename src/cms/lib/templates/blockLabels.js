@@ -15,6 +15,12 @@ export const BLOCK_LABELS = {
   'hero-split': 'Split hero', 'split-content': 'Image + text', 'feature-icons': 'Feature tiles',
   steps: 'How it works', 'price-list': 'Price list', 'stat-band': 'Stat band',
   quote: 'Pull quote', 'cta-band': 'CTA band',
+  // Expanded polished set
+  'hero-centered': 'Centered hero', announcement: 'Announcement bar', checklist: 'Checklist',
+  'feature-rows': 'Feature rows', 'metric-cards': 'Metric cards', 'pricing-cards': 'Pricing cards',
+  'testimonial-grid': 'Testimonial grid', 'team-grid': 'Team grid', 'faq-accordion': 'FAQ accordion',
+  'contact-split': 'Contact + form', 'gallery-masonry': 'Masonry gallery', 'cta-split': 'CTA split',
+  'blog-cards': 'Blog cards', 'banner-image': 'Image banner',
 };
 
 export function labelForBlock(blockType) {

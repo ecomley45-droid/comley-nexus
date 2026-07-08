@@ -15,7 +15,8 @@ import BlockCatalogPicker from '../blocks/BlockCatalogPicker.jsx';
 
 const COLLECTION_TYPES = ['card-grid', 'scrolling-cards', 'list', 'stats', 'testimonials', 'team', 'faq', 'tabs',
   // Polished block set (item-based)
-  'feature-icons', 'steps', 'price-list', 'stat-band', 'quote'];
+  'feature-icons', 'steps', 'price-list', 'stat-band', 'quote',
+  'checklist', 'feature-rows', 'metric-cards', 'testimonial-grid', 'team-grid', 'faq-accordion', 'blog-cards'];
 
 function StringListEditor({ label, items, onChange, multiline = false, placeholder }) {
   const Field = multiline ? GlassTextarea : GlassInput;
@@ -355,7 +356,7 @@ export default function StructuredBlockEditor({ section, onChange }) {
       {COLLECTION_TYPES.includes(section.blockType) && (
         <ItemsEditor items={fields.items || []} onChange={(items) => setFields({ items })} />
       )}
-      {section.blockType === 'pricing-table' && (
+      {(section.blockType === 'pricing-table' || section.blockType === 'pricing-cards') && (
         <PlansEditor plans={fields.plans || []} onChange={(plans) => setFields({ plans })} />
       )}
       {section.blockType === 'video' && (

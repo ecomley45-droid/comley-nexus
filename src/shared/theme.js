@@ -48,6 +48,14 @@ function hexToRgb(hex) {
 // Relative luminance (0 dark .. 1 light), good enough for a light/dark split.
 function luminance({ r, g, b }) { return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255; }
 
+// Is this theme's background light? Used by the theme wizard to filter
+// presets and label the light/dark toggle. Defaults to dark for an
+// unparseable/missing bg (the platform default).
+export function isLightTheme(theme = {}) {
+  const bg = hexToRgb(theme.bg);
+  return bg ? luminance(bg) > 0.5 : false;
+}
+
 // Derives light/dark-aware helper variables from the theme's own background
 // and accent, so blocks can style surfaces, borders, and text-on-accent
 // without hardcoding "assume dark". Dark-theme values match the historical
