@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  getMe,
   getCalendars, createCalendar, updateCalendar, deleteCalendar,
   getEvents, createEvent, updateEvent, deleteEvent,
 } from '../lib/api.js';
@@ -21,7 +22,8 @@ const fmtWhen = (ev) => {
     : d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 };
 
-const emptyEvent = (calendarId) => ({ title: '', calendarId: calendarId && calendarId !== 'all' ? calendarId : '', startsAt: '', allDay: false, location: '', description: '', flyerUrl: '', linkUrl: '' });
+const RECUR_LABEL = { none: '', daily: 'Repeats daily', weekly: 'Repeats weekly', monthly: 'Repeats monthly' };
+const emptyEvent = (calendarId) => ({ title: '', calendarId: calendarId && calendarId !== 'all' ? calendarId : '', startsAt: '', allDay: false, location: '', description: '', flyerUrl: '', linkUrl: '', recurrence: 'none', recurrenceUntil: '' });
 
 export default function EventsPage() {
   const [calendars, setCalendars] = useState(null);
@@ -31,6 +33,10 @@ export default function EventsPage() {
   const [editing, setEditing] = useState(null); // event draft (with id when editing)
   const [newCalName, setNewCalName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [orgId, setOrgId] = useState('');
+
+  useEffect(() => { getMe().then((m) => setOrgId(m?.org?.id || '')).catch(() => {}); }, []);
+  const feedUrl = orgId ? `${window.location.origin}/api/public/ical/${orgId}/${selected}` : '';
 
   const loadCalendars = () => getCalendars().then((d) => setCalendars(d.calendars)).catch((e) => setError(e.message));
   const loadEvents = () => getEvents(selected === 'all' ? undefined : selected).then((d) => setEvents(d.events)).catch((e) => setError(e.message));
@@ -59,7 +65,7 @@ export default function EventsPage() {
   const saveEvent = async () => {
     if (!editing.title.trim()) { alert('Title is required.'); return; }
     setSaving(true);
-    const payload = { ...editing, title: editing.title.trim(), startsAt: editing.startsAt || null, calendarId: editing.calendarId || null };
+    const payload = { ...editing, title: editing.title.trim(), startsAt: editing.startsAt || null, calendarId: editing.calendarId || null, recurrenceUntil: editing.recurrenceUntil || null };
     try {
       if (editing.id) await updateEvent(editing.id, payload); else await createEvent(payload);
       setEditing(null); await loadEvents();
@@ -105,6 +111,15 @@ export default function EventsPage() {
 
         {/* Events */}
         <div>
+          {feedUrl && (
+            <GlassPanel className="p-3 mb-3 flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-zinc-400 shrink-0">Subscribe ({selected === 'all' ? 'all calendars' : (calById[selected]?.name || 'calendar')}):</span>
+              <GlassInput readOnly value={feedUrl} onFocus={(e) => e.target.select()} className="flex-1 min-w-[180px] text-xs py-1" />
+              <GlassButton variant="secondary" onClick={() => { navigator.clipboard?.writeText(feedUrl); }}>Copy</GlassButton>
+              <a href={feedUrl} className="text-xs text-glass-sky hover:underline">Download .ics</a>
+              <a href={`https://calendar.google.com/calendar/render?cid=${encodeURIComponent(feedUrl)}`} target="_blank" rel="noreferrer" className="text-xs text-glass-sky hover:underline">Add to Google</a>
+            </GlassPanel>
+          )}
           {!events ? (
             <p className="text-zinc-400">Loading…</p>
           ) : events.length === 0 ? (
@@ -118,6 +133,7 @@ export default function EventsPage() {
                       {calById[ev.calendarId] && <span className="w-2.5 h-2.5 rounded-full" style={{ background: calById[ev.calendarId].color }} />}
                       <span className="text-sm font-medium text-zinc-100">{ev.title}</span>
                       {ev.allDay && <Badge tone="draft">All day</Badge>}
+                      {ev.recurrence && ev.recurrence !== 'none' && <Badge>{RECUR_LABEL[ev.recurrence]}</Badge>}
                     </div>
                     <div className="text-xs text-zinc-500 mt-0.5">
                       {fmtWhen(ev)}{ev.location ? ` · ${ev.location}` : ''}{calById[ev.calendarId] ? ` · ${calById[ev.calendarId].name}` : ''}
@@ -158,6 +174,21 @@ export default function EventsPage() {
                 <label className="flex items-center gap-2 text-sm text-zinc-300">
                   <input type="checkbox" checked={!!editing.allDay} onChange={(e) => setEditing({ ...editing, allDay: e.target.checked })} className="w-4 h-4" /> All day
                 </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Repeats">
+                    <GlassSelect className="w-full" value={editing.recurrence || 'none'} onChange={(e) => setEditing({ ...editing, recurrence: e.target.value })}>
+                      <option value="none">Does not repeat</option>
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </GlassSelect>
+                  </Field>
+                  {editing.recurrence && editing.recurrence !== 'none' && (
+                    <Field label="Repeat until (optional)">
+                      <GlassInput type="date" className="w-full" value={editing.recurrenceUntil ? String(editing.recurrenceUntil).slice(0, 10) : ''} onChange={(e) => setEditing({ ...editing, recurrenceUntil: e.target.value })} />
+                    </Field>
+                  )}
+                </div>
                 <Field label="Location"><GlassInput className="w-full" value={editing.location} onChange={(e) => setEditing({ ...editing, location: e.target.value })} placeholder="Main room" /></Field>
                 <Field label="Description"><GlassTextarea className="w-full h-20" value={editing.description} onChange={(e) => setEditing({ ...editing, description: e.target.value })} /></Field>
                 <div className="grid grid-cols-2 gap-3">

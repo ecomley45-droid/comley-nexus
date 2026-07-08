@@ -63,6 +63,7 @@ const files = [
   'migrations/019_parallax_video_blocks.sql',
   'migrations/020_events_blocks.sql',
   'migrations/021_events.sql',
+  'migrations/022_event_recurrence.sql',
 ];
 // If you add a new migration, add it here so `node db/apply.mjs` picks
 // it up. Order matters — migrations must remain idempotent.

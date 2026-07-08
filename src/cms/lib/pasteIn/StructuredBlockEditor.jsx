@@ -3,7 +3,7 @@ import { GlassInput, GlassTextarea, GlassSelect } from '../ui/Glass.jsx';
 import { renderBlock, LAYOUT_TEMPLATES } from './blockRenderers.js';
 import BlockCatalogPicker from '../blocks/BlockCatalogPicker.jsx';
 import { getCalendars, getEvents } from '../api.js';
-import { EVENT_BOUND_TYPES, applyEventsToFields } from '../../../shared/eventsMap.js';
+import { EVENT_BOUND_TYPES, applyEventsToFields, expandRecurring, accentWrap } from '../../../shared/eventsMap.js';
 
 // Structured-view counterpart to BlockRow's raw HTML textarea. Only usable
 // on blocks that carry `blockType` + `fields` (created via "Paste in" --
@@ -323,9 +323,13 @@ export default function StructuredBlockEditor({ section, onChange }) {
 
   // Regenerate the block html, applying the bound calendar's events when set
   // (same mapper the server uses at serve time, so preview == published).
-  const renderHtml = (f) => (isBound && f.calendarId
-    ? (renderBlock(section.blockType, applyEventsToFields(section.blockType, f, boundEvents)) || section.html)
-    : (renderBlock(section.blockType, f) || section.html));
+  const renderHtml = (f) => {
+    if (!(isBound && f.calendarId)) return renderBlock(section.blockType, f) || section.html;
+    const mapped = applyEventsToFields(section.blockType, f, expandRecurring(boundEvents));
+    let html = renderBlock(section.blockType, mapped) || section.html;
+    const color = f.calendarId !== 'all' ? calendars.find((c) => c.id === f.calendarId)?.color : null;
+    return color ? accentWrap(html, color) : html;
+  };
 
   // Refresh the preview html once the bound events have loaded/changed.
   useEffect(() => {
