@@ -39,7 +39,7 @@ export default function EmailTemplatesPage() {
       {/* AI generate */}
       <GlassPanel className="p-4 mb-6">
         <div className="text-sm font-medium text-zinc-200 mb-1">Generate with AI</div>
-        <p className="text-xs text-zinc-500 mb-2">Describe the email — audience, offer, tone — and we’ll build an editable draft.{status && !status.aiConfigured && <span className="text-amber-300"> (AI isn’t configured on this deployment.)</span>}</p>
+        <p className="text-xs text-zinc-500 mb-2">Describe the email — audience, offer, tone — and we’ll build an editable draft.{status && !status.aiConfigured && <span className="text-amber-300"> (AI drafting is coming soon.)</span>}</p>
         <GlassTextarea rows={2} className="w-full font-sans text-sm mb-2" placeholder="A summer sale email for a bakery, warm and playful, 25% off, ends Sunday" value={prompt} onChange={(e) => setPrompt(e.target.value)} />
         <GlassButton onClick={generate} disabled={generating || (status && !status.aiConfigured)}>{generating ? 'Generating…' : 'Generate draft'}</GlassButton>
       </GlassPanel>
