@@ -31,6 +31,14 @@ const RedirectsPage = lazy(() => import('./cms/pages/RedirectsPage.jsx'));
 const CommentsPage = lazy(() => import('./cms/pages/CommentsPage.jsx'));
 const FormsPage = lazy(() => import('./cms/pages/FormsPage.jsx'));
 const ConnectionsPage = lazy(() => import('./cms/pages/ConnectionsPage.jsx'));
+const SocialDashboardPage = lazy(() => import('./cms/pages/social/SocialDashboardPage.jsx'));
+const SocialComposePage = lazy(() => import('./cms/pages/social/SocialComposePage.jsx'));
+const SocialCalendarPage = lazy(() => import('./cms/pages/social/SocialCalendarPage.jsx'));
+const SocialAccountsPage = lazy(() => import('./cms/pages/social/SocialAccountsPage.jsx'));
+const EmailTemplatesPage = lazy(() => import('./cms/pages/email/EmailTemplatesPage.jsx'));
+const EmailBuilderPage = lazy(() => import('./cms/pages/email/EmailBuilderPage.jsx'));
+const EmailCampaignsPage = lazy(() => import('./cms/pages/email/EmailCampaignsPage.jsx'));
+const EmailCampaignDetailPage = lazy(() => import('./cms/pages/email/EmailCampaignDetailPage.jsx'));
 const TeamPage = lazy(() => import('./cms/pages/TeamPage.jsx'));
 const SettingsPage = lazy(() => import('./cms/pages/SettingsPage.jsx'));
 const WorkspaceSettingsPage = lazy(() => import('./cms/pages/settings/WorkspaceSettingsPage.jsx'));
@@ -128,6 +136,14 @@ export default function App() {
           <Route path="forms" element={<FormsPage />} />
           <Route path="feedback" element={<FeedbackPage />} />
           <Route path="connections" element={<ConnectionsPage />} />
+          <Route path="social" element={<SocialDashboardPage />} />
+          <Route path="social/compose" element={<SocialComposePage />} />
+          <Route path="social/calendar" element={<SocialCalendarPage />} />
+          <Route path="social/accounts" element={<SocialAccountsPage />} />
+          <Route path="email" element={<EmailTemplatesPage />} />
+          <Route path="email/build" element={<EmailBuilderPage />} />
+          <Route path="email/campaigns" element={<EmailCampaignsPage />} />
+          <Route path="email/campaigns/:id" element={<EmailCampaignDetailPage />} />
           <Route path="team" element={<TeamPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="settings/workspace" element={<WorkspaceSettingsPage />} />

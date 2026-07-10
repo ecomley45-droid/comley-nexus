@@ -248,3 +248,60 @@ export const getUserStats = (period = 'month') =>
 export const getGitPulls = () => request('/git-pulls');
 export const recordGitPull = (branchId) =>
   request('/git-pulls', { method: 'POST', body: JSON.stringify({ branch_id: branchId }) });
+
+// ---- Social: accounts, dashboard, composer, scheduling ----
+// The whole surface is gated by feature_flags.social (or SOCIAL_SANDBOX=1 in
+// dev). window.location is used for OAuth start so the browser leaves for the
+// platform's consent screen (or, in sandbox, loops back to our callback).
+export const getSocialStatus = () => request('/social/status');
+export const getSocialAccounts = () => request('/social/accounts');
+export const startSocialConnect = async (platform) => {
+  const { url } = await request(`/social/oauth/start?platform=${encodeURIComponent(platform)}`);
+  window.location.href = url;
+};
+export const disconnectSocialAccount = (id) =>
+  request(`/social/accounts/${id}`, { method: 'DELETE' });
+export const getSocialDashboard = (days = 30) => request(`/social/dashboard?days=${days}`);
+export const pollSocialMetrics = () => request('/social/poll', { method: 'POST' });
+export const getSocialPlatforms = () => request('/social/platforms');
+export const getSocialPosts = (status) =>
+  request(`/social/posts${status ? `?status=${encodeURIComponent(status)}` : ''}`);
+export const createSocialPost = (payload) =>
+  request('/social/posts', { method: 'POST', body: JSON.stringify(payload) });
+export const publishSocialPost = (id) =>
+  request(`/social/posts/${id}/publish`, { method: 'POST' });
+export const deleteSocialPost = (id) =>
+  request(`/social/posts/${id}`, { method: 'DELETE' });
+
+// ---- Email builder (block editor + templates + AI + campaigns) ----
+// Gated by feature_flags.email (or EMAIL_SANDBOX=1 in dev).
+export const getEmailStatus = () => request('/email/status');
+export const getEmailBlocks = () => request('/email/blocks');
+export const previewEmail = (document) =>
+  request('/email/preview', { method: 'POST', body: JSON.stringify({ document }) });
+export const getEmailTemplates = () => request('/email/templates');
+export const getEmailTemplate = (id) => request(`/email/templates/${id}`);
+export const saveEmailTemplate = (payload) =>
+  request('/email/templates', { method: 'POST', body: JSON.stringify(payload) });
+export const deleteEmailTemplate = (id) =>
+  request(`/email/templates/${id}`, { method: 'DELETE' });
+export const aiGenerateEmail = (prompt) =>
+  request('/email/ai/generate', { method: 'POST', body: JSON.stringify({ prompt }) });
+export const aiEmailCopy = (brief, tone) =>
+  request('/email/ai/copy', { method: 'POST', body: JSON.stringify({ brief, tone }) });
+export const aiRestyleEmail = (document, theme) =>
+  request('/email/ai/restyle', { method: 'POST', body: JSON.stringify({ document, theme }) });
+export const getEmailCampaigns = () => request('/email/campaigns');
+export const getEmailCampaign = (id) => request(`/email/campaigns/${id}`);
+export const saveEmailCampaign = (payload) =>
+  request('/email/campaigns', { method: 'POST', body: JSON.stringify(payload) });
+export const deleteEmailCampaign = (id) =>
+  request(`/email/campaigns/${id}`, { method: 'DELETE' });
+export const previewAudienceCount = (audience) =>
+  request('/email/audience/count', { method: 'POST', body: JSON.stringify({ audience }) });
+export const sendEmailCampaign = (id) =>
+  request(`/email/campaigns/${id}/send`, { method: 'POST' });
+export const testEmailCampaign = (id, email) =>
+  request(`/email/campaigns/${id}/test`, { method: 'POST', body: JSON.stringify({ email }) });
+export const getEmailContact = (email) =>
+  request(`/email/contacts/${encodeURIComponent(email)}`);

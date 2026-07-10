@@ -20,6 +20,9 @@ import { mountBlockCatalogApi } from './lib/blockCatalogRoutes.js';
 import { mountMarketplaceApi } from './lib/marketplaceRoutes.js';
 import { mountEventsApi } from './lib/eventsRoutes.js';
 import { hydrateEventBlocks } from './lib/eventsHydrate.js';
+import { mountSocialApi } from './lib/social/routes.js';
+import { injectSocialFeeds } from './lib/social/feed.js';
+import { mountEmailApi } from './lib/email/routes.js';
 import {
   attachClerk, resolveViewer, requireRole, requireOrgMatch, requireSuperAdmin,
   isSuperAdminViewer, assertProductionAuth, requireAuth,
@@ -177,6 +180,8 @@ mountSuperAdminApi(app);
 mountBlockCatalogApi(app);
 mountMarketplaceApi(app);
 mountEventsApi(app);
+mountSocialApi(app);
+mountEmailApi(app);
 
 // ================= PAGES =================
 
@@ -1236,7 +1241,12 @@ app.use(async (req, res, next) => {
     // Hydrate any calendar-bound event blocks with live events before compile.
     if (site.orgId) await hydrateEventBlocks(page, site.orgId, globalSettings?.timezone);
 
-    const renderedHtml = compilePageHtml(page, pages, library, globalSettings, abChoices, `https://${req.headers.host}`);
+    let renderedHtml = compilePageHtml(page, pages, library, globalSettings, abChoices, `https://${req.headers.host}`);
+    // Social Feed blocks are placeholders until here: swap each for real,
+    // escaped post HTML built from the workspace's connected account. No-op
+    // (and cheap) when the page has no feed block. Runs before the CSP hash
+    // pass since it may add a <style> block (never a <script>).
+    if (site.orgId) renderedHtml = await injectSocialFeeds(renderedHtml, site.orgId);
     const analyticsHosts = process.env.ANALYTICS_HOSTS || '';
 
     // Full HTML mode is the trusted-author escape hatch: it already bypasses

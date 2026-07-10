@@ -106,3 +106,49 @@ Server-side (this is what's uncommitted right now):
 - `lib/ops/routes.js` (full rewrite — every handler passes `orgId`)
 
 Nothing in `src/` (client) was touched this session — that's item #1 above.
+
+---
+
+## Social layer (added 2026-07-10)
+
+A Sprout-style social feature: connect a workspace's accounts, read performance, and compose / publish / schedule to Instagram, Facebook, X, LinkedIn, TikTok. **Direct** platform integrations (no aggregator).
+
+**Run it today:** set `SOCIAL_SANDBOX=1`. Every platform is faked by `lib/social/adapters/sandbox.js`, so the whole flow — connect, dashboard, compose, publish, schedule — works with only Supabase. Each platform flips to its real adapter automatically once its credentials (`.env.example`) are present; unconfigured platforms stay sandboxed. Gated per-workspace by `feature_flags.social` (or sandbox).
+
+**Backend** (`lib/social/`):
+- `platforms.js` — platform metadata + composer constraints.
+- `adapters/` — one module per platform (`meta` serves ig+fb) + `sandbox`; `index.js` resolves live-vs-sandbox per platform. Contract: authUrl/exchangeCode/refresh/publish/fetchMetrics/fetchFeed.
+- `accounts.js` `metrics.js` `posts.js` — repos. OAuth tokens encrypted via `lib/secretCrypto.js` (extracted from `apiKeys.js`; same AES-256-GCM vault), never sent to the client.
+- `service.js` — OAuth orchestration, token refresh, metrics polling, publish fan-out (idempotent per target), dashboard aggregation.
+- `scheduler.js` — QStash in prod, in-process timer fallback locally; `posts.listDue` + the publish-due cron are the durable backstop.
+- `feed.js` — server-side Social Feed block: renders the placeholder to static HTML at serve time (CSP-safe, no embed scripts).
+- `routes.js` — `mountSocialApi(app)`; org routes + secret-guarded `/api/social/cron/*`.
+- `db/migrations/014_social.sql` — 4 tables + the Social Feed catalog entry.
+
+**Frontend:** nav group in `CmsLayout` (gated); pages in `src/cms/pages/social/` (Dashboard, Compose, Calendar, Accounts); API methods appended to `src/cms/lib/api.js`; `social-feed` renderer in `blockRenderers.js`.
+
+**Prod cron to wire (Vercel Cron → the secret-guarded endpoints):** `/api/social/cron/publish-due` (~1 min), `/api/social/cron/refresh-tokens` (daily), `/api/social/cron/poll-metrics` (hourly/daily).
+
+**Not yet done (deliberate follow-ups):** Media-library picker in the composer (URLs for now); multi-Page/org-actor pickers for Meta/LinkedIn; X/LinkedIn media upload; per-post metric rows. None block the sandbox flow.
+
+---
+
+## Email builder (added 2026-07-10)
+
+A Sailthru-style, block-based email builder: drag-style block editor, AI template generation + copywriting + brand restyle, a starter template gallery, and full campaigns (audience → schedule → send) with open/click tracking and per-recipient engagement.
+
+**Run it today:** set `EMAIL_SANDBOX=1`. The feature enables for every workspace, and sends are logged (not delivered), so build → audience → send → stats works on just Supabase. In prod, gate per-workspace with `feature_flags.email` and configure Resend + `PUBLIC_BASE_URL` (tracking) + `ANTHROPIC_API_KEY` (AI).
+
+**Render engine:** MJML v5 (async). `lib/email/render.js` maps the block document → MJML → Outlook-safe table HTML. `compile()` is the single source of truth for both live preview and send, so preview == inbox. MJML is server-only (never bundled into the client).
+
+**Backend** (`lib/email/`): `blocks.js` (document model + defaults + in-code starter gallery), `render.js`, `templates.js`/`campaigns.js` (repos), `audience.js` (resolves from newsletter form_submissions + commerce customers), `ai.js` (generate/copy/restyle, reuses the aiSiteGen Claude pattern), `send.js` (compile → per-recipient tracking → Resend, with sandbox + open/click pixels + suppression), `routes.js` (`mountEmailApi`). Migration `015_email.sql`: email_templates, email_campaigns, email_events, email_suppressions.
+
+**Frontend:** Email nav group in `CmsLayout` (gated); pages in `src/cms/pages/email/` — Templates (gallery + AI), Builder (block editor + live iframe preview), Campaigns list + detail (audience/send/stats). API methods appended to `src/cms/lib/api.js`.
+
+**Prod cron:** `/api/email/cron/send-due` (~1 min) sends scheduled campaigns.
+
+**Known caveats / deliberate follow-ups:**
+- **Audience tenancy:** `form_submissions` is org-scoped (safe). The commerce `customers` table has no `org_id` (single-tenant), so "Commerce customers" is an explicit opt-in source — revisit if commerce becomes multi-tenant before relying on it per-workspace.
+- Builder does add/edit/reorder/delete of blocks and 1–2 column rows; free-form drag-and-drop and deep column nesting are follow-ups.
+- Timer block renders a static styled date (live countdown needs a countdown-image service). Video renders a clickable thumbnail (email can't embed video).
+- "Edit design" for an existing campaign currently re-enters the builder; saving there creates a new campaign draft rather than updating in place.

@@ -1,6 +1,6 @@
 import { Outlet, useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
-import { getPages, getPreferences, exitViewAs } from './api.js';
+import { getPages, getPreferences, exitViewAs, getSocialStatus, getEmailStatus } from './api.js';
 import { GlassShell } from './ui/Glass.jsx';
 import TopBar from './ui/TopBar.jsx';
 import FeedbackWidget from './FeedbackWidget.jsx';
@@ -23,6 +23,29 @@ const NAV_ITEMS = [
   { to: 'redirects', label: 'Redirects' },
   { to: 'forms', label: 'Forms' },
   { to: 'comments', label: 'Comments' },
+  // Social is per-org (feature_flags.social); the group is spliced in below
+  // only when the workspace has it enabled, so it isn't rebased when absent.
+  {
+    to: 'social',
+    label: 'Social',
+    social: true,
+    children: [
+      { to: 'social', label: 'Dashboard', end: true },
+      { to: 'social/compose', label: 'Compose' },
+      { to: 'social/calendar', label: 'Calendar' },
+      { to: 'social/accounts', label: 'Accounts' },
+    ],
+  },
+  // Email builder — gated per-org by feature_flags.email (or EMAIL_SANDBOX).
+  {
+    to: 'email',
+    label: 'Email',
+    email: true,
+    children: [
+      { to: 'email', label: 'Templates', end: true },
+      { to: 'email/campaigns', label: 'Campaigns' },
+    ],
+  },
   // Import/Export is hidden while its backend is stubbed (501s in
   // server.js's DEFERRED SURFACES block) -- a live nav link to a dead
   // page costs trial credibility. Restore when CSV/static export ships.
@@ -73,6 +96,8 @@ export default function CmsLayout() {
   const isSuperAdmin = useIsSuperAdmin();
   const [pages, setPages] = useState([]);
   const [commerceEnabled, setCommerceEnabled] = useState(false);
+  const [socialEnabled, setSocialEnabled] = useState(false);
+  const [emailEnabled, setEmailEnabled] = useState(false);
   const navigate = useNavigate();
 
   const exitWorkspaceView = async () => {
@@ -97,11 +122,26 @@ export default function CmsLayout() {
   // the store is enabled. Enabled via Settings > Workspace > Online store, or
   // the per-org feature flag.
   const commerceOn = commerceEnabled || !!me?.org?.feature_flags?.commerce;
+
+  // Social + Email are paid-tier features (feature_flags.social / .email) — the
+  // server reports whether each is on for this workspace (or forced on by
+  // SOCIAL_SANDBOX / EMAIL_SANDBOX in dev). Their nav groups are filtered out
+  // of NAV_ITEMS until enabled.
+  useEffect(() => {
+    getSocialStatus()
+      .then((s) => setSocialEnabled(!!s?.enabled))
+      .catch(() => {});
+    getEmailStatus()
+      .then((s) => setEmailEnabled(!!s?.enabled))
+      .catch(() => {});
+  }, []);
+
   const navItems = useMemo(() => {
-    const items = rebaseNav(NAV_ITEMS, base);
+    const filtered = NAV_ITEMS.filter((i) => (i.social ? socialEnabled : true) && (i.email ? emailEnabled : true));
+    const items = rebaseNav(filtered, base);
     if (commerceOn) items.push({ to: `${base}/commerce`, label: 'Commerce' });
     return items;
-  }, [base, commerceOn]);
+  }, [base, commerceOn, socialEnabled, emailEnabled]);
 
   // White-label (Agency tier): a workspace with feature_flags.white_label
   // shows the agency's brand instead of Nexus anywhere in the client-facing

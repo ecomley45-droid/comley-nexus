@@ -430,6 +430,22 @@ export function renderProduct(fields) {
 </div>`;
 }
 
+// Social Feed: recent posts from one connected account, shown on a public
+// page. Deliberately renders only a no-JS placeholder -- the real cards are
+// injected server-side at request time (see lib/social/feed.js), the same
+// "server-fetch, static HTML" approach as the Product block, so it survives
+// the strict public CSP with no embed scripts. In the editor preview it
+// shows a labelled placeholder (like the Contact Form / Newsletter blocks),
+// since the live feed only exists on the published page.
+export function renderSocialFeed(fields) {
+  const platform = esc(fields.platform || 'ig');
+  const limit = Math.min(12, Math.max(1, Number(fields.limit) || 6));
+  const heading = esc(fields.headings?.[0] || '');
+  return `<div class="nx-social-feed" data-platform="${platform}" data-limit="${limit}" data-heading="${heading}">
+  <p style="text-align:center;color:#64748b;font-size:14px;padding:24px">Social feed (${platform.toUpperCase()}) — live posts appear on the published page.</p>
+</div>`;
+}
+
 // Arbitrary inline JS on the published page -- see lib/sanitize.js's
 // 'script' entry for why this is a bigger trust jump than every other
 // block, and server.js's admin-only save gate for the resulting guard.
@@ -1215,6 +1231,7 @@ export const BLOCK_RENDERERS = {
   countdown: renderCountdown,
   'social-links': renderSocialLinks,
   product: renderProduct,
+  'social-feed': renderSocialFeed,
   script: renderScript,
   layout: renderLayout,
   // Polished block set
