@@ -1,6 +1,6 @@
 import { Outlet, useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
-import { getPages, getPreferences, exitViewAs, getSocialStatus, getEmailStatus } from './api.js';
+import { getPages, getPreferences, exitViewAs, getSocialStatus } from './api.js';
 import { GlassShell } from './ui/Glass.jsx';
 import TopBar from './ui/TopBar.jsx';
 import FeedbackWidget from './FeedbackWidget.jsx';
@@ -36,11 +36,12 @@ const NAV_ITEMS = [
       { to: 'social/accounts', label: 'Accounts' },
     ],
   },
-  // Email builder — gated per-org by feature_flags.email (or EMAIL_SANDBOX).
+  // Newsletter (email builder) — a standard CMS feature, available to every
+  // workspace independent of Commerce. Sending stays safe: it only delivers
+  // for real when Resend is configured, otherwise it sandboxes.
   {
     to: 'email',
-    label: 'Email',
-    email: true,
+    label: 'Newsletter',
     children: [
       { to: 'email', label: 'Templates', end: true },
       { to: 'email/campaigns', label: 'Campaigns' },
@@ -97,7 +98,6 @@ export default function CmsLayout() {
   const [pages, setPages] = useState([]);
   const [commerceEnabled, setCommerceEnabled] = useState(false);
   const [socialEnabled, setSocialEnabled] = useState(false);
-  const [emailEnabled, setEmailEnabled] = useState(false);
   const navigate = useNavigate();
 
   const exitWorkspaceView = async () => {
@@ -123,25 +123,22 @@ export default function CmsLayout() {
   // the per-org feature flag.
   const commerceOn = commerceEnabled || !!me?.org?.feature_flags?.commerce;
 
-  // Social + Email are paid-tier features (feature_flags.social / .email) — the
-  // server reports whether each is on for this workspace (or forced on by
-  // SOCIAL_SANDBOX / EMAIL_SANDBOX in dev). Their nav groups are filtered out
-  // of NAV_ITEMS until enabled.
+  // Social is a paid-tier feature (feature_flags.social) — the server reports
+  // whether it's on for this workspace (or forced on by SOCIAL_SANDBOX in dev),
+  // and its nav group is filtered out until enabled. Newsletter, by contrast,
+  // is a standard feature shown for every workspace.
   useEffect(() => {
     getSocialStatus()
       .then((s) => setSocialEnabled(!!s?.enabled))
       .catch(() => {});
-    getEmailStatus()
-      .then((s) => setEmailEnabled(!!s?.enabled))
-      .catch(() => {});
   }, []);
 
   const navItems = useMemo(() => {
-    const filtered = NAV_ITEMS.filter((i) => (i.social ? socialEnabled : true) && (i.email ? emailEnabled : true));
+    const filtered = NAV_ITEMS.filter((i) => (i.social ? socialEnabled : true));
     const items = rebaseNav(filtered, base);
     if (commerceOn) items.push({ to: `${base}/commerce`, label: 'Commerce' });
     return items;
-  }, [base, commerceOn, socialEnabled, emailEnabled]);
+  }, [base, commerceOn, socialEnabled]);
 
   // White-label (Agency tier): a workspace with feature_flags.white_label
   // shows the agency's brand instead of Nexus anywhere in the client-facing

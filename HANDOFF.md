@@ -137,7 +137,7 @@ A Sprout-style social feature: connect a workspace's accounts, read performance,
 
 A Sailthru-style, block-based email builder: drag-style block editor, AI template generation + copywriting + brand restyle, a starter template gallery, and full campaigns (audience → schedule → send) with open/click tracking and per-recipient engagement.
 
-**Run it today:** set `EMAIL_SANDBOX=1`. The feature enables for every workspace, and sends are logged (not delivered), so build → audience → send → stats works on just Supabase. In prod, gate per-workspace with `feature_flags.email` and configure Resend + `PUBLIC_BASE_URL` (tracking) + `ANTHROPIC_API_KEY` (AI).
+**Availability:** a standard CMS feature labeled **Newsletter** in nav — every workspace, no feature flag, not tied to Commerce. Real sending only happens when Resend is configured; otherwise it sandboxes (logged, not delivered). `EMAIL_SANDBOX=1` forces the sandbox regardless — build → audience → send → stats works on just Supabase. Configure Resend + `PUBLIC_BASE_URL` (tracking) + `ANTHROPIC_API_KEY` (AI) for the full production experience.
 
 **Render engine:** MJML v5 (async). `lib/email/render.js` maps the block document → MJML → Outlook-safe table HTML. `compile()` is the single source of truth for both live preview and send, so preview == inbox. MJML is server-only (never bundled into the client).
 

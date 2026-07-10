@@ -273,8 +273,9 @@ export const publishSocialPost = (id) =>
 export const deleteSocialPost = (id) =>
   request(`/social/posts/${id}`, { method: 'DELETE' });
 
-// ---- Email builder (block editor + templates + AI + campaigns) ----
-// Gated by feature_flags.email (or EMAIL_SANDBOX=1 in dev).
+// ---- Newsletter / email builder (block editor + templates + AI + campaigns) ----
+// A standard CMS feature ("Newsletter" in nav) — available to every workspace,
+// not tied to Commerce. Sends sandbox until Resend is configured.
 export const getEmailStatus = () => request('/email/status');
 export const getEmailBlocks = () => request('/email/blocks');
 export const previewEmail = (document) =>
