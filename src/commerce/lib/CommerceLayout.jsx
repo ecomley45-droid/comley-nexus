@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { listProducts } from '../lib/api.js';
 import { getMe } from '../../cms/lib/api.js';
 import { GlassShell } from '../../cms/lib/ui/Glass.jsx';
-import TopBar from '../../cms/lib/ui/TopBar.jsx';
+import AppShell from '../../cms/lib/ui/AppShell.jsx';
 import FeedbackWidget from '../../cms/lib/FeedbackWidget.jsx';
 import AuthTokenBridge from '../../cms/lib/AuthTokenBridge.jsx';
 
@@ -40,17 +40,16 @@ export default function CommerceLayout() {
   return (
     <GlassShell>
       <AuthTokenBridge />
-      <TopBar
+      <AppShell
         logoTo={base}
         logoLabel={logoLabel}
         navItems={navItems}
         extraNavItem={{ to: `/${orgSlug}`, label: '← Back to CMS' }}
         searchItems={products.map((p) => ({ label: p.name, to: `${base}/products/${p.id}` }))}
         searchPlaceholder="Search products…"
-      />
-      <main className="p-6">
+      >
         <Outlet />
-      </main>
+      </AppShell>
       <FeedbackWidget area="commerce" />
     </GlassShell>
   );

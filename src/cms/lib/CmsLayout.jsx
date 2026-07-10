@@ -2,7 +2,7 @@ import { Outlet, useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { getPages, getPreferences, exitViewAs, getSocialStatus } from './api.js';
 import { GlassShell } from './ui/Glass.jsx';
-import TopBar from './ui/TopBar.jsx';
+import AppShell from './ui/AppShell.jsx';
 import FeedbackWidget from './FeedbackWidget.jsx';
 import AuthTokenBridge from './AuthTokenBridge.jsx';
 import CommandPalette from './CommandPalette.jsx';
@@ -153,30 +153,31 @@ export default function CmsLayout() {
   // just a jump point, visible only to platform super-admins.
   const superAdminExtra = isSuperAdmin ? { to: '/super-admin', label: 'Nexus Super Admin →' } : null;
 
+  const banner = me?.org?.viewingAs ? (
+    <div className="mx-4 mt-4 rounded-xl bg-gradient-to-r from-glass-indigo/30 to-glass-fuchsia/30 border border-white/15 px-4 py-2 flex items-center justify-between gap-3 text-sm">
+      <span className="text-zinc-100">
+        Viewing <strong>{me.org.name}</strong> as Nexus Super Admin
+      </span>
+      <button onClick={exitWorkspaceView} className="text-zinc-200 hover:text-white underline underline-offset-2 shrink-0">
+        Exit
+      </button>
+    </div>
+  ) : null;
+
   return (
     <GlassShell>
       <AuthTokenBridge />
-      {me?.org?.viewingAs && (
-        <div className="mx-4 mt-4 rounded-xl bg-gradient-to-r from-glass-indigo/30 to-glass-fuchsia/30 border border-white/15 px-4 py-2 flex items-center justify-between gap-3 text-sm">
-          <span className="text-zinc-100">
-            Viewing <strong>{me.org.name}</strong> as Nexus Super Admin
-          </span>
-          <button onClick={exitWorkspaceView} className="text-zinc-200 hover:text-white underline underline-offset-2 shrink-0">
-            Exit
-          </button>
-        </div>
-      )}
-      <TopBar
+      <AppShell
         logoTo={base}
         logoLabel={logoLabel}
         navItems={navItems}
         extraNavItem={superAdminExtra}
         searchItems={pages.map((p) => ({ label: p.name, to: `${base}/pages/${p.id}` }))}
         searchPlaceholder="Search pages…"
-      />
-      <main className="p-6">
+        banner={banner}
+      >
         <Outlet />
-      </main>
+      </AppShell>
       <FeedbackWidget area="cms" />
       <CommandPalette base={base} />
     </GlassShell>

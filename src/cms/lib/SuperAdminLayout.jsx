@@ -2,7 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { getNexusPages } from './api.js';
 import { GlassShell } from './ui/Glass.jsx';
-import TopBar from './ui/TopBar.jsx';
+import AppShell from './ui/AppShell.jsx';
 import AuthTokenBridge from './AuthTokenBridge.jsx';
 
 // Top-level chrome for /super-admin/*, sibling to CmsLayout's /:orgSlug/*
@@ -27,16 +27,15 @@ export default function SuperAdminLayout() {
   return (
     <GlassShell>
       <AuthTokenBridge />
-      <TopBar
+      <AppShell
         logoTo="/super-admin"
         logoLabel="Nexus Super Admin"
         navItems={NAV_ITEMS}
         searchItems={pages.map((p) => ({ label: p.name, to: `/super-admin/pages/${p.id}` }))}
         searchPlaceholder="Search Nexus pages…"
-      />
-      <main className="p-6">
+      >
         <Outlet />
-      </main>
+      </AppShell>
     </GlassShell>
   );
 }

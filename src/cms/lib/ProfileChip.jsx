@@ -4,8 +4,8 @@ import { useMe, useOrgBase } from './useMe.jsx';
 
 /**
  * Small clickable identity chip. Compact variant is used top-right in the
- * TopBar; the wide variant sits at the bottom of the hamburger drawer where
- * there's room for a subtitle.
+ * AppShell top bar; the wide variant sits at the bottom of the sidebar rail
+ * where there's room for a subtitle.
  *
  * Identity comes from the server-derived /api/me viewer (useMe) so it
  * matches whatever Clerk/the DB think you are — not from a stale local
