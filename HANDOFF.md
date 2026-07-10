@@ -152,3 +152,15 @@ A Sailthru-style, block-based email builder: drag-style block editor, AI templat
 - Builder does add/edit/reorder/delete of blocks and 1–2 column rows; free-form drag-and-drop and deep column nesting are follow-ups.
 - Timer block renders a static styled date (live countdown needs a countdown-image service). Video renders a clickable thumbnail (email can't embed video).
 - "Edit design" for an existing campaign currently re-enters the builder; saving there creates a new campaign draft rather than updating in place.
+
+---
+
+## Staging → live (Deploy) + Demo mode + demo data (added 2026-07-10)
+
+**Staging → live (UAT):** opt-in per workspace via `feature_flags.staging_enabled`. When on, the CMS still edits the working copy but the public site serves the last **deployed snapshot** (`site_deployments`, see migration 028) instead. A **Deploy** promotes working → live and sets `feature_flags.site_live`; **Undeploy** flips it off and the public shows a "Coming soon" placeholder (`OFFLINE_SITE_HTML`). Non-staging orgs are unchanged (edits are live immediately). Backend: `lib/deployments.js`, `lib/siteRoutes.js` (`/api/site/status|deploy|undeploy|settings`), and `siteForOrg()` in server.js. UI: `DeployBar` in the top bar (`src/cms/lib/ui/DeployBar.jsx`).
+
+**Demo mode:** `feature_flags.demo_mode` hides the Deploy button and, for features listed in `feature_flags.coming_soon`, shows a "Soon" nav badge and locks the page ("view but not use") via `AppShell`. Configured at **Settings → Deploy & Demo** (`DeploymentSettingsPage`).
+
+**Demo data:** `lib/demoSeed.js` builds a fully-populated "Northwind & Co" workspace — block pages + one full-custom HTML page, library, media, contact/newsletter form submissions, ~30 days of analytics, a newsletter template + draft/sent campaigns with engagement, and a live deployment. Run it two ways: `node db/seeds/demoWorkspace.mjs [ownerEmail]`, or **Super Admin → Client workspaces → Create demo workspace** (`/api/super-admin/demo-workspace`, reset=true rebuilds pristine).
+
+All operational/demo state lives in `orgs.feature_flags` (no new orgs columns); only `site_deployments` is a new table. Note: the "Deploy/Undeploy" wording is a deliberate exception to the no-deployment-copy rule (user's explicit choice); the public offline page still says "Coming soon".

@@ -18,7 +18,7 @@ import ThemeToggle from './ThemeToggle.jsx';
 // by the rail width when it's shown.
 const COLLAPSE_KEY = 'nx_nav_collapsed';
 
-export default function AppShell({ logoTo, logoLabel, navItems, extraNavItem, searchItems = [], searchPlaceholder = 'Search…', rightSlot, banner, children }) {
+export default function AppShell({ logoTo, logoLabel, navItems, extraNavItem, searchItems = [], searchPlaceholder = 'Search…', rightSlot, banner, children, comingSoon = [], demoMode = false }) {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSE_KEY) === '1');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -63,6 +63,25 @@ export default function AppShell({ logoTo, logoLabel, navItems, extraNavItem, se
         : 'text-zinc-400 hover:text-white hover:bg-white/10'
     }`;
 
+  // "Coming soon" features (demo tooling). A nav item declares its feature key
+  // (item.feature); items in the coming_soon list get a badge, and in demo
+  // mode the feature's pages are shown but locked ("view but not use").
+  const comingSoonSet = new Set(comingSoon || []);
+  const isSoon = (item) => item.feature && comingSoonSet.has(item.feature);
+  const NavLabel = ({ item }) => (
+    <span className="inline-flex items-center gap-1.5 min-w-0">
+      <span className="truncate"><NavLabel item={item} /></span>
+      {isSoon(item) && (
+        <span className="shrink-0 text-[9px] uppercase tracking-wide px-1 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30">Soon</span>
+      )}
+    </span>
+  );
+  // The feature owning the current route (longest matching nav `to`).
+  const activeFeature = (navItems || [])
+    .filter((i) => i.feature && (pathname === i.to || pathname.startsWith(`${i.to}/`)))
+    .sort((a, b) => b.to.length - a.to.length)[0]?.feature;
+  const locked = demoMode && activeFeature && comingSoonSet.has(activeFeature);
+
   return (
     <>
       {/* Mobile backdrop */}
@@ -86,15 +105,15 @@ export default function AppShell({ logoTo, logoLabel, navItems, extraNavItem, se
         <nav className="flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-1">
           {navItems.map((item) =>
             item.children ? (
-              <div key={item.label}>
+              <div key=<NavLabel item={item} />>
                 <div className="flex items-center gap-1">
                   <NavLink to={item.to} end={item.end} className={linkClass} style={{ flex: 1 }}>
-                    {item.label}
+                    <NavLabel item={item} />
                   </NavLink>
                   <button
                     type="button"
                     onClick={() => toggleSection(item.label)}
-                    aria-label={openSections.has(item.label) ? `Collapse ${item.label}` : `Expand ${item.label}`}
+                    aria-label={openSections.has(item.label) ? `Collapse $<NavLabel item={item} />` : `Expand $<NavLabel item={item} />`}
                     className="w-8 h-8 shrink-0 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 grid place-items-center"
                   >
                     <ChevronDown className={`w-4 h-4 transition-transform ${openSections.has(item.label) ? 'rotate-180' : ''}`} />
@@ -112,7 +131,7 @@ export default function AppShell({ logoTo, logoLabel, navItems, extraNavItem, se
               </div>
             ) : (
               <NavLink key={item.to} to={item.to} end={item.end} className={linkClass}>
-                {item.label}
+                <NavLabel item={item} />
               </NavLink>
             )
           )}
@@ -145,7 +164,7 @@ export default function AppShell({ logoTo, logoLabel, navItems, extraNavItem, se
               <GlassPanel className="absolute top-full left-0 right-0 mt-1 p-1 z-20">
                 {matches.map((item) => (
                   <Link key={item.to} to={item.to} onClick={() => setQuery('')} className="block px-3 py-1.5 rounded-lg text-sm text-zinc-200 hover:bg-white/10">
-                    {item.label}
+                    <NavLabel item={item} />
                   </Link>
                 ))}
               </GlassPanel>
@@ -160,7 +179,17 @@ export default function AppShell({ logoTo, logoLabel, navItems, extraNavItem, se
         </header>
 
         {banner}
-        <main className="p-6">{children}</main>
+        <main className="p-6">
+          {locked ? (
+            <div>
+              <div className="mb-4 rounded-xl bg-amber-400/15 border border-amber-400/30 text-amber-200 px-4 py-2 text-sm flex items-center gap-2">
+                <span className="font-medium">Coming soon</span>
+                <span className="text-amber-300/80">— preview only, actions are disabled.</span>
+              </div>
+              <div className="pointer-events-none opacity-60 select-none">{children}</div>
+            </div>
+          ) : children}
+        </main>
       </div>
     </>
   );

@@ -1,8 +1,9 @@
 import { Outlet, useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
-import { getPages, getPreferences, exitViewAs, getSocialStatus } from './api.js';
+import { getPages, getPreferences, exitViewAs, getSocialStatus, getSiteStatus } from './api.js';
 import { GlassShell } from './ui/Glass.jsx';
 import AppShell from './ui/AppShell.jsx';
+import DeployBar from './ui/DeployBar.jsx';
 import FeedbackWidget from './FeedbackWidget.jsx';
 import AuthTokenBridge from './AuthTokenBridge.jsx';
 import CommandPalette from './CommandPalette.jsx';
@@ -12,23 +13,26 @@ import { useMe, useIsSuperAdmin } from './useMe.jsx';
 // /:orgSlug at render time. That keeps the component agnostic to which
 // org is active — for Ethan it's "/admin/*", for future clients it'll be
 // "/{their-slug}/*".
+// `feature` keys let Demo Mode badge an item "Coming soon" and lock its pages
+// (see AppShell). They match the Settings > Demo picker's options.
 const NAV_ITEMS = [
   { to: '', label: 'Dashboard', end: true },
-  { to: 'pages', label: 'Pages' },
-  { to: 'blocks', label: 'Blocks' },
-  { to: 'templates', label: 'Templates' },
-  { to: 'library', label: 'Library' },
-  { to: 'media', label: 'Media' },
-  { to: 'events', label: 'Events' },
-  { to: 'redirects', label: 'Redirects' },
-  { to: 'forms', label: 'Forms' },
-  { to: 'comments', label: 'Comments' },
+  { to: 'pages', label: 'Pages', feature: 'pages' },
+  { to: 'blocks', label: 'Blocks', feature: 'blocks' },
+  { to: 'templates', label: 'Templates', feature: 'templates' },
+  { to: 'library', label: 'Library', feature: 'library' },
+  { to: 'media', label: 'Media', feature: 'media' },
+  { to: 'events', label: 'Events', feature: 'events' },
+  { to: 'redirects', label: 'Redirects', feature: 'redirects' },
+  { to: 'forms', label: 'Forms', feature: 'forms' },
+  { to: 'comments', label: 'Comments', feature: 'comments' },
   // Social is per-org (feature_flags.social); the group is spliced in below
   // only when the workspace has it enabled, so it isn't rebased when absent.
   {
     to: 'social',
     label: 'Social',
     social: true,
+    feature: 'social',
     children: [
       { to: 'social', label: 'Dashboard', end: true },
       { to: 'social/compose', label: 'Compose' },
@@ -42,6 +46,7 @@ const NAV_ITEMS = [
   {
     to: 'email',
     label: 'Newsletter',
+    feature: 'newsletter',
     children: [
       { to: 'email', label: 'Templates', end: true },
       { to: 'email/campaigns', label: 'Campaigns' },
@@ -70,6 +75,7 @@ const NAV_ITEMS = [
       { to: 'settings', label: 'Overview', end: true },
       { to: 'settings/workspace', label: 'Workspace' },
       { to: 'settings/design', label: 'Design' },
+      { to: 'settings/deploy', label: 'Deploy & Demo' },
       { to: 'settings/backups', label: 'Backups' },
       { to: 'team', label: 'Team & Permissions' },
       { to: 'connections', label: 'Integrations' },
@@ -98,6 +104,7 @@ export default function CmsLayout() {
   const [pages, setPages] = useState([]);
   const [commerceEnabled, setCommerceEnabled] = useState(false);
   const [socialEnabled, setSocialEnabled] = useState(false);
+  const [siteStatus, setSiteStatus] = useState(null);
   const navigate = useNavigate();
 
   const exitWorkspaceView = async () => {
@@ -132,6 +139,10 @@ export default function CmsLayout() {
       .then((s) => setSocialEnabled(!!s?.enabled))
       .catch(() => {});
   }, []);
+
+  // Staging/deploy + demo-mode state drives the Deploy bar and the coming-soon
+  // badges/lock. One fetch, shared by both.
+  useEffect(() => { getSiteStatus().then(setSiteStatus).catch(() => {}); }, []);
 
   const navItems = useMemo(() => {
     const filtered = NAV_ITEMS.filter((i) => (i.social ? socialEnabled : true));
@@ -175,6 +186,9 @@ export default function CmsLayout() {
         searchItems={pages.map((p) => ({ label: p.name, to: `${base}/pages/${p.id}` }))}
         searchPlaceholder="Search pages…"
         banner={banner}
+        rightSlot={<DeployBar status={siteStatus} onChange={setSiteStatus} />}
+        comingSoon={siteStatus?.comingSoon || []}
+        demoMode={!!siteStatus?.demoMode}
       >
         <Outlet />
       </AppShell>
