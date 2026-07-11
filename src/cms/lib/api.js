@@ -162,6 +162,15 @@ export const updateMedia = (id, patch) =>
   request(`/media/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
 export const deleteMedia = (id) => request(`/media/${id}`, { method: 'DELETE' });
 
+// Nexus's own media library (super-admin), mirroring the per-workspace media
+// endpoints above but scoped to the platform's own site, not any client org.
+export const getNexusMedia = () => request('/nexus/media');
+export const uploadNexusMedia = (name, mimeType, dataBase64, meta = {}) =>
+  request('/nexus/media', { method: 'POST', body: JSON.stringify({ name, mimeType, dataBase64, ...meta }) });
+export const updateNexusMedia = (id, patch) =>
+  request(`/nexus/media/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+export const deleteNexusMedia = (id) => request(`/nexus/media/${id}`, { method: 'DELETE' });
+
 // ---- Redirects ----
 export const getRedirects = () => request('/redirects');
 export const addRedirect = (from, to, type) =>

@@ -115,6 +115,7 @@ export default function App() {
           <Route path="blocks" element={<BlocksCatalogPage />} />
           <Route path="templates" element={<TemplateManagerPage />} />
           <Route path="templates/import" element={<TemplateImportPage />} />
+          <Route path="media" element={<MediaPage nexus />} />
           <Route path="billing" element={<SuperAdminBillingPage />} />
           <Route path="settings" element={<NexusSettingsPage />} />
         </Route>

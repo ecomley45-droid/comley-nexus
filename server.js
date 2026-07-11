@@ -609,6 +609,78 @@ app.delete('/api/media/:id', requireOrg, requireRole('editor'), async (req, res,
   } catch (e) { next(e); }
 });
 
+// ---- Nexus's own media library (super-admin only) ----
+// Same bucket, WebP conversion, and limits as the per-org routes above, but
+// gated by requireSuperAdmin and stored under a `nexus/` folder with rows in
+// the standalone `nexus_media` table (see lib/nexus.js). No org context.
+app.get('/api/nexus/media', requireSuperAdmin, async (req, res, next) => {
+  try { res.json(await nexus.media.list()); } catch (e) { next(e); }
+});
+
+app.post('/api/nexus/media', express.json({ limit: '15mb' }), requireSuperAdmin, async (req, res, next) => {
+  try {
+    const { name, mimeType, dataBase64, altText, description } = req.body || {};
+    if (!name || !mimeType || !dataBase64) return res.status(400).json({ error: 'name, mimeType, and dataBase64 are required' });
+    if (!MEDIA_MIME_ALLOWLIST.has(mimeType)) return res.status(400).json({ error: `File type ${mimeType} isn't supported.` });
+    const buffer = Buffer.from(dataBase64, 'base64');
+    if (buffer.length === 0) return res.status(400).json({ error: 'Empty file' });
+    if (buffer.length > MEDIA_MAX_BYTES) return res.status(400).json({ error: 'Files must be 10 MB or smaller.' });
+
+    let outName = String(name).slice(0, 200);
+    let outMime = mimeType;
+    let outBuffer = buffer;
+    const converted = await toWebp(buffer, mimeType, name);
+    if (converted) {
+      outBuffer = converted.buffer;
+      outMime = converted.mimeType;
+      outName = String(converted.name).slice(0, 200);
+    }
+
+    await ensureMediaBucket();
+    const id = 'nmedia-' + Date.now() + '-' + Math.floor(Math.random() * 1e6);
+    const safeName = outName.replace(/[^\w.\-]+/g, '_').slice(0, 120);
+    const storagePath = `nexus/${id}-${safeName}`;
+
+    const { error: uploadError } = await db().storage.from(MEDIA_BUCKET)
+      .upload(storagePath, outBuffer, { contentType: outMime, cacheControl: '31536000' });
+    if (uploadError) return res.status(500).json({ error: 'Upload failed. Please try again or contact support.' });
+
+    const { data: pub } = db().storage.from(MEDIA_BUCKET).getPublicUrl(storagePath);
+    const entry = await nexus.media.add({
+      id, name: outName, filename: storagePath,
+      mimeType: outMime, size: outBuffer.length, url: pub.publicUrl,
+      altText: typeof altText === 'string' ? altText.slice(0, 500) : '',
+      description: typeof description === 'string' ? description.slice(0, 2000) : '',
+    });
+    res.json({ success: true, entry });
+  } catch (e) { next(e); }
+});
+
+app.patch('/api/nexus/media/:id', express.json({ limit: '64kb' }), requireSuperAdmin, async (req, res, next) => {
+  try {
+    const { name, altText, description } = req.body || {};
+    const patch = {};
+    if (name !== undefined) patch.name = name;
+    if (altText !== undefined) patch.altText = altText;
+    if (description !== undefined) patch.description = description;
+    if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'Nothing to update' });
+    const entry = await nexus.media.update(req.params.id, patch);
+    if (!entry) return res.status(404).json({ error: 'File not found' });
+    res.json({ success: true, entry });
+  } catch (e) { next(e); }
+});
+
+app.delete('/api/nexus/media/:id', requireSuperAdmin, async (req, res, next) => {
+  try {
+    const removed = await nexus.media.remove(req.params.id);
+    if (!removed) return res.status(404).json({ error: 'File not found' });
+    if (removed.filename) {
+      await db().storage.from(MEDIA_BUCKET).remove([removed.filename]).catch(() => {});
+    }
+    res.json({ success: true });
+  } catch (e) { next(e); }
+});
+
 // ================= FORMS =================
 
 // Public submission endpoint for the Contact Form / Newsletter blocks.

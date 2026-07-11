@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
-import { getMedia, uploadMedia, updateMedia, deleteMedia } from '../lib/api.js';
+import {
+  getMedia, uploadMedia, updateMedia, deleteMedia,
+  getNexusMedia, uploadNexusMedia, updateNexusMedia, deleteNexusMedia,
+} from '../lib/api.js';
 import { GlassPanel, GlassInput, GlassTextarea, GlassButton } from '../lib/ui/Glass.jsx';
 
 const fileToBase64 = (file) =>
@@ -14,7 +17,13 @@ const fileToBase64 = (file) =>
 // description. These three fields are what the page-block renderers can
 // optionally surface as a caption, so this is where a user sets the
 // defaults that carry over when the media is placed on a page.
-function MediaEditModal({ item, onClose, onSaved }) {
+// The per-workspace and Nexus (super-admin) media libraries are identical
+// surfaces over different, scope-appropriate endpoints. `nexus` picks the
+// endpoint set; everything else about the page is shared.
+const ORG_API = { list: getMedia, upload: uploadMedia, update: updateMedia, remove: deleteMedia };
+const NEXUS_API = { list: getNexusMedia, upload: uploadNexusMedia, update: updateNexusMedia, remove: deleteNexusMedia };
+
+function MediaEditModal({ item, onClose, onSaved, api }) {
   const [name, setName] = useState(item.name || '');
   const [altText, setAltText] = useState(item.altText || '');
   const [description, setDescription] = useState(item.description || '');
@@ -25,7 +34,7 @@ function MediaEditModal({ item, onClose, onSaved }) {
     setSaving(true);
     setError('');
     try {
-      const { entry } = await updateMedia(item.id, { name, altText, description });
+      const { entry } = await api.update(item.id, { name, altText, description });
       onSaved(entry);
     } catch (e) {
       setError(e.message);
@@ -60,14 +69,15 @@ function MediaEditModal({ item, onClose, onSaved }) {
   );
 }
 
-export default function MediaPage() {
+export default function MediaPage({ nexus = false }) {
+  const api = nexus ? NEXUS_API : ORG_API;
   const [media, setMedia] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState('');
   const [editing, setEditing] = useState(null);
 
-  const load = () => getMedia().then(setMedia).catch((e) => setError(e.message));
+  const load = () => api.list().then(setMedia).catch((e) => setError(e.message));
   useEffect(() => { load(); }, []);
 
   const handleUpload = async (e) => {
@@ -78,7 +88,7 @@ export default function MediaPage() {
       const dataBase64 = await fileToBase64(file);
       // Server auto-converts raster images to WebP; the list refresh below
       // reflects the final stored name/type.
-      await uploadMedia(file.name, file.type, dataBase64);
+      await api.upload(file.name, file.type, dataBase64);
       load();
     } catch (err) {
       setError(err.message);
@@ -90,7 +100,7 @@ export default function MediaPage() {
 
   const remove = async (id) => {
     if (!confirm('Delete this file?')) return;
-    await deleteMedia(id);
+    await api.remove(id);
     load();
   };
 
@@ -143,6 +153,7 @@ export default function MediaPage() {
       {editing && (
         <MediaEditModal
           item={editing}
+          api={api}
           onClose={() => setEditing(null)}
           onSaved={(entry) => {
             setMedia((prev) => prev.map((m) => (m.id === entry.id ? entry : m)));

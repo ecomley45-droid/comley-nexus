@@ -69,6 +69,7 @@ const files = [
   'migrations/025_media_metadata.sql',
   'migrations/026_social.sql',
   'migrations/027_email.sql',
+  'migrations/028_nexus_media.sql',
 ];
 // If you add a new migration, add it here so `node db/apply.mjs` picks
 // it up. Order matters — migrations must remain idempotent.
