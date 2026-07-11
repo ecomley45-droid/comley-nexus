@@ -90,6 +90,7 @@ export function compilePageHtml(page, pages, library, globalSettings, abChoices 
   const title = seo.title || page.name || globalSettings?.siteName || 'Untitled Page';
   const description = seo.description || '';
   const ogImage = seo.ogImage || globalSettings?.defaultOgImage || '';
+  const favicon = globalSettings?.favicon || '';
   const canonicalUrl = origin ? `${origin}/${getFullPath(page, pages)}`.replace(/\/$/, '') || origin : '';
 
   return `<!doctype html>
@@ -98,6 +99,7 @@ export function compilePageHtml(page, pages, library, globalSettings, abChoices 
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>${escapeHtml(title)}</title>
+${favicon ? `<link rel="icon" href="${escapeHtml(favicon)}" />` : ''}
 ${description ? `<meta name="description" content="${escapeHtml(description)}" />` : ''}
 ${canonicalUrl ? `<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />` : ''}
 <meta property="og:title" content="${escapeHtml(title)}" />
