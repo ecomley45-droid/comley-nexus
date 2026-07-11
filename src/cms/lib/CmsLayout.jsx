@@ -7,6 +7,7 @@ import FeedbackWidget from './FeedbackWidget.jsx';
 import AuthTokenBridge from './AuthTokenBridge.jsx';
 import CommandPalette from './CommandPalette.jsx';
 import { useMe, useIsSuperAdmin } from './useMe.jsx';
+import { setDocumentFavicon } from './favicon.js';
 
 // Nav item definitions live as relative paths so they can be rebased onto
 // /:orgSlug at render time. That keeps the component agnostic to which
@@ -106,7 +107,13 @@ export default function CmsLayout() {
     navigate('/super-admin');
   };
 
-  useEffect(() => { getPages().then((d) => setPages(d.pages)).catch(() => {}); }, []);
+  useEffect(() => {
+    getPages().then((d) => {
+      setPages(d.pages);
+      // Use this workspace's own favicon for its console tab icon.
+      setDocumentFavicon(d.globalSettings?.favicon);
+    }).catch(() => {});
+  }, []);
 
   // Commerce is per-org opt-in. The flag lives in the signed-in user's
   // preferences under `integrations.commerce_enabled` — flip it on from

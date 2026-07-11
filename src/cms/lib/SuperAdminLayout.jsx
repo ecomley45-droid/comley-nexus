@@ -4,6 +4,7 @@ import { getNexusPages } from './api.js';
 import { GlassShell } from './ui/Glass.jsx';
 import AppShell from './ui/AppShell.jsx';
 import AuthTokenBridge from './AuthTokenBridge.jsx';
+import { setDocumentFavicon } from './favicon.js';
 
 // Top-level chrome for /super-admin/*, sibling to CmsLayout's /:orgSlug/*
 // tree — not nested under it. This is where the platform is operated:
@@ -23,7 +24,13 @@ const NAV_ITEMS = [
 export default function SuperAdminLayout() {
   const [pages, setPages] = useState([]);
 
-  useEffect(() => { getNexusPages().then((d) => setPages(d.pages)).catch(() => {}); }, []);
+  useEffect(() => {
+    getNexusPages().then((d) => {
+      setPages(d.pages);
+      // Super Admin console tab icon = Nexus's own favicon.
+      setDocumentFavicon(d.globalSettings?.favicon);
+    }).catch(() => {});
+  }, []);
 
   return (
     <GlassShell>
