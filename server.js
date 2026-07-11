@@ -23,8 +23,6 @@ import { hydrateEventBlocks } from './lib/eventsHydrate.js';
 import { mountSocialApi } from './lib/social/routes.js';
 import { injectSocialFeeds } from './lib/social/feed.js';
 import { mountEmailApi } from './lib/email/routes.js';
-import * as deployments from './lib/deployments.js';
-import { mountSiteApi } from './lib/siteRoutes.js';
 import {
   attachClerk, resolveViewer, requireRole, requireOrgMatch, requireSuperAdmin,
   isSuperAdminViewer, assertProductionAuth, requireAuth,
@@ -184,7 +182,6 @@ mountMarketplaceApi(app);
 mountEventsApi(app);
 mountSocialApi(app);
 mountEmailApi(app);
-mountSiteApi(app);
 
 // ================= PAGES =================
 
@@ -1108,35 +1105,6 @@ const orgSite = (orgId, paused) => ({
   recordImpression: (sectionId, variantId) => storage.abStats.record(orgId, sectionId, variantId, 'impressions'),
 });
 
-// Staging (UAT) sites serve the last DEPLOYED snapshot, not the working copy,
-// so nothing an editor is mid-way through touches the public site until they
-// Deploy. `offline` (undeployed, or never deployed) makes the handler show
-// the coming-soon placeholder instead of any content.
-const deployedSite = (orgId, snapshot, paused) => ({
-  orgId,
-  paused: !!paused,
-  findRedirect: (p) => storage.redirects.findMatch(orgId, p),
-  applySchedules: async () => {}, // snapshot is frozen; no scheduled flips
-  loadPages: async () => snapshot.pages,
-  loadLibrary: async () => snapshot.library,
-  loadSettings: async () => snapshot.settings,
-  recordImpression: (sectionId, variantId) => storage.abStats.record(orgId, sectionId, variantId, 'impressions'),
-});
-
-// Build the right site object for an org, honouring the staging→live model
-// when the org opted in. Non-staging orgs fall straight through to today's
-// behaviour (edits are live immediately).
-async function siteForOrg(org, orgId) {
-  const id = org?.id || orgId;
-  const ff = org?.feature_flags || {};
-  const paused = !!org?.paused;
-  if (!ff.staging_enabled) return orgSite(id, paused);
-  if (!ff.site_live) return { orgId: id, paused, offline: true };
-  const snapshot = await deployments.getLatest(id);
-  if (!snapshot) return { orgId: id, paused, offline: true };
-  return deployedSite(id, snapshot, paused);
-}
-
 // Deliberately generic -- never reveals that the underlying reason is a
 // paused workspace, matching the same client-facing takeover used for
 // paused API calls (see requireOrg in this file / lib/ops/routes.js).
@@ -1149,17 +1117,6 @@ h1{font-size:22px;margin-bottom:8px;}
 p{color:#a1a1aa;font-size:14px;}</style></head>
 <body><div class="box"><h1>Something went wrong</h1><p>This site is temporarily unavailable. Please contact support if you believe this is an error.</p></div></body></html>`;
 
-// Shown for a staging site that hasn't been deployed (or was taken offline).
-// Friendly "coming soon", never any deploy/dev wording.
-const OFFLINE_SITE_HTML = `<!doctype html>
-<html><head><meta charset="utf-8"><title>Coming soon</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<style>body{background:#070a13;color:#e2e8f0;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;}
-.box{max-width:460px;padding:24px;}
-h1{font-size:26px;margin-bottom:10px;}
-p{color:#a1a1aa;font-size:15px;line-height:1.5;}</style></head>
-<body><div class="box"><h1>Coming soon</h1><p>This site isn’t live yet — check back shortly.</p></div></body></html>`;
-
 // Resolves which site's content to render for an incoming public request:
 //   - Host matches an org's `domain` column -> that org's own content (a
 //     client only takes over a hostname once they've configured a domain).
@@ -1170,12 +1127,12 @@ p{color:#a1a1aa;font-size:15px;line-height:1.5;}</style></head>
 async function resolvePublicSite(host) {
   const orgs = await storage.orgs.list();
   const matched = orgs.find((o) => o.domain && o.domain === host);
-  if (matched) return siteForOrg(matched);
+  if (matched) return orgSite(matched.id, matched.paused);
 
   const explicitDefault = process.env.DEFAULT_PUBLIC_ORG_ID || process.env.PUBLIC_ORG_ID;
   if (explicitDefault) {
     const org = orgs.find((o) => o.id === explicitDefault);
-    return siteForOrg(org, explicitDefault);
+    return orgSite(explicitDefault, org?.paused);
   }
 
   return nexusSite();
@@ -1231,8 +1188,6 @@ app.use(async (req, res, next) => {
 
     const site = await resolvePublicSite(req.headers.host);
     if (site.paused) return res.status(423).send(PAUSED_SITE_HTML);
-    // Staging site that hasn't been deployed yet (or was taken offline).
-    if (site.offline) return res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').send(OFFLINE_SITE_HTML);
 
     const redirect = await site.findRedirect(requestPath);
     if (redirect) {

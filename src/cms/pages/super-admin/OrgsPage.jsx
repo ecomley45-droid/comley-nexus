@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   listOrgs, createOrg, updateOrg, deleteOrg,
   listOrgMembers, addOrgMember, removeOrgMember, viewAsOrg, getSiteTemplates,
-  createDemoWorkspace,
 } from '../../lib/api.js';
 import { GlassPanel, GlassButton, GlassInput, GlassSelect } from '../../lib/ui/Glass.jsx';
 import { useMe } from '../../lib/useMe.jsx';
@@ -26,18 +25,6 @@ export default function OrgsPage() {
   const [showNew, setShowNew] = useState(false);
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState('');
-  const [seeding, setSeeding] = useState(false);
-  const [notice, setNotice] = useState('');
-
-  const seedDemo = async () => {
-    if (!confirm('Create or RESET the demo workspace? Any existing demo data is wiped and rebuilt.')) return;
-    setSeeding(true); setError(''); setNotice('');
-    try {
-      const r = await createDemoWorkspace();
-      setNotice(`Demo workspace ready — ${r.pages} pages, deployed live.`);
-      refresh();
-    } catch (e) { setError(e.message); } finally { setSeeding(false); }
-  };
 
   const refresh = () => {
     setLoading(true);
@@ -50,13 +37,9 @@ export default function OrgsPage() {
     <div className="max-w-4xl">
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-semibold">Client workspaces</h1>
-        <div className="flex gap-2">
-          <GlassButton variant="secondary" onClick={seedDemo} disabled={seeding}>{seeding ? 'Building…' : 'Create demo workspace'}</GlassButton>
-          <GlassButton onClick={() => setShowNew(true)}>New workspace</GlassButton>
-        </div>
+        <GlassButton onClick={() => setShowNew(true)}>New workspace</GlassButton>
       </div>
 
-      {notice && <p className="text-sm text-emerald-300 mb-3">{notice}</p>}
       {error && <p className="text-sm text-red-400 mb-3">{error}</p>}
       {loading && <p className="text-sm text-zinc-400">Loading…</p>}
 

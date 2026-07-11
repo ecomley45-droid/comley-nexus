@@ -44,7 +44,6 @@ const SettingsPage = lazy(() => import('./cms/pages/SettingsPage.jsx'));
 const WorkspaceSettingsPage = lazy(() => import('./cms/pages/settings/WorkspaceSettingsPage.jsx'));
 const DesignSettingsPage = lazy(() => import('./cms/pages/settings/DesignSettingsPage.jsx'));
 const BillingSettingsPage = lazy(() => import('./cms/pages/settings/BillingSettingsPage.jsx'));
-const DeploymentSettingsPage = lazy(() => import('./cms/pages/settings/DeploymentSettingsPage.jsx'));
 const AuditLogPage = lazy(() => import('./cms/pages/AuditLogPage.jsx'));
 const TemplateMarketplacePage = lazy(() => import('./cms/pages/TemplateMarketplacePage.jsx'));
 const TemplateDetailPage = lazy(() => import('./cms/pages/TemplateDetailPage.jsx'));
@@ -149,7 +148,6 @@ export default function App() {
           <Route path="settings" element={<SettingsPage />} />
           <Route path="settings/workspace" element={<WorkspaceSettingsPage />} />
           <Route path="settings/design" element={<DesignSettingsPage />} />
-          <Route path="settings/deploy" element={<DeploymentSettingsPage />} />
           <Route path="settings/backups" element={<BackupsPage />} />
           <Route path="settings/billing" element={<BillingSettingsPage />} />
           <Route path="import-export" element={<ImportExportPage />} />

@@ -306,14 +306,3 @@ export const testEmailCampaign = (id, email) =>
   request(`/email/campaigns/${id}/test`, { method: 'POST', body: JSON.stringify({ email }) });
 export const getEmailContact = (email) =>
   request(`/email/contacts/${encodeURIComponent(email)}`);
-
-// ---- Staging → live (Deploy/Undeploy) + demo mode ----
-export const getSiteStatus = () => request('/site/status');
-export const deploySite = () => request('/site/deploy', { method: 'POST' });
-export const undeploySite = () => request('/site/undeploy', { method: 'POST' });
-export const updateSiteSettings = (patch) =>
-  request('/site/settings', { method: 'PATCH', body: JSON.stringify(patch) });
-
-// ---- Super admin: demo workspace ----
-export const createDemoWorkspace = () =>
-  request('/super-admin/demo-workspace', { method: 'POST', body: JSON.stringify({ reset: true }) });
