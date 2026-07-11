@@ -17,7 +17,7 @@ const FEATURES = [
   {
     icon: Layers,
     title: 'Everything in one console',
-    body: 'Pages, media, commerce, feedback, publishing — a single workspace instead of ten separate SaaS tabs.',
+    body: 'Pages, media, commerce, feedback, deploys — a single workspace instead of ten separate SaaS tabs.',
   },
   {
     icon: Sparkles,
@@ -97,7 +97,7 @@ function Hero() {
       </h1>
       <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-10">
         Nexus is the internal console every growing team ends up building — pages, commerce,
-        feedback, publishing, and AI drafting, all in one place. Ship faster, argue less.
+        feedback, deploys, and AI drafting, all in one place. Ship faster, argue less.
       </p>
       <div className="flex flex-wrap gap-3 justify-center">
         <SignedOut>
