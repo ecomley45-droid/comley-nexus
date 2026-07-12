@@ -68,9 +68,9 @@ export default function EmailBuilderPage() {
   const blockTypes = palette.blocks.length ? palette.blocks : [];
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-120px)]">
+    <div className="flex flex-col lg:flex-row gap-4 lg:h-[calc(100vh-120px)]">
       {/* Editor column */}
-      <div className="w-[46%] overflow-y-auto pr-1">
+      <div className="w-full lg:w-[46%] overflow-y-auto pr-1">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-xl font-semibold">Email builder</h1>
           <div className="flex gap-2">
@@ -84,7 +84,7 @@ export default function EmailBuilderPage() {
         <GlassPanel className="p-3 mb-3">
           <div className="flex gap-3 flex-wrap items-end">
             <label className="text-xs text-zinc-400">Preheader
-              <GlassInput className="block mt-1 w-64" value={doc.settings.preheader} onChange={(e) => setDoc((d) => ({ ...d, settings: { ...d.settings, preheader: e.target.value } }))} placeholder="Inbox preview text" />
+              <GlassInput className="block mt-1 w-full sm:w-64" value={doc.settings.preheader} onChange={(e) => setDoc((d) => ({ ...d, settings: { ...d.settings, preheader: e.target.value } }))} placeholder="Inbox preview text" />
             </label>
             <label className="text-xs text-zinc-400">Background
               <GlassInput type="color" className="block mt-1 h-9 w-14 p-1" value={doc.settings.backgroundColor} onChange={(e) => setDoc((d) => ({ ...d, settings: { ...d.settings, backgroundColor: e.target.value } }))} />
@@ -140,9 +140,9 @@ export default function EmailBuilderPage() {
       </div>
 
       {/* Live preview */}
-      <div className="flex-1 min-w-0">
+      <div className="w-full lg:flex-1 min-w-0">
         <div className="text-xs text-zinc-500 mb-2">Live preview (compiled MJML — matches the inbox)</div>
-        <iframe title="Email preview" srcDoc={html} className="w-full h-full rounded-xl border border-white/10 bg-white" />
+        <iframe title="Email preview" srcDoc={html} className="w-full h-[70vh] lg:h-full rounded-xl border border-white/10 bg-white" />
       </div>
     </div>
   );

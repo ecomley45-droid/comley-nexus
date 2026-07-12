@@ -113,7 +113,7 @@ export default function FeedbackWidget({ area }) {
   }
 
   return (
-    <GlassPanel className="fixed bottom-6 right-6 z-40 w-96 max-h-[80vh] overflow-auto p-4">
+    <GlassPanel className="fixed bottom-6 right-4 sm:right-6 z-40 w-[calc(100vw-2rem)] sm:w-96 max-h-[80vh] overflow-auto p-4">
       <div className="flex justify-between items-center mb-3">
         <h3 className="font-medium text-zinc-100">{submitted ? 'Thanks!' : 'Report an issue'}</h3>
         <button onClick={closeWidget} className="text-zinc-400 hover:text-white">
