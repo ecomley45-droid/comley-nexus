@@ -451,21 +451,21 @@ export default function PageEditorPage({ nexus = false }) {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:justify-between sm:items-center">
         <input
           value={page.name}
           onChange={(e) => updatePage({ name: e.target.value })}
-          className="text-2xl font-semibold bg-transparent border-b border-transparent hover:border-white/20 focus:border-glass-indigo outline-none"
+          className="text-2xl font-semibold bg-transparent border-b border-transparent hover:border-white/20 focus:border-glass-indigo outline-none w-full min-w-0 sm:w-auto"
         />
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center shrink-0">
           {saveMessage && <span className="text-sm text-zinc-400">{saveMessage}</span>}
           <GlassButton variant="secondary" onClick={openPreview}>Open preview</GlassButton>
           <GlassButton onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</GlassButton>
         </div>
       </div>
 
-      <div className="flex gap-4 items-start">
-        <div className="w-2/5 min-w-0 shrink-0">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        <div className="w-full min-w-0 lg:w-2/5 lg:shrink-0">
           <div className="flex items-center gap-1 mb-3 p-0.5 rounded-lg bg-white/[0.04] border border-white/10 w-fit">
             {PAGE_MODES.map((mode) => (
               <button
@@ -562,7 +562,7 @@ export default function PageEditorPage({ nexus = false }) {
           )}
         </div>
 
-        <GlassPanel className="flex-1 min-w-0 p-2 sticky top-6 self-start" style={{ height: 'calc(100vh - 9rem)' }}>
+        <GlassPanel className="w-full min-w-0 lg:flex-1 p-2 self-start lg:sticky lg:top-6 h-[70vh] lg:h-[calc(100vh-9rem)]">
           <div className="flex justify-between items-center px-2 py-1 mb-1">
             <span className="text-xs text-zinc-400">Live preview</span>
             <GlassSelect value={deviceWidth} onChange={(e) => setDeviceWidth(e.target.value)} className="text-xs py-1">
@@ -574,7 +574,7 @@ export default function PageEditorPage({ nexus = false }) {
           </div>
         </GlassPanel>
 
-        <div className="w-1/5 min-w-0 shrink-0 space-y-3">
+        <div className="w-full min-w-0 lg:w-1/5 lg:shrink-0 space-y-3">
           <GlassPanel className="p-4">
             <span className="text-xs text-zinc-400 block mb-1">URL</span>
             <p className="text-sm text-zinc-200 break-all">/{fullPath}</p>

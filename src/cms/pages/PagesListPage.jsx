@@ -38,8 +38,8 @@ export default function PagesListPage({ nexus = false }) {
 
       {pages.length === 0 && <p className="text-zinc-500">No pages yet. Create your first one.</p>}
 
-      <GlassPanel className="p-2">
-        <table className="w-full text-sm border-collapse">
+      <GlassPanel className="p-2 overflow-x-auto">
+        <table className="w-full min-w-lg text-sm border-collapse">
           <thead>
             <tr className="text-left text-zinc-400 border-b border-white/10">
               <th className="py-2 px-2 font-normal">Name</th>

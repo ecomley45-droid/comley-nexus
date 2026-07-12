@@ -36,7 +36,7 @@ export default function FinancePage() {
 
       <GlassPanel className="p-4">
         <h2 className="font-medium mb-3 text-zinc-300">Revenue by status</h2>
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full min-w-lg text-sm">
           <tbody>
             {ORDER_STATUSES.map((s) => (
               <tr key={s} className="border-b border-white/5 last:border-0">
@@ -45,7 +45,7 @@ export default function FinancePage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </GlassPanel>
     </div>
   );

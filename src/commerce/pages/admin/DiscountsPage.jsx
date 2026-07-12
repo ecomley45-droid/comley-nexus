@@ -63,7 +63,7 @@ export default function DiscountsPage() {
 
       {campaigns.length === 0 && <p className="text-zinc-500">No discount codes yet.</p>}
       <GlassPanel className="p-2">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full min-w-lg text-sm">
           <thead>
             <tr className="text-left text-zinc-400 border-b border-white/10">
               <th className="py-2 px-2 font-normal">Code</th>
@@ -90,7 +90,7 @@ export default function DiscountsPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </GlassPanel>
     </div>
   );

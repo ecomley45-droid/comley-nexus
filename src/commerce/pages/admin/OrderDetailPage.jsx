@@ -54,7 +54,7 @@ export default function OrderDetailPage() {
 
       <GlassPanel className="p-4 mb-4">
         <h2 className="font-medium mb-2 text-zinc-300">Items</h2>
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full min-w-lg text-sm">
           <tbody>
             {order.items.map((item, idx) => (
               <tr key={idx} className="border-b border-white/5 last:border-0">
@@ -63,7 +63,7 @@ export default function OrderDetailPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
         <div className="flex justify-between mt-3 pt-3 border-t border-white/10 font-semibold text-zinc-100">
           <span>Total</span>
           <span>${order.total.toFixed(2)}</span>

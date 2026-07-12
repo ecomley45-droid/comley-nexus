@@ -50,7 +50,7 @@ export default function HomePage() {
     <div>
       <h1 className="text-2xl font-semibold mb-4">Home</h1>
 
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatTile label="Net revenue" value={`$${net.toFixed(2)}`} />
         <StatTile label="Orders" value={orders.length} />
         <StatTile label="Customers" value={customers.length} />
@@ -74,7 +74,7 @@ export default function HomePage() {
 
         <GlassPanel className="p-4">
           <h2 className="font-medium mb-3 text-zinc-300">Revenue by status</h2>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full min-w-lg text-sm">
             <tbody>
               {ORDER_STATUSES.map((s) => (
                 <tr key={s} className="border-b border-white/5 last:border-0">
@@ -83,7 +83,7 @@ export default function HomePage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </GlassPanel>
       </div>
 
@@ -121,7 +121,7 @@ export default function HomePage() {
       <h2 className="font-medium mb-2 text-zinc-300">Recent orders</h2>
       <GlassPanel className="p-2">
         {recent.length === 0 && <p className="text-zinc-500 p-2">No orders yet.</p>}
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full min-w-lg text-sm">
           <tbody>
             {recent.map((o) => (
               <tr key={o.id} className="border-b border-white/5 last:border-0">
@@ -134,7 +134,7 @@ export default function HomePage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </GlassPanel>
     </div>
   );

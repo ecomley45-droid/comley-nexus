@@ -150,13 +150,13 @@ export default function DashboardPage() {
       <TrafficPanel />
 
       <h2 className="font-medium mb-2 text-zinc-300">Quick Start</h2>
-      <div className="grid grid-cols-6 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         {QUICK_START.map((item) => (
           <QuickStartTile key={item.label} {...item} onClick={() => handleQuickStart(item)} />
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         <GlassPanel className="p-4">
           <div className="flex justify-between items-center mb-3">
             <h2 className="font-medium text-zinc-300">Recent activity</h2>
@@ -207,7 +207,8 @@ export default function DashboardPage() {
           </div>
         </div>
         {drafts.length === 0 && <p className="text-zinc-500 text-sm">No unpublished drafts.</p>}
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-sm text-sm">
           <tbody>
             {drafts.slice(0, draftsCount).map((p) => (
               <tr key={p.id} className="border-b border-white/5 last:border-0">
@@ -220,6 +221,7 @@ export default function DashboardPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </GlassPanel>
     </div>
   );

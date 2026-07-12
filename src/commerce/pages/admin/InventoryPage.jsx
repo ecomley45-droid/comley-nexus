@@ -54,7 +54,7 @@ export default function InventoryPage() {
       <h1 className="text-2xl font-semibold mb-1">Inventory</h1>
       <p className="text-sm text-zinc-400 mb-5">Stock per location. The total is the sum across all locations. Edit a cell and tab out to save.</p>
       <GlassPanel className="p-0 overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-lg text-sm">
           <thead>
             <tr className="text-left text-zinc-400 border-b border-white/10">
               <th className="p-3 font-medium">Product</th>

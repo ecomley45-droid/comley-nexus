@@ -53,8 +53,8 @@ export default function RedirectsPage() {
         {error && <p className="text-red-400 mt-2 text-sm">{error}</p>}
       </GlassPanel>
 
-      <GlassPanel className="p-2">
-        <table className="w-full text-sm">
+      <GlassPanel className="p-2 overflow-x-auto">
+        <table className="w-full min-w-lg text-sm">
           <thead><tr className="text-left text-zinc-400 border-b border-white/10"><th className="py-2 px-2 font-normal">From</th><th className="font-normal">To</th><th className="font-normal">Type</th><th></th></tr></thead>
           <tbody>
             {redirects.map((r) => (

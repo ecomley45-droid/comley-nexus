@@ -69,8 +69,8 @@ export default function FormsPage() {
               <span className="text-xs text-zinc-500 shrink-0">{new Date(sub.submittedAt).toLocaleString()}</span>
             </button>
             {expanded === sub.id && (
-              <div className="border-t border-white/10 p-4">
-                <table className="text-sm w-full">
+              <div className="border-t border-white/10 p-4 overflow-x-auto">
+                <table className="text-sm w-full min-w-sm">
                   <tbody>
                     {Object.entries(sub.fields).map(([k, v]) => (
                       <tr key={k}>

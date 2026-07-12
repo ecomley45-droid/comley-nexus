@@ -27,7 +27,7 @@ export default function OrdersPage() {
       </div>
       {orders.length === 0 && <p className="text-zinc-500">No orders yet. Record a walk-in with “New sale”.</p>}
       <GlassPanel className="p-2 overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-lg text-sm">
           <thead>
             <tr className="text-left text-zinc-400 border-b border-white/10">
               <th className="py-2 px-2 font-normal">Order</th>

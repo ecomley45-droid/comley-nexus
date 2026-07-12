@@ -28,7 +28,9 @@ export default function ProfileChip({ variant = 'compact', onClick }) {
       }
     >
       <Avatar name={viewer.name} image={viewer.image} size={isWide ? 32 : 22} />
-      <div className="min-w-0 flex-1">
+      {/* In the compact top-bar chip, drop the name on narrow screens so it
+          never overflows the header — the avatar alone is enough there. */}
+      <div className={`min-w-0 flex-1 ${isWide ? '' : 'hidden sm:block'}`}>
         <div className={`truncate ${isWide ? 'text-sm font-semibold text-zinc-100' : 'text-xs font-medium text-zinc-100'}`}>
           {viewer.name}
         </div>

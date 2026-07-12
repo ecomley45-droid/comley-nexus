@@ -45,7 +45,7 @@ export default function AnalyticsPage() {
 
       <GlassPanel className="p-4">
         <h2 className="font-medium mb-3 text-zinc-300">Purchases by customer tier</h2>
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {Object.entries(tiers).map(([tier, count]) => (
             <div key={tier} className="text-center">
               <div className="text-xl font-semibold text-zinc-100">{count}</div>

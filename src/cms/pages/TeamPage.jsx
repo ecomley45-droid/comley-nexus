@@ -84,8 +84,8 @@ export default function TeamPage() {
 
       {team.length === 0 && <p className="text-zinc-500">No team members added yet.</p>}
       {team.length > 0 && (
-        <GlassPanel className="p-2">
-          <table className="w-full text-sm">
+        <GlassPanel className="p-2 overflow-x-auto">
+          <table className="w-full min-w-lg text-sm">
             <tbody>
               {team.map((t) => (
                 <tr key={t.id} className="border-b border-white/5 last:border-0">
