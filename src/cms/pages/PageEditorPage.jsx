@@ -183,7 +183,7 @@ function LayerRow({ section, index, total, selected, onSelect, onDragStart, onDr
         <span className="text-[10px] text-zinc-600 w-3 text-center shrink-0">{index + 1}</span>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className={`text-sm truncate ${selected ? 'text-white' : 'text-zinc-200'}`}>{section.name}</span>
+            <span className={`text-sm truncate ${selected ? 'text-zinc-100 font-medium' : 'text-zinc-200'}`}>{section.name}</span>
             {hiddenSomewhere && <EyeOff size={11} className="text-amber-400/70 shrink-0" />}
           </div>
           <div className="text-[10px] text-zinc-500 truncate">
@@ -313,7 +313,7 @@ function ContentInspector({ section, onChange, editViews, editView, setEditView,
               key={v}
               onClick={() => setEditView(v)}
               className={`flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition ${
-                editView === v ? 'bg-white/15 text-white' : 'text-zinc-500 hover:text-zinc-200'
+                editView === v ? 'bg-white/15 text-zinc-100' : 'text-zinc-500 hover:text-zinc-200'
               }`}
             >
               {v === 'Fields' ? <SlidersHorizontal size={12} /> : <Code2 size={12} />}
@@ -631,7 +631,7 @@ export default function PageEditorPage({ nexus = false }) {
                   key={d.value}
                   onClick={() => setDevice(d.value)}
                   title={`${d.label} (${d.width}px)`}
-                  className={`px-2 py-1.5 rounded-md transition ${device === d.value ? 'bg-white/15 text-white' : 'text-zinc-500 hover:text-zinc-200'}`}
+                  className={`px-2 py-1.5 rounded-md transition ${device === d.value ? 'bg-white/15 text-zinc-100' : 'text-zinc-500 hover:text-zinc-200'}`}
                 >
                   <Icon size={14} />
                 </button>
@@ -747,7 +747,7 @@ export default function PageEditorPage({ nexus = false }) {
                   onClick={() => setTab(t.key)}
                   title={disabled ? 'Select a block first' : t.label}
                   className={`flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition ${
-                    activeTab === t.key ? 'bg-white/15 text-white' : 'text-zinc-500 hover:text-zinc-200 disabled:opacity-30 disabled:hover:text-zinc-500'
+                    activeTab === t.key ? 'bg-white/15 text-zinc-100' : 'text-zinc-500 hover:text-zinc-200 disabled:opacity-30 disabled:hover:text-zinc-500'
                   }`}
                 >
                   <Icon size={12} /> {t.label}

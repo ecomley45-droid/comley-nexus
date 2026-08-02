@@ -63,7 +63,7 @@ export function Segmented({ options, value, onChange, required = false, classNam
             aria-pressed={active}
             onClick={() => onChange(active && !required ? undefined : opt.value)}
             className={`flex-1 flex items-center justify-center gap-1 rounded-md px-2 py-1.5 text-xs transition ${
-              active ? 'bg-white/15 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.06]'
+              active ? 'bg-white/15 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.06]'
             }`}
           >
             {Icon ? <Icon size={14} /> : opt.short || opt.label}
@@ -114,7 +114,9 @@ export function ColorField({ value, onChange, swatches = [], allowClear = true }
   return (
     <div>
       <div className="flex items-center gap-2">
-        <label className="relative w-8 h-8 shrink-0 rounded-lg border border-white/15 overflow-hidden cursor-pointer bg-[repeating-conic-gradient(#333_0_25%,#555_0_50%)] bg-[length:10px_10px]">
+        {/* Mid-grey checkerboard behind the swatch — reads as "no colour" on
+            both the dark and the light console theme. */}
+        <label className="relative w-8 h-8 shrink-0 rounded-lg border border-white/15 overflow-hidden cursor-pointer bg-[repeating-conic-gradient(#8a8a8a_0_25%,#b4b4b4_0_50%)] bg-[length:10px_10px]">
           <span className="absolute inset-0" style={{ background: value || 'transparent' }} />
           <input
             type="color"
@@ -159,7 +161,11 @@ export function ToggleRow({ label, checked, onChange, hint }) {
       </span>
       <span
         onClick={(e) => { e.preventDefault(); onChange(!checked); }}
-        className={`relative w-8 h-[18px] shrink-0 rounded-full transition ${checked ? 'bg-glass-indigo' : 'bg-white/15'}`}
+        // The off state carries a border so the track stays visible on a
+        // light surface, where a translucent-white fill all but disappears.
+        className={`relative w-8 h-[18px] shrink-0 rounded-full border transition ${
+          checked ? 'bg-glass-indigo border-glass-indigo' : 'bg-white/15 border-white/20'
+        }`}
       >
         <span className={`absolute top-[2px] w-3.5 h-3.5 rounded-full bg-white transition-all ${checked ? 'left-[16px]' : 'left-[2px]'}`} />
       </span>

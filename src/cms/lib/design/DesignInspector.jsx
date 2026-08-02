@@ -148,7 +148,7 @@ export default function DesignInspector({ style = {}, onChange, device, onDevice
               key={d.value}
               onClick={() => onDeviceChange(d.value)}
               className={`flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition ${
-                active ? 'bg-white/15 text-white' : 'text-zinc-500 hover:text-zinc-200'
+                active ? 'bg-white/15 text-zinc-100' : 'text-zinc-500 hover:text-zinc-200'
               }`}
             >
               <Icon size={13} />

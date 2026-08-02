@@ -71,6 +71,17 @@
 [data-theme="light"] .bg-white\/10 { background-color: rgba(255,255,255,0.82); }
 [data-theme="light"] .bg-white\/15 { background-color: rgba(255,255,255,0.92); }
 
+/* Floating surfaces (command palette, the "New page" mode menu, the undo
+   toast) are opaque near-black so they read over whatever is behind them.
+   Without a remap they stay dark while their text flips to near-black --
+   an unreadable dark-on-dark panel in an otherwise light console. */
+[data-theme="light"] .bg-zinc-900\/95 { background-color: rgba(255,255,255,0.97); }
+
+/* Inset wells (segmented control tracks, the preview canvas backdrop) are
+   darker-than-surface on dark; on light they have to go the other way. */
+[data-theme="light"] .bg-black\/20,
+[data-theme="light"] .bg-black\/25 { background-color: rgba(0,0,0,0.05); }
+
 /* Borders: white lines become subtle dark lines. */
 [data-theme="light"] .border-white\/5 { border-color: rgba(0,0,0,0.06); }
 [data-theme="light"] .border-white\/10 { border-color: rgba(0,0,0,0.10); }
@@ -83,6 +94,27 @@
 [data-theme="light"] .hover\:bg-white\/10:hover { background-color: rgba(0,0,0,0.05); }
 [data-theme="light"] .hover\:bg-white\/15:hover { background-color: rgba(0,0,0,0.07); }
 [data-theme="light"] .hover\:bg-white\/5:hover { background-color: rgba(0,0,0,0.03); }
+
+/* Accent text. The 300/400 shades are tuned for light-on-dark; over a light
+   surface (or the pale tint of a badge/banner) they wash out, so each drops
+   to the 700/800 step of the same hue -- same meaning, readable contrast.
+   Applies to badges, inline warnings, delete actions and the text-button
+   links used throughout the console. */
+[data-theme="light"] .text-glass-sky,
+[data-theme="light"] .hover\:text-glass-sky:hover { color: #0284c7; }
+[data-theme="light"] .text-sky-300 { color: #0369a1; }
+[data-theme="light"] .text-sky-200\/90 { color: #075985; }
+[data-theme="light"] .text-emerald-300 { color: #047857; }
+[data-theme="light"] .text-emerald-400 { color: #059669; }
+[data-theme="light"] .text-indigo-200 { color: #3730a3; }
+[data-theme="light"] .text-amber-300,
+[data-theme="light"] .text-amber-300\/80,
+[data-theme="light"] .text-amber-300\/90,
+[data-theme="light"] .hover\:text-amber-300:hover { color: #92400e; }
+[data-theme="light"] .text-amber-400 { color: #b45309; }
+[data-theme="light"] .text-red-400 { color: #dc2626; }
+[data-theme="light"] .text-red-300,
+[data-theme="light"] .hover\:text-red-300:hover { color: #b91c1c; }
 
 /* Soften the decorative drifting colour blobs so they don't overpower light. */
 [data-theme="light"] .animate-drift-a,
