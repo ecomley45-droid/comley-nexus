@@ -144,7 +144,9 @@ export default function TemplateDetailPage() {
             </h2>
             {template.summary?.fullHtmlPages > 0 && blockCounts.length === 0 ? (
               <p className="text-sm text-zinc-300">
-                Original HTML design — installs pixel-for-pixel from the source, edited as raw HTML rather than blocks.
+                Original HTML design — installs pixel-for-pixel from the source. Each part of the
+                page arrives as its own block, so you can reorder, delete and restyle the pieces in
+                the editor; the markup itself is edited under the HTML view.
               </p>
             ) : (
               <div className="flex flex-wrap gap-1.5">

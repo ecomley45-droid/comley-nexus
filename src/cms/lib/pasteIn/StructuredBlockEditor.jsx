@@ -4,49 +4,65 @@ import { renderBlock, LAYOUT_TEMPLATES } from './blockRenderers.js';
 import BlockCatalogPicker from '../blocks/BlockCatalogPicker.jsx';
 import { getCalendars, getEvents, getMedia } from '../api.js';
 import { EVENT_BOUND_TYPES, applyEventsToFields, expandRecurring, accentWrap } from '../../../shared/eventsMap.js';
+import { schemaFor } from './blockFields.js';
 
-// Structured-view counterpart to BlockRow's raw HTML textarea. Only usable
-// on blocks that carry `blockType` + `fields` (created via "Paste in" --
-// see PasteInModal.jsx). Editing here always regenerates `html` from
-// blockRenderers so the live preview and the eventually-saved HTML stay in
-// sync with the typed fields; there's no separate "apply" step.
+// The Content panel for a selected block. Only usable on blocks that carry
+// `blockType` + `fields`; hand-authored/raw sections have no structured
+// representation and the caller falls back to the HTML view for those.
 //
-// Blocks without fields (hand-authored sections, or anything imported as
-// plain `unknown` content) have no structured representation to edit --
-// callers should fall back to the raw HTML view for those.
+// Which editors appear, in what order, and what they're called all come from
+// blockFields.js -- one declaration per block type, matched to what that
+// block's renderer actually reads. So a Navigation block offers links and
+// nothing else, an FAQ asks for Questions and Answers rather than "Items",
+// and a Contact Form finally exposes its button label. Editing always
+// regenerates `html` from blockRenderers so the live preview and the
+// eventually-saved HTML stay in sync with the typed fields; there's no
+// separate "apply" step.
 
-const COLLECTION_TYPES = ['card-grid', 'scrolling-cards', 'list', 'stats', 'testimonials', 'team', 'faq', 'tabs',
-  // Polished block set (item-based)
-  'feature-icons', 'steps', 'price-list', 'stat-band', 'quote',
-  'checklist', 'feature-rows', 'metric-cards', 'testimonial-grid', 'team-grid', 'faq-accordion', 'blog-cards',
-  'parallax', 'events-list', 'calendar', 'testimonial-marquee'];
+function FieldShell({ label, hint, action, children }) {
+  return (
+    <div className="mb-3">
+      <div className="flex justify-between items-center mb-1 gap-2">
+        <label className="text-xs text-zinc-400">{label}</label>
+        {action}
+      </div>
+      {children}
+      {hint && <p className="text-[11px] text-zinc-600 mt-1">{hint}</p>}
+    </div>
+  );
+}
 
-function StringListEditor({ label, items, onChange, multiline = false, placeholder }) {
+const AddButton = ({ onClick, children }) => (
+  <button onClick={onClick} className="text-xs text-glass-sky hover:underline shrink-0">{children}</button>
+);
+
+function StringListEditor({ spec, items, onChange, multiline = false }) {
   const Field = multiline ? GlassTextarea : GlassInput;
+  const max = spec.max || Infinity;
   const update = (i, value) => onChange(items.map((v, idx) => (idx === i ? value : v)));
   const remove = (i) => onChange(items.filter((_, idx) => idx !== i));
   const add = () => onChange([...items, '']);
 
   return (
-    <div className="mb-3">
-      <div className="flex justify-between items-center mb-1">
-        <label className="text-xs text-zinc-400">{label}</label>
-        <button onClick={add} className="text-xs text-glass-sky hover:underline">Add</button>
-      </div>
+    <FieldShell
+      label={spec.label}
+      hint={spec.hint}
+      action={items.length < max && <AddButton onClick={add}>Add {spec.singular || 'line'}</AddButton>}
+    >
       {items.map((v, i) => (
         <div key={i} className="flex gap-1.5 mb-1.5">
           <Field
             value={v}
             onChange={(e) => update(i, e.target.value)}
-            placeholder={placeholder}
+            placeholder={spec.placeholder}
             className="flex-1 min-w-0"
             rows={multiline ? 2 : undefined}
           />
           <button onClick={() => remove(i)} className="text-red-400 hover:text-red-300 text-xs px-1">✕</button>
         </div>
       ))}
-      {items.length === 0 && <p className="text-xs text-zinc-600">None</p>}
-    </div>
+      {items.length === 0 && <p className="text-xs text-zinc-600">None yet.</p>}
+    </FieldShell>
   );
 }
 
@@ -60,6 +76,13 @@ function ToggleChip({ checked, onChange, label }) {
   );
 }
 
+// Shared media-library loader: one fetch per mounted editor that needs it.
+function useMediaLibrary() {
+  const [library, setLibrary] = useState([]);
+  useEffect(() => { getMedia().then(setLibrary).catch(() => setLibrary([])); }, []);
+  return library;
+}
+
 // Each image carries its own metadata (name, alt, description) plus three
 // per-placement show flags. The flags decide which pieces render as a
 // visible caption on the page when this media sits in a block --
@@ -67,9 +90,9 @@ function ToggleChip({ checked, onChange, label }) {
 // on one page and its description on another. `alt` is always written to
 // the <img alt> attribute for accessibility; `showAlt` only controls
 // whether it *also* appears as visible caption text.
-function ImagesEditor({ images, onChange }) {
-  const [library, setLibrary] = useState([]);
-  useEffect(() => { getMedia().then(setLibrary).catch(() => setLibrary([])); }, []);
+function ImagesEditor({ spec, images, onChange }) {
+  const library = useMediaLibrary();
+  const max = spec.max || Infinity;
 
   const update = (i, patch) => onChange(images.map((img, idx) => (idx === i ? { ...img, ...patch } : img)));
   const remove = (i) => onChange(images.filter((_, idx) => idx !== i));
@@ -88,11 +111,11 @@ function ImagesEditor({ images, onChange }) {
   };
 
   return (
-    <div className="mb-3">
-      <div className="flex justify-between items-center mb-1">
-        <label className="text-xs text-zinc-400">Images</label>
-        <button onClick={add} className="text-xs text-glass-sky hover:underline">Add</button>
-      </div>
+    <FieldShell
+      label={spec.label}
+      hint={spec.hint}
+      action={images.length < max && <AddButton onClick={add}>Add image</AddButton>}
+    >
       {images.map((img, i) => (
         <div key={i} className="mb-2 rounded-lg border border-white/10 p-2">
           <div className="flex gap-1.5 mb-1.5">
@@ -118,66 +141,124 @@ function ImagesEditor({ images, onChange }) {
           </div>
         </div>
       ))}
-      {images.length === 0 && <p className="text-xs text-zinc-600">None</p>}
-    </div>
+      {images.length === 0 && <p className="text-xs text-zinc-600">None yet.</p>}
+    </FieldShell>
   );
 }
 
-function LinksEditor({ links, onChange }) {
+// Single image URL with a library picker — for blocks that carry one image
+// as a plain string field (Product) rather than in the `images` array.
+function MediaUrlField({ spec, value, onChange }) {
+  const library = useMediaLibrary();
+  return (
+    <FieldShell label={spec.label} hint={spec.hint}>
+      <div className="flex gap-1.5">
+        {library.length > 0 && (
+          <GlassSelect
+            value=""
+            onChange={(e) => { const m = library.find((x) => x.id === e.target.value); if (m) onChange(m.url); }}
+            className="w-28 shrink-0"
+          >
+            <option value="">Library…</option>
+            {library.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </GlassSelect>
+        )}
+        <GlassInput value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={spec.placeholder || 'https://…'} className="flex-1 min-w-0" />
+      </div>
+    </FieldShell>
+  );
+}
+
+function LinksEditor({ spec, links, onChange }) {
+  const max = spec.max || Infinity;
   const update = (i, patch) => onChange(links.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
   const remove = (i) => onChange(links.filter((_, idx) => idx !== i));
   const add = () => onChange([...links, { href: '', label: '' }]);
 
   return (
-    <div className="mb-3">
-      <div className="flex justify-between items-center mb-1">
-        <label className="text-xs text-zinc-400">Links</label>
-        <button onClick={add} className="text-xs text-glass-sky hover:underline">Add</button>
-      </div>
+    <FieldShell
+      label={spec.label}
+      hint={spec.hint}
+      action={links.length < max && <AddButton onClick={add}>Add link</AddButton>}
+    >
       {links.map((l, i) => (
         <div key={i} className="flex gap-1.5 mb-1.5">
-          <GlassInput value={l.label || ''} onChange={(e) => update(i, { label: e.target.value })} placeholder="Label" className="w-32" />
-          <GlassInput value={l.href || ''} onChange={(e) => update(i, { href: e.target.value })} placeholder="https://…" className="flex-1 min-w-0" />
+          <GlassInput value={l.label || ''} onChange={(e) => update(i, { label: e.target.value })} placeholder={spec.labelPlaceholder || 'Label'} className="w-32" />
+          <GlassInput value={l.href || ''} onChange={(e) => update(i, { href: e.target.value })} placeholder={spec.hrefPlaceholder || 'https://…'} className="flex-1 min-w-0" />
           <button onClick={() => remove(i)} className="text-red-400 hover:text-red-300 text-xs px-1">✕</button>
         </div>
       ))}
-      {links.length === 0 && <p className="text-xs text-zinc-600">None</p>}
-    </div>
+      {links.length === 0 && <p className="text-xs text-zinc-600">None yet.</p>}
+    </FieldShell>
   );
 }
 
-function ItemsEditor({ items, onChange }) {
+// Repeating content (cards, people, questions, steps, statistics…). Which
+// sub-fields show and what they're called comes from the block's schema, so
+// an FAQ asks for a Question and an Answer while a stat asks for a Number
+// and a Label — same underlying item shape, block-appropriate wording.
+function ItemsEditor({ spec, items, onChange }) {
+  const use = spec.use || ['heading', 'meta', 'body', 'image', 'link'];
+  const labels = spec.labels || {};
+  const placeholders = spec.placeholders || {};
+  const max = spec.max || Infinity;
+  const singular = spec.singular || 'item';
+
   const update = (i, patch) => onChange(items.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
   const remove = (i) => onChange(items.filter((_, idx) => idx !== i));
-  const add = () => onChange([...items, { heading: '', meta: '', body: '', image: '', link: '' }]);
+  const move = (i, dir) => {
+    const j = i + dir;
+    if (j < 0 || j >= items.length) return;
+    const next = [...items];
+    [next[i], next[j]] = [next[j], next[i]];
+    onChange(next);
+  };
+  const add = () => onChange([...items, Object.fromEntries(use.map((k) => [k, '']))]);
+
+  // Labelled rather than placeholder-only: once a field has a value the
+  // placeholder is gone, and "Dana Whitfield / Founder, Fieldnote" gives no
+  // clue which box is the name and which is the role.
+  const inputFor = (it, i, key) => {
+    const common = {
+      value: it[key] || '',
+      onChange: (e) => update(i, { [key]: e.target.value }),
+      placeholder: placeholders[key] || '',
+    };
+    return (
+      <div key={key} className="mb-1.5">
+        <label className="block text-[10px] uppercase tracking-wide text-zinc-600 mb-0.5">{labels[key] || key}</label>
+        {key === 'body'
+          ? <GlassTextarea {...common} rows={2} className="w-full" />
+          : <GlassInput {...common} className="w-full" />}
+      </div>
+    );
+  };
 
   return (
-    <div className="mb-3">
-      <div className="flex justify-between items-center mb-1">
-        <label className="text-xs text-zinc-400">Items ({items.length})</label>
-        <button onClick={add} className="text-xs text-glass-sky hover:underline">Add item</button>
-      </div>
+    <FieldShell
+      label={`${spec.label} (${items.length})`}
+      hint={spec.hint}
+      action={items.length < max && <AddButton onClick={add}>Add {singular}</AddButton>}
+    >
       {items.map((it, i) => (
         <div key={i} className="rounded-lg border border-white/10 bg-white/[0.03] p-2 mb-2">
           <div className="flex justify-between items-center mb-1.5">
-            <span className="text-xs text-zinc-500">Item {i + 1}</span>
-            <button onClick={() => remove(i)} className="text-red-400 hover:text-red-300 text-xs">Remove</button>
+            <span className="text-xs text-zinc-500 capitalize">{singular} {i + 1}</span>
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => move(i, -1)} disabled={i === 0} className="text-xs text-zinc-400 hover:text-zinc-100 disabled:opacity-30" title={`Move ${singular} up`}>↑</button>
+              <button onClick={() => move(i, 1)} disabled={i === items.length - 1} className="text-xs text-zinc-400 hover:text-zinc-100 disabled:opacity-30" title={`Move ${singular} down`}>↓</button>
+              <button onClick={() => remove(i)} className="text-red-400 hover:text-red-300 text-xs">Remove</button>
+            </div>
           </div>
-          <GlassInput value={it.heading || ''} onChange={(e) => update(i, { heading: e.target.value })} placeholder="Heading (e.g. name, question, tab label)" className="w-full mb-1.5" />
-          <GlassInput value={it.meta || ''} onChange={(e) => update(i, { meta: e.target.value })} placeholder="Subtitle (e.g. role/title) -- optional" className="w-full mb-1.5" />
-          <GlassTextarea value={it.body || ''} onChange={(e) => update(i, { body: e.target.value })} placeholder="Body" rows={2} className="w-full mb-1.5" />
-          <div className="flex gap-1.5">
-            <GlassInput value={it.image || ''} onChange={(e) => update(i, { image: e.target.value })} placeholder="Image URL" className="flex-1 min-w-0" />
-            <GlassInput value={it.link || ''} onChange={(e) => update(i, { link: e.target.value })} placeholder="Link URL" className="flex-1 min-w-0" />
-          </div>
+          {use.map((key) => inputFor(it, i, key))}
         </div>
       ))}
-      {items.length === 0 && <p className="text-xs text-zinc-600">None</p>}
-    </div>
+      {items.length === 0 && <p className="text-xs text-zinc-600">No {spec.label.toLowerCase()} yet.</p>}
+    </FieldShell>
   );
 }
 
-function PlansEditor({ plans, onChange }) {
+function PlansEditor({ spec, plans, onChange }) {
   const update = (i, patch) => onChange(plans.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
   const remove = (i) => onChange(plans.filter((_, idx) => idx !== i));
   const add = () => onChange([...plans, { name: '', price: '', period: '/mo', features: [], ctaLabel: 'Get started', ctaHref: '#', highlighted: false }]);
@@ -186,11 +267,7 @@ function PlansEditor({ plans, onChange }) {
   const addFeature = (i) => update(i, { features: [...(plans[i].features || []), ''] });
 
   return (
-    <div className="mb-3">
-      <div className="flex justify-between items-center mb-1">
-        <label className="text-xs text-zinc-400">Plans ({plans.length})</label>
-        <button onClick={add} className="text-xs text-glass-sky hover:underline">Add plan</button>
-      </div>
+    <FieldShell label={`${spec.label} (${plans.length})`} hint={spec.hint} action={<AddButton onClick={add}>Add plan</AddButton>}>
       {plans.map((p, i) => (
         <div key={i} className="rounded-lg border border-white/10 bg-white/[0.03] p-2 mb-2">
           <div className="flex justify-between items-center mb-1.5">
@@ -204,7 +281,7 @@ function PlansEditor({ plans, onChange }) {
           </div>
           <div className="flex justify-between items-center mb-1">
             <span className="text-xs text-zinc-500">Features</span>
-            <button onClick={() => addFeature(i)} className="text-xs text-glass-sky hover:underline">Add feature</button>
+            <AddButton onClick={() => addFeature(i)}>Add feature</AddButton>
           </div>
           {(p.features || []).map((f, fi) => (
             <div key={fi} className="flex gap-1.5 mb-1">
@@ -222,8 +299,69 @@ function PlansEditor({ plans, onChange }) {
           </label>
         </div>
       ))}
-      {plans.length === 0 && <p className="text-xs text-zinc-600">None</p>}
-    </div>
+      {plans.length === 0 && <p className="text-xs text-zinc-600">None yet.</p>}
+    </FieldShell>
+  );
+}
+
+// One block-specific scalar field (button label, video URL, product ID,
+// countdown date, feed platform…), rendered from its `kind`.
+function ExtraField({ fieldKey, spec, value, onChange }) {
+  if (spec.kind === 'image') {
+    return <MediaUrlField spec={spec} value={value} onChange={onChange} />;
+  }
+  if (spec.kind === 'select') {
+    return (
+      <FieldShell label={spec.label} hint={spec.hint}>
+        <GlassSelect value={value || spec.options?.[0]?.value || ''} onChange={(e) => onChange(e.target.value)} className="w-full">
+          {(spec.options || []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </GlassSelect>
+      </FieldShell>
+    );
+  }
+  if (spec.kind === 'number') {
+    return (
+      <FieldShell label={spec.label} hint={spec.hint}>
+        <GlassInput
+          type="number"
+          min={spec.min}
+          max={spec.max}
+          value={value ?? ''}
+          placeholder={spec.placeholder}
+          onChange={(e) => onChange(e.target.value === '' ? undefined : Number(e.target.value))}
+          className="w-full"
+        />
+      </FieldShell>
+    );
+  }
+  if (spec.kind === 'date') {
+    return (
+      <FieldShell label={spec.label} hint={spec.hint}>
+        <GlassInput
+          type="date"
+          value={value ? String(value).slice(0, 10) : ''}
+          onChange={(e) => onChange(e.target.value ? new Date(e.target.value).toISOString() : '')}
+          className="w-full"
+        />
+      </FieldShell>
+    );
+  }
+  if (spec.kind === 'month') {
+    return (
+      <FieldShell label={spec.label} hint={spec.hint}>
+        <GlassInput type="month" value={value || ''} onChange={(e) => onChange(e.target.value)} className="w-full" />
+      </FieldShell>
+    );
+  }
+  return (
+    <FieldShell label={spec.label} hint={spec.hint}>
+      <GlassInput
+        value={value || ''}
+        onChange={(e) => onChange(fieldKey === 'productId' ? e.target.value.trim() : e.target.value)}
+        placeholder={spec.placeholder}
+        className="w-full"
+      />
+    </FieldShell>
   );
 }
 
@@ -306,7 +444,7 @@ function LayoutBlockEditor({ fields, onChange }) {
           <div key={col.id || colIndex} className="rounded-lg border border-white/10 bg-white/[0.02] p-2 min-w-0">
             <div className="flex justify-between items-center mb-2">
               <span className="text-xs font-medium text-zinc-400">Column {colIndex + 1}</span>
-              <button onClick={() => setAddingToColumn(colIndex)} className="text-xs text-glass-sky hover:underline">Add block</button>
+              <AddButton onClick={() => setAddingToColumn(colIndex)}>Add block</AddButton>
             </div>
             {col.sections.length === 0 && <p className="text-xs text-zinc-600 mb-1">Empty</p>}
             <div className="space-y-1.5">
@@ -319,8 +457,8 @@ function LayoutBlockEditor({ fields, onChange }) {
                     >
                       {expandedChild === child.id ? '▾' : '▸'} {child.name}
                     </button>
-                    <button onClick={() => moveChildWithinColumn(colIndex, child.id, -1)} disabled={childIdx === 0} className="text-zinc-400 hover:text-white disabled:opacity-30 text-xs px-1">↑</button>
-                    <button onClick={() => moveChildWithinColumn(colIndex, child.id, 1)} disabled={childIdx === col.sections.length - 1} className="text-zinc-400 hover:text-white disabled:opacity-30 text-xs px-1">↓</button>
+                    <button onClick={() => moveChildWithinColumn(colIndex, child.id, -1)} disabled={childIdx === 0} className="text-zinc-400 hover:text-zinc-100 disabled:opacity-30 text-xs px-1">↑</button>
+                    <button onClick={() => moveChildWithinColumn(colIndex, child.id, 1)} disabled={childIdx === col.sections.length - 1} className="text-zinc-400 hover:text-zinc-100 disabled:opacity-30 text-xs px-1">↓</button>
                     <button onClick={() => removeChild(colIndex, child.id)} className="text-red-400 hover:text-red-300 text-xs px-1">✕</button>
                   </div>
                   {columns.length > 1 && (
@@ -390,7 +528,7 @@ export default function StructuredBlockEditor({ section, onChange }) {
   if (!section.blockType || !section.fields) {
     return (
       <p className="text-xs text-zinc-500 py-3">
-        No structured fields for this block — switch to Raw HTML to edit it.
+        No structured fields for this block — switch to HTML to edit it.
       </p>
     );
   }
@@ -407,9 +545,8 @@ export default function StructuredBlockEditor({ section, onChange }) {
     return <LayoutBlockEditor fields={fields} onChange={onChange} />;
   }
 
-  // Script has no visual layout fields (headings/images/links etc. don't
-  // apply to it) -- it's just a code body, so it skips the generic editors
-  // below entirely rather than showing empty, irrelevant sections.
+  // Script has no visual layout fields -- it's just a code body, so it skips
+  // the generic editors below entirely.
   if (section.blockType === 'script') {
     return (
       <div className="pt-1">
@@ -428,7 +565,58 @@ export default function StructuredBlockEditor({ section, onChange }) {
     );
   }
 
+  const schema = schemaFor(section.blockType);
   const boundToCalendar = isBound && !!fields.calendarId;
+
+  // A calendar-bound block's items and images come from the Events page, so
+  // hiding those editors is the honest thing to do -- typing into them would
+  // be silently overwritten on every render.
+  const suppressed = boundToCalendar ? new Set(['items', 'images']) : new Set();
+
+  const renderSection = (key) => {
+    if (suppressed.has(key)) return null;
+    const spec = schema[key];
+    if (spec) {
+      // `showWhenPresent` fields exist for legacy/imported shapes a renderer
+      // still honors — shown only while they actually hold content, so a
+      // freshly added block isn't offered a field that does nothing.
+      if (spec.showWhenPresent) {
+        const current = fields[key];
+        const empty = !current || (Array.isArray(current) ? current.every((v) => !v) : !String(current).trim());
+        if (empty) return null;
+      }
+      switch (key) {
+        case 'headings':
+          return <StringListEditor key={key} spec={spec} items={fields.headings || []} onChange={(headings) => setFields({ headings })} />;
+        case 'text':
+          return <StringListEditor key={key} spec={spec} items={fields.text || []} onChange={(text) => setFields({ text })} multiline />;
+        case 'images':
+          return <ImagesEditor key={key} spec={spec} images={fields.images || []} onChange={(images) => setFields({ images })} />;
+        case 'links':
+          return <LinksEditor key={key} spec={spec} links={fields.links || []} onChange={(links) => setFields({ links })} />;
+        case 'items':
+          return <ItemsEditor key={key} spec={spec} items={fields.items || []} onChange={(items) => setFields({ items })} />;
+        case 'plans':
+          return <PlansEditor key={key} spec={spec} plans={fields.plans || []} onChange={(plans) => setFields({ plans })} />;
+        default:
+          break;
+      }
+    }
+    const extra = schema.extras?.[key];
+    if (extra) {
+      return (
+        <ExtraField
+          key={key}
+          fieldKey={key}
+          spec={extra}
+          value={fields[key]}
+          onChange={(value) => setFields({ [key]: value })}
+        />
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="pt-1">
       {isBound && (
@@ -446,80 +634,16 @@ export default function StructuredBlockEditor({ section, onChange }) {
           )}
         </div>
       )}
-      <StringListEditor label="Headings" items={fields.headings || []} onChange={(headings) => setFields({ headings })} placeholder="Heading text" />
-      <StringListEditor label="Paragraphs" items={fields.text || []} onChange={(text) => setFields({ text })} multiline placeholder="Paragraph text" />
-      {!boundToCalendar && <ImagesEditor images={fields.images || []} onChange={(images) => setFields({ images })} />}
-      <LinksEditor links={fields.links || []} onChange={(links) => setFields({ links })} />
-      {COLLECTION_TYPES.includes(section.blockType) && !boundToCalendar && (
-        <ItemsEditor items={fields.items || []} onChange={(items) => setFields({ items })} />
-      )}
-      {(section.blockType === 'pricing-table' || section.blockType === 'pricing-cards') && (
-        <PlansEditor plans={fields.plans || []} onChange={(plans) => setFields({ plans })} />
-      )}
-      {(section.blockType === 'video' || section.blockType === 'video-split') && (
-        <div className="mb-3">
-          <label className="text-xs text-zinc-400 block mb-1">Video URL (YouTube or Vimeo)</label>
-          <GlassInput value={fields.videoUrl || ''} onChange={(e) => setFields({ videoUrl: e.target.value })} placeholder="https://www.youtube.com/watch?v=…" className="w-full" />
-        </div>
-      )}
-      {section.blockType === 'calendar' && (
-        <div className="mb-3">
-          <label className="text-xs text-zinc-400 block mb-1">Month to show (YYYY-MM) — items use a YYYY-MM-DD date in their "meta" field</label>
-          <GlassInput type="month" value={fields.month || ''} onChange={(e) => setFields({ month: e.target.value })} className="w-full" />
-        </div>
-      )}
-      {section.blockType === 'video-bg' && (
-        <div className="mb-3">
-          <label className="text-xs text-zinc-400 block mb-1">Background video URL (.mp4) — add a poster in Images</label>
-          <GlassInput value={fields.videoUrl || ''} onChange={(e) => setFields({ videoUrl: e.target.value })} placeholder="https://…/clip.mp4" className="w-full" />
-        </div>
-      )}
-      {section.blockType === 'newsletter' && (
-        <div className="mb-3">
-          <label className="text-xs text-zinc-400 block mb-1">Button label</label>
-          <GlassInput value={fields.buttonLabel || ''} onChange={(e) => setFields({ buttonLabel: e.target.value })} placeholder="Subscribe" className="w-full" />
-        </div>
-      )}
-      {section.blockType === 'product' && (
-        <div className="mb-3 space-y-2">
-          <div>
-            <label className="text-xs text-zinc-400 block mb-1">Product ID (from Commerce &gt; Products)</label>
-            <GlassInput value={fields.productId || ''} onChange={(e) => setFields({ productId: e.target.value.trim() })} placeholder="Paste the product's ID" className="w-full" />
-            {!fields.productId && <p className="text-[11px] text-zinc-500 mt-1">Without a Product ID the Buy button shows as inactive.</p>}
-          </div>
-          <div className="flex gap-2">
-            <div className="flex-1 min-w-0">
-              <label className="text-xs text-zinc-400 block mb-1">Displayed price</label>
-              <GlassInput value={fields.price || ''} onChange={(e) => setFields({ price: e.target.value })} placeholder="$29" className="w-full" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <label className="text-xs text-zinc-400 block mb-1">Button label</label>
-              <GlassInput value={fields.buttonLabel || ''} onChange={(e) => setFields({ buttonLabel: e.target.value })} placeholder="Buy now" className="w-full" />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-zinc-400 block mb-1">Image URL</label>
-            <GlassInput value={fields.image || ''} onChange={(e) => setFields({ image: e.target.value })} placeholder="https://…" className="w-full" />
-          </div>
-        </div>
-      )}
-      {section.blockType === 'countdown' && (
-        <div className="mb-3">
-          <label className="text-xs text-zinc-400 block mb-1">Target date</label>
-          <GlassInput
-            type="date"
-            value={fields.targetDate ? fields.targetDate.slice(0, 10) : ''}
-            onChange={(e) => setFields({ targetDate: e.target.value ? new Date(e.target.value).toISOString() : '' })}
-            className="w-full"
-          />
-        </div>
-      )}
+
+      {(schema.order || []).map(renderSection)}
+
       <div className="mb-1 pt-2 border-t border-white/10">
         <label className="text-xs text-zinc-400 block mb-1 mt-2">Custom CSS</label>
         <p className="text-[11px] text-zinc-500 mb-1.5">
-          Plain CSS rules, injected above this block's markup. Target its
-          built-in classes (<code>nx-item</code>, <code>nx-link</code>, etc. —
-          check Raw HTML to see what's rendered) or your own selectors.
+          For anything the Design panel doesn't cover. Plain CSS rules, injected
+          above this block's markup — target its built-in classes
+          (<code>nx-item</code>, <code>px-feature</code>, etc. — check the HTML
+          view to see what's rendered) or your own selectors.
         </p>
         <GlassTextarea
           value={fields.customCss || ''}

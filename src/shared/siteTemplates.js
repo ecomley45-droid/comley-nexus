@@ -19,9 +19,12 @@ const FOOTER = (name) => ({
   },
 });
 
+// renderHeader only reads headings + links, so the block carries only those
+// -- an empty `text`/`images` here would show up as editors that do nothing
+// (see src/cms/lib/pasteIn/blockFields.js).
 const HEADER = (name, links) => ({
   name: 'Header', blockType: 'header',
-  fields: { headings: [name], text: [], images: [], links },
+  fields: { headings: [name], links },
 });
 
 const CONTACT_PAGE = (name, intro) => ({

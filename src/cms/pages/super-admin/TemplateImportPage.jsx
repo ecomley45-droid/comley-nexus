@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { segmentHtml } from '../../lib/pasteIn/segmentHtml.js';
+import { splitHtmlIntoSections } from '../../../shared/htmlSections.js';
 import { createTemplate } from '../../lib/api.js';
 import TemplatePreviewFrame from '../../lib/templates/TemplatePreviewFrame.jsx';
 import { labelForBlock } from '../../lib/templates/blockLabels.js';
@@ -48,7 +49,10 @@ export default function TemplateImportPage() {
         try { title = new DOMParser().parseFromString(text, 'text/html').title?.trim() || ''; } catch { /* ignore */ }
         const base = { id: `${f.name}-${Math.random().toString(36).slice(2)}`, fileName: f.name, name: title || prettyName(f.name), category: 'Business' };
         if (mode === 'design') {
-          acc.push({ ...base, fullHtml: text, sections: null, warnings: [], include: true, error: '' });
+          // Stored verbatim, but installed as blocks (materializeInstall runs
+          // the same splitter), so show how many modules it will become.
+          const moduleCount = splitHtmlIntoSections(text).length;
+          acc.push({ ...base, fullHtml: text, moduleCount, sections: null, warnings: [], include: true, error: '' });
         } else {
           try {
             const { sections, warnings } = await segmentHtml(text);
@@ -105,7 +109,7 @@ export default function TemplateImportPage() {
           className={`flex-1 min-w-[240px] text-left rounded-xl border p-3 transition ${mode === 'design' ? 'border-glass-indigo bg-white/10' : 'border-white/10 hover:border-white/25'}`}
         >
           <div className="text-sm font-medium text-zinc-100">Keep original design <Badge>recommended</Badge></div>
-          <div className="text-xs text-zinc-400 mt-1">Preserves each file’s exact HTML &amp; CSS. Installs pixel-for-pixel; edited as raw HTML, not blocks.</div>
+          <div className="text-xs text-zinc-400 mt-1">Preserves each file’s exact HTML &amp; CSS. Installs pixel-for-pixel, split into one block per section so it can be reordered and restyled — the markup itself is edited under the HTML view.</div>
         </button>
         <button
           onClick={() => setMode('blocks')}
@@ -161,7 +165,9 @@ export default function TemplateImportPage() {
                     <GlassSelect className="text-xs py-1" value={it.category} onChange={(e) => patch(it.id, { category: e.target.value })}>
                       {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                     </GlassSelect>
-                    <span className="text-[11px] text-zinc-500">{it.fullHtml ? 'Original HTML' : `${it.sections?.length || 0} blocks`}</span>
+                    <span className="text-[11px] text-zinc-500">
+                      {it.fullHtml ? `${it.moduleCount} blocks · design kept` : `${it.sections?.length || 0} blocks`}
+                    </span>
                   </div>
                   {it.sections && it.sections.length > 0 && (
                     <div className="flex flex-wrap gap-1">

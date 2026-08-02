@@ -245,13 +245,13 @@ export default function DesignInspector({ style = {}, onChange, device, onDevice
         </Field>
         {isBase && (
           <>
-            <Field label="Body text colour">
+            <Field label="Body text color">
               <ColorField value={style.textColor} onChange={(v) => set({ textColor: v })} swatches={swatches} />
             </Field>
-            <Field label="Heading colour">
+            <Field label="Heading color">
               <ColorField value={style.headingColor} onChange={(v) => set({ headingColor: v })} swatches={swatches} />
             </Field>
-            <Field label="Link colour">
+            <Field label="Link color">
               <ColorField value={style.linkColor} onChange={(v) => set({ linkColor: v })} swatches={swatches} />
             </Field>
           </>
@@ -263,10 +263,10 @@ export default function DesignInspector({ style = {}, onChange, device, onDevice
           <InspectorGroup
             title="Background"
             icon={Paintbrush}
-            summary={style.bgImage ? 'image' : style.bgColor ? 'colour' : ''}
+            summary={style.bgImage ? 'image' : style.bgColor ? 'color' : ''}
             onReset={() => resetKeys(['bgColor', 'bgImage', 'bgSize', 'bgPosition', 'bgOverlay', 'bgOverlayColor'])}
           >
-            <Field label="Background colour">
+            <Field label="Background color">
               <ColorField value={style.bgColor} onChange={(v) => set({ bgColor: v })} swatches={swatches} />
             </Field>
             <Field label="Background image">
@@ -307,7 +307,7 @@ export default function DesignInspector({ style = {}, onChange, device, onDevice
               <NumberSlider value={style.bgOverlay} onChange={(v) => set({ bgOverlay: v })} min={0} max={100} unit="%" placeholder="0" />
             </Field>
             {!!style.bgOverlay && (
-              <Field label="Overlay colour">
+              <Field label="Overlay color">
                 <ColorField value={style.bgOverlayColor} onChange={(v) => set({ bgOverlayColor: v })} swatches={swatches} />
               </Field>
             )}
@@ -325,7 +325,7 @@ export default function DesignInspector({ style = {}, onChange, device, onDevice
               <NumberSlider value={style.borderWidth} onChange={(v) => set({ borderWidth: v })} min={0} max={20} placeholder="0" />
             </Field>
             {!!style.borderWidth && (
-              <Field label="Border colour">
+              <Field label="Border color">
                 <ColorField value={style.borderColor} onChange={(v) => set({ borderColor: v })} swatches={swatches} />
               </Field>
             )}
@@ -369,7 +369,7 @@ export default function DesignInspector({ style = {}, onChange, device, onDevice
 
       {!isBase && (
         <p className="text-[11px] text-zinc-600 px-1 mt-1">
-          Colours, background, borders and effects are set once on Desktop and apply everywhere.
+          Colors, background, borders and effects are set once on Desktop and apply everywhere.
           Switch to <button onClick={() => onDeviceChange('desktop')} className="underline hover:text-zinc-300">Desktop</button> to change them.
         </p>
       )}

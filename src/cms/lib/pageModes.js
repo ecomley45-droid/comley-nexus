@@ -9,6 +9,7 @@
 // isn't what you wanted, you just delete the copy.
 
 import { compilePageHtml } from '../../shared/compilePage.js';
+import { splitHtmlIntoSections } from '../../shared/htmlSections.js';
 
 export const PAGE_MODES = {
   blocks: {
@@ -44,41 +45,13 @@ function uniqueSlug(base, pages, parentId) {
 // Full code -> No-code
 // ---------------------------------------------------------------------------
 
-// How many top-level chunks a document may become. A document that would
-// produce more than this keeps the remainder in one final block rather than
-// handing back an unusable 300-row layer list.
-const MAX_BLOCKS = 40;
-
-const looksStructural = (el) =>
-  /^(DIV|MAIN|SECTION|ARTICLE)$/.test(el.tagName) && el.children.length > 1;
-
-// Picks the element whose children should become the blocks. A document
-// wrapped in a single <div id="root"> should split on that wrapper's
-// children, not produce one giant block — so descend through single-child
-// wrappers until there's something to actually split.
-function splitRoot(body) {
-  let node = body;
-  let guard = 0;
-  while (guard++ < 6) {
-    const elements = Array.from(node.children).filter((el) => !/^(SCRIPT|STYLE|LINK|TEMPLATE)$/.test(el.tagName));
-    if (elements.length === 1 && looksStructural(elements[0])) { node = elements[0]; continue; }
-    return node;
-  }
-  return node;
-}
-
-const nameFor = (el, index) => {
-  const heading = el.querySelector?.('h1,h2,h3');
-  const text = heading?.textContent?.trim().replace(/\s+/g, ' ');
-  if (text) return text.slice(0, 48);
-  const semantic = { HEADER: 'Header', FOOTER: 'Footer', NAV: 'Navigation', ASIDE: 'Sidebar', SECTION: 'Section', MAIN: 'Main' };
-  return semantic[el.tagName] || `Block ${index + 1}`;
-};
-
-const mkId = (i) => `sec-${Date.now()}-${i}-${Math.floor(Math.random() * 1e6)}`;
-
 /**
  * Split a full HTML document into editable blocks.
+ *
+ * Delegates to the shared, DOM-free scanner in src/shared/htmlSections.js —
+ * the same one the marketplace uses when installing a hand-written template
+ * page, so converting a page here and installing a template there produce
+ * identical blocks.
  *
  * Blocks come out as raw-HTML sections (no `blockType`/`fields`), which is
  * the honest result: the markup is preserved exactly, it's reorderable and
@@ -86,41 +59,12 @@ const mkId = (i) => `sec-${Date.now()}-${i}-${Math.floor(Math.random() * 1e6)}`;
  * Content editor doesn't, because there are no parsed fields to show. The
  * editor says as much and points at "Paste in" for content that should be
  * re-imported as typed blocks instead.
- *
- * Any <style>/<link rel=stylesheet> in <head> is carried into a leading
- * "Page styles" block, otherwise the converted page would lose its look.
  */
 export function htmlToSections(fullHtml) {
-  if (typeof document === 'undefined' || !fullHtml || !fullHtml.trim()) return [];
-  const doc = new DOMParser().parseFromString(fullHtml, 'text/html');
-  const sections = [];
-
-  const headStyles = Array.from(doc.head?.querySelectorAll('style, link[rel="stylesheet"]') || [])
-    .map((el) => el.outerHTML)
-    .join('\n');
-  if (headStyles.trim()) {
-    sections.push({ id: mkId(0), name: 'Page styles', html: headStyles });
-  }
-
-  const root = splitRoot(doc.body || doc.createElement('body'));
-  const children = Array.from(root.children).filter((el) => el.tagName !== 'TEMPLATE');
-
-  children.forEach((el, i) => {
-    if (sections.length >= MAX_BLOCKS) return;
-    const html = el.outerHTML;
-    if (!html || !html.trim()) return;
-    const isLast = sections.length === MAX_BLOCKS - 1 && i < children.length - 1;
-    sections.push({
-      id: mkId(i + 1),
-      name: isLast ? 'Remaining content' : nameFor(el, i),
-      html: isLast ? children.slice(i).map((rest) => rest.outerHTML).join('\n') : html,
-    });
+  const stamp = Date.now();
+  return splitHtmlIntoSections(fullHtml, {
+    makeId: (i) => `sec-${stamp}-${i}-${Math.floor(Math.random() * 1e6)}`,
   });
-
-  if (sections.length === 0) {
-    sections.push({ id: mkId(0), name: 'Imported content', html: doc.body?.innerHTML || '' });
-  }
-  return sections;
 }
 
 // ---------------------------------------------------------------------------

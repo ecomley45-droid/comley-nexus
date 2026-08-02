@@ -114,7 +114,7 @@ export function ColorField({ value, onChange, swatches = [], allowClear = true }
   return (
     <div>
       <div className="flex items-center gap-2">
-        {/* Mid-grey checkerboard behind the swatch — reads as "no colour" on
+        {/* Mid-grey checkerboard behind the swatch — reads as "no color" on
             both the dark and the light console theme. */}
         <label className="relative w-8 h-8 shrink-0 rounded-lg border border-white/15 overflow-hidden cursor-pointer bg-[repeating-conic-gradient(#8a8a8a_0_25%,#b4b4b4_0_50%)] bg-[length:10px_10px]">
           <span className="absolute inset-0" style={{ background: value || 'transparent' }} />

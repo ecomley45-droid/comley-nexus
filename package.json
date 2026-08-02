@@ -8,6 +8,7 @@
     "server": "node --import ./instrument.mjs server.js",
     "build": "vite build",
     "lint": "oxlint",
+    "audit:blocks": "node scripts/auditBlockFields.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
