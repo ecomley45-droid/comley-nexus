@@ -3,6 +3,7 @@
 // (each with raw `html`), optionally A/B-tested via `abVariants`.
 
 import { buildThemeStyleBlock } from './theme.js';
+import { buildPageStyleCss } from './blockStyle.js';
 
 // Walks a page's parentId chain to build its full nested slug path, e.g.
 // a page "contact" whose parent is "about" (whose parent is root) becomes
@@ -84,6 +85,12 @@ export function compilePageHtml(page, pages, library, globalSettings, abChoices 
     })
     .join('\n');
 
+  // Per-section design tokens (the editor's Design inspector) compile to one
+  // stylesheet scoped by data-section-id — see src/shared/blockStyle.js.
+  // Empty string for any page whose sections were never styled, so those
+  // pages emit exactly the markup they did before this existed.
+  const sectionStyleCss = buildPageStyleCss(page.content || []);
+
   const seo = page.seo || {};
   const globalAnalytics = globalSettings?.analytics || {};
   const pageAnalytics = page.analytics || {};
@@ -112,6 +119,7 @@ ${globalSettings?.siteName ? `<meta property="og:site_name" content="${escapeHtm
 <style>
 ${buildThemeStyleBlock(theme)}
 </style>
+${sectionStyleCss ? `<style>\n${sectionStyleCss}\n</style>` : ''}
 ${theme.customCss ? `<style>\n${theme.customCss}\n</style>` : ''}
 ${globalAnalytics.headSnippet || ''}
 ${pageAnalytics.headSnippet || ''}
