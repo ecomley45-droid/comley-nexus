@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useUser, useClerk, useReverification } from '@clerk/clerk-react';
+import { useOptionalUser, useOptionalClerk, useOptionalReverification } from '../../lib/clerkOptional.js';
 import { isReverificationCancelledError } from '@clerk/clerk-react/errors';
 import { getPreferences, savePreferences, getUserStats, getViewer, getApiKeyStatus, removeApiKey } from '../../lib/api.js';
 import { GlassPanel, GlassSelect, GlassTextarea, GlassInput, GlassButton } from '../../lib/ui/Glass.jsx';
@@ -12,7 +12,6 @@ import { useMe } from '../../lib/useMe.jsx';
 // useUser() throws without it, so it's gated the same way useCommerceUser.js
 // gates its own Clerk usage. clerkConfigured is static for the app's whole
 // lifetime, so this conditional hook call never actually toggles at runtime.
-const clerkConfigured = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
 
 // Google/GitHub/Slack are OAuth logins -- handled entirely via Clerk's own
 // account-linking (real redirect to that provider's login screen, token
@@ -210,9 +209,9 @@ function IntegrationsSection({ initial, initialAiSettings }) {
   const [modalProvider, setModalProvider] = useState(null);
   const [oauthError, setOauthError] = useState('');
 
-  // Guarded exactly like useCommerceUser.js -- useUser() throws without a
-  // ClerkProvider, which only mounts when a publishable key exists.
-  const clerkUser = clerkConfigured ? useUser() : { user: null, isLoaded: true };
+  // See src/cms/lib/clerkOptional.js: these are real, unconditional hook
+  // calls that fall back to inert stand-ins when Clerk has no key.
+  const clerkUser = useOptionalUser();
   const user = clerkUser.user;
   // Both external-account status (Clerk) and API-key status (our own
   // endpoint) load asynchronously after mount. Without tracking this, a
@@ -230,13 +229,9 @@ function IntegrationsSection({ initial, initialAiSettings }) {
   // visibly happens. useReverification() intercepts that specific error,
   // shows Clerk's own verification modal, and retries automatically once
   // the user completes it.
-  const createExternalAccount = clerkConfigured
-    ? useReverification((args) => user.createExternalAccount(args))
-    : async () => { throw new Error('Clerk is not configured.'); };
+  const createExternalAccount = useOptionalReverification((args) => user.createExternalAccount(args));
   // Removing a linked account is the same kind of sensitive mutation.
-  const destroyExternalAccount = clerkConfigured
-    ? useReverification((account) => account.destroy())
-    : async () => { throw new Error('Clerk is not configured.'); };
+  const destroyExternalAccount = useOptionalReverification((account) => account.destroy());
 
   useEffect(() => {
     getApiKeyStatus()
@@ -546,7 +541,7 @@ const TIMEZONES = (() => {
 })();
 
 function ProfileDetailsSection({ initial, orgName }) {
-  const clerk = clerkConfigured ? useClerk() : null;
+  const clerk = useOptionalClerk();
   const [bio, setBio] = useState(initial.bio || '');
   const [timezone, setTimezone] = useState(initial.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
   const [jobTitle, setJobTitle] = useState(initial.job_title || '');

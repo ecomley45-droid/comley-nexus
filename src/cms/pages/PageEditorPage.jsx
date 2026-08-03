@@ -358,7 +358,7 @@ export default function PageEditorPage({ nexus = false }) {
   const isAdmin = useIsAdmin();
   const isSuperAdmin = useIsSuperAdmin();
   const base = nexus ? '/super-admin' : (orgBase || '/admin');
-  const { pages, setPages, loading, error, save, saving, saveMessage, globalSettings } = usePagesStore(
+  const { pages, setPages, loading, error, save, saving, saveMessage, globalSettings, reload, conflict, dismissConflict } = usePagesStore(
     nexus ? { fetchPages: getNexusPages, savePages: saveNexusPages } : undefined
   );
   const [library, setLibrary] = useState([]);
@@ -390,6 +390,9 @@ export default function PageEditorPage({ nexus = false }) {
   // a focused input/textarea is left alone -- the global handler only
   // fires when focus is outside a text field, so Cmd+Z while typing still
   // means "undo my typing," not "undo my block edit."
+  // Mirrors `conflict` for the autosave timer, which must not keep retrying
+  // (and re-showing the banner) every 30s while the user decides what to do.
+  const conflictRef = useRef(null);
   const historyRef = useRef({ pageId: null, past: [], future: [] });
   const undoRef = useRef(null);
   const redoRef = useRef(null);
@@ -433,8 +436,8 @@ export default function PageEditorPage({ nexus = false }) {
   }, [undoToast]);
 
   useEffect(() => {
-    if (!dirtyTick) return;
-    const t = setTimeout(() => { if (dirtyRef.current) saveRef.current?.(); }, 30000);
+    if (!dirtyTick || conflictRef.current) return;
+    const t = setTimeout(() => { if (dirtyRef.current && !conflictRef.current) saveRef.current?.(); }, 30000);
     return () => clearTimeout(t);
   }, [dirtyTick]);
 
@@ -554,9 +557,11 @@ export default function PageEditorPage({ nexus = false }) {
     setDragIndex(null);
   };
 
-  const handleSave = async () => {
+  conflictRef.current = conflict;
+
+  const handleSave = async (opts) => {
     try {
-      await save(pages);
+      await save(pages, undefined, opts);
       dirtyRef.current = false;
     } catch {
       // saveMessage already reflects the error; stay dirty so the
@@ -611,6 +616,28 @@ export default function PageEditorPage({ nexus = false }) {
 
   return (
     <div>
+      {conflict && (
+        <div className="mb-3 rounded-xl border border-amber-400/40 bg-amber-400/[0.08] px-4 py-3">
+          <p className="text-sm text-amber-200">{conflict.message}</p>
+          <p className="text-[11px] text-amber-200/70 mt-1 leading-relaxed">
+            Your changes are still here and have not been saved. Reloading replaces them with the
+            newer version; overwriting keeps yours and discards theirs.
+            {conflict.conflicts.length > 0 && (
+              <> Affected: {conflict.conflicts.map((c) => c.name).join(', ')}.</>
+            )}
+          </p>
+          <div className="flex gap-2 mt-2.5">
+            <GlassButton variant="secondary" onClick={() => { dirtyRef.current = false; reload(); }} className="py-1.5 text-xs">
+              Reload theirs (discard mine)
+            </GlassButton>
+            <GlassButton onClick={() => handleSave({ force: true })} disabled={saving} className="py-1.5 text-xs">
+              Overwrite with mine
+            </GlassButton>
+            <button onClick={dismissConflict} className="text-xs text-zinc-400 hover:text-zinc-200 px-2">Keep editing</button>
+          </div>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:flex-wrap sm:justify-between sm:items-center">
         <div className="flex items-center gap-2 min-w-0">

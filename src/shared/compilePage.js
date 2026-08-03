@@ -21,14 +21,25 @@ export function getFullPath(page, pages) {
   return segments.join('/');
 }
 
-// Weighted-random pick among a section's A/B variants. Falls back to a
-// uniform pick if no variant declares a weight.
+// Weighted-random pick among a section's A/B variants.
+//
+// A missing or unparseable weight means 1 (the historical default), but an
+// explicit 0 means zero — "hold this variant back" — which the previous
+// `v.weight || 1` silently turned into a full share. The comparison is
+// `< 0` rather than `<= 0` for the same reason: with `<=`, a leading
+// zero-weight variant won whenever the roll landed exactly on the boundary.
 export function pickWeightedVariant(variants) {
-  const totalWeight = variants.reduce((sum, v) => sum + (v.weight || 1), 0);
+  const weightOf = (v) => {
+    const n = Number(v?.weight);
+    return Number.isFinite(n) && n >= 0 ? n : 1;
+  };
+  const totalWeight = variants.reduce((sum, v) => sum + weightOf(v), 0);
+  // Everything held back at once: still render something rather than nothing.
+  if (totalWeight <= 0) return variants[Math.floor(Math.random() * variants.length)] || variants[0];
   let roll = Math.random() * totalWeight;
   for (const variant of variants) {
-    roll -= variant.weight || 1;
-    if (roll <= 0) return variant;
+    roll -= weightOf(variant);
+    if (roll < 0) return variant;
   }
   return variants[variants.length - 1];
 }

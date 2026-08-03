@@ -8,6 +8,8 @@
     "server": "node --import ./instrument.mjs server.js",
     "build": "vite build",
     "lint": "oxlint",
+    "test": "node --test \"test/*.test.js\"",
+    "verify": "npm run lint && npm test && npm run audit:blocks && npm run audit:templates",
     "audit:blocks": "node scripts/auditBlockFields.mjs",
     "audit:templates": "node scripts/auditTemplates.mjs",
     "preview": "vite preview"

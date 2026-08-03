@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useUser, useReverification } from '@clerk/clerk-react';
+import { useOptionalUser, useOptionalReverification } from './clerkOptional.js';
 import { isReverificationCancelledError } from '@clerk/clerk-react/errors';
 import { getPreferences, savePreferences, getApiKeyStatus, removeApiKey } from './api.js';
 import { GlassPanel, GlassSelect, GlassTextarea } from './ui/Glass.jsx';
@@ -12,7 +12,6 @@ import ApiKeyModal from './ApiKeyModal.jsx';
 // one uses anyone else's connections, and this shows none of the platform's
 // shared (super-admin env) integrations. Loads its own preferences so it can
 // be dropped in anywhere.
-const clerkConfigured = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
 const OAUTH_STRATEGIES = { google: 'oauth_google', github: 'oauth_github', slack: 'oauth_slack' };
 const isOAuthProviderId = (id) => id in OAUTH_STRATEGIES;
 const isApiKeyProviderId = (id) => id === 'claude' || id === 'chatgpt';
@@ -71,16 +70,12 @@ export default function UserIntegrations() {
   const [modalProvider, setModalProvider] = useState(null);
   const [oauthError, setOauthError] = useState('');
 
-  // clerkConfigured is static for the app's lifetime, so this conditional
-  // hook call never toggles at runtime (same pattern as ProfilePage).
-  const clerkUser = clerkConfigured ? useUser() : { user: null, isLoaded: true };
+  // See src/cms/lib/clerkOptional.js -- unconditional hook calls that no-op
+  // when Clerk has no publishable key.
+  const clerkUser = useOptionalUser();
   const user = clerkUser.user;
-  const createExternalAccount = clerkConfigured
-    ? useReverification((args) => user.createExternalAccount(args))
-    : async () => { throw new Error('Clerk is not configured.'); };
-  const destroyExternalAccount = clerkConfigured
-    ? useReverification((account) => account.destroy())
-    : async () => { throw new Error('Clerk is not configured.'); };
+  const createExternalAccount = useOptionalReverification((args) => user.createExternalAccount(args));
+  const destroyExternalAccount = useOptionalReverification((account) => account.destroy());
 
   useEffect(() => {
     getPreferences().then((p) => { setState(p?.integrations || {}); setAiSettings(p?.ai_settings || {}); }).catch(() => {});

@@ -17,6 +17,17 @@ const esc = (s) =>
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   }[c]));
 
+// Loading strategy for every <img> the renderers emit.
+//
+// Below the fold, `loading="lazy"` is free performance: a 30-image gallery
+// stops blocking the page on 30 requests. Above the fold it is actively
+// harmful -- a lazy hero image is discovered late and tanks Largest
+// Contentful Paint -- so the handful of renderers whose image IS the hero
+// pass `eager` and get a priority hint instead. `decoding="async"` applies
+// either way: it keeps image decode off the main thread.
+const LAZY = 'loading="lazy" decoding="async"';
+const EAGER = 'decoding="async" fetchpriority="high"';
+
 const headingsHtml = (headings = [], startAt = 1) =>
   headings.map((h, i) => `<h${Math.min(startAt + i, 4)}>${esc(h)}</h${Math.min(startAt + i, 4)}>`).join('\n');
 
@@ -27,7 +38,7 @@ const linksHtml = (links = [], className = 'nx-link') =>
 
 function itemCard(item) {
   return `<div class="nx-item">
-  ${item.image ? `<img src="${esc(item.image)}" alt="" />` : ''}
+  ${item.image ? `<img ${LAZY} src="${esc(item.image)}" alt="" />` : ''}
   ${item.heading ? `<h3>${esc(item.heading)}</h3>` : ''}
   ${item.meta ? `<div class="nx-item-meta">${esc(item.meta)}</div>` : ''}
   ${item.body ? `<p>${esc(item.body)}</p>` : ''}
@@ -54,7 +65,7 @@ const BASE_STYLE = `
 // caption output, so existing blocks and their layout CSS are unaffected.
 export function imageWithCaption(img, imgAttrs = '') {
   if (!img || !img.src) return '';
-  const tag = `<img src="${esc(img.src)}" alt="${esc(img.alt || '')}"${imgAttrs ? ' ' + imgAttrs : ''} />`;
+  const tag = `<img ${LAZY} src="${esc(img.src)}" alt="${esc(img.alt || '')}"${imgAttrs ? ' ' + imgAttrs : ''} />`;
   const parts = [];
   if (img.showName && img.name) parts.push(`<span class="nx-cap-name">${esc(img.name)}</span>`);
   if (img.showAlt && img.alt) parts.push(`<span class="nx-cap-alt">${esc(img.alt)}</span>`);
@@ -79,7 +90,7 @@ export function renderHeader(fields) {
 .nx-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; }
 </style>
 <div class="nx-header">
-  <div>${headingsHtml(fields.headings.slice(0, 1))}</div>
+  <div>${headingsHtml((fields.headings || []).slice(0, 1))}</div>
   <nav style="display:flex; gap:16px;">${linksHtml(fields.links)}</nav>
 </div>`;
 }
@@ -121,7 +132,7 @@ export function renderCta(fields) {
 <div class="nx-cta-section">
   ${headingsHtml(fields.headings, 2)}
   ${textHtml(fields.text)}
-  ${fields.links.map((l) => `<a href="${esc(l.href || '#')}">${esc(l.label || 'Learn more')}</a>`).join('')}
+  ${(fields.links || []).map((l) => `<a href="${esc(l.href || '#')}">${esc(l.label || 'Learn more')}</a>`).join('')}
 </div>`;
 }
 
@@ -174,7 +185,7 @@ export function renderContent(fields) {
 <div class="nx-content">
   ${headingsHtml(fields.headings, 2)}
   ${textHtml(fields.text)}
-  ${fields.images.map((img) => `<img src="${esc(img.src)}" alt="${esc(img.alt || '')}" style="max-width:100%; border-radius:8px;" />`).join('\n')}
+  ${(fields.images || []).map((img) => `<img ${LAZY} src="${esc(img.src)}" alt="${esc(img.alt || '')}" style="max-width:100%; border-radius:8px;" />`).join('\n')}
   ${linksHtml(fields.links)}
 </div>`;
 }
@@ -230,7 +241,7 @@ export function renderBanner(fields) {
 .nx-banner-content { position: relative; z-index: 1; }
 </style>
 <div class="nx-banner">
-  ${fields.images?.[0] ? `<img src="${esc(fields.images[0].src)}" alt="${esc(fields.images[0].alt || '')}" />` : ''}
+  ${fields.images?.[0] ? `<img ${EAGER} src="${esc(fields.images[0].src)}" alt="${esc(fields.images[0].alt || '')}" />` : ''}
   <div class="nx-banner-content">
     ${headingsHtml(fields.headings, 2)}
     ${textHtml(fields.text)}
@@ -256,7 +267,7 @@ export function renderLogoCloud(fields) {
 .nx-logo-cloud img { max-height: 32px; filter: grayscale(1); }
 </style>
 ${headingsHtml(fields.headings, 3)}
-<div class="nx-logo-cloud">${(fields.images || []).map((img) => `<img src="${esc(img.src)}" alt="${esc(img.alt || '')}" />`).join('')}</div>`;
+<div class="nx-logo-cloud">${(fields.images || []).map((img) => `<img ${LAZY} src="${esc(img.src)}" alt="${esc(img.alt || '')}" />`).join('')}</div>`;
 }
 
 export function renderTestimonials(fields) {
@@ -420,7 +431,7 @@ export function renderProduct(fields) {
 .nx-buy-disabled { opacity: 0.5; cursor: not-allowed; }
 </style>
 <div class="nx-product">
-  ${fields.image ? `<img src="${esc(fields.image)}" alt="${esc(fields.headings?.[0] || 'Product')}" />` : ''}
+  ${fields.image ? `<img ${LAZY} src="${esc(fields.image)}" alt="${esc(fields.headings?.[0] || 'Product')}" />` : ''}
   <div class="nx-product-info">
     ${headingsHtml(fields.headings, 2)}
     ${textHtml(fields.text)}
@@ -531,7 +542,7 @@ export function renderHeroSplit(fields) {
       ${secondary ? `<a class="px-btn px-ghost" href="${esc(secondary.href || '#')}">${esc(secondary.label || 'Learn more')}</a>` : ''}
     </div>
   </div>
-  <div class="px-media">${img ? `<img src="${esc(img.src)}" alt="${esc(img.alt || '')}" />` : ''}</div>
+  <div class="px-media">${img ? `<img ${EAGER} src="${esc(img.src)}" alt="${esc(img.alt || '')}" />` : ''}</div>
 </div>`;
 }
 
@@ -546,7 +557,7 @@ export function renderSplitContent(fields) {
 @media(max-width:720px){ .px-split{ grid-template-columns:1fr; gap:28px; } .px-split .px-media{ order:-1; } }
 </style>
 <div class="px-split">
-  <div class="px-media">${img ? `<img src="${esc(img.src)}" alt="${esc(img.alt || '')}" />` : ''}</div>
+  <div class="px-media">${img ? `<img ${EAGER} src="${esc(img.src)}" alt="${esc(img.alt || '')}" />` : ''}</div>
   <div class="px-copy">
     ${headingsHtml(fields.headings, 2)}
     ${textHtml(fields.text)}
@@ -652,7 +663,7 @@ export function renderQuote(fields) {
   <div class="px-mark">&ldquo;</div>
   <blockquote>${esc(quote)}</blockquote>
   <div class="px-author">
-    ${person.image ? `<img src="${esc(person.image)}" alt="" />` : ''}
+    ${person.image ? `<img ${LAZY} src="${esc(person.image)}" alt="" />` : ''}
     <div style="text-align:left;">
       ${person.heading ? `<div class="px-name">${esc(person.heading)}</div>` : ''}
       ${person.meta ? `<div class="px-role">${esc(person.meta)}</div>` : ''}
@@ -694,7 +705,7 @@ export function renderHeroCentered(fields) {
   ${headingsHtml(fields.headings, 1)}
   ${textHtml(fields.text)}
   <div class="px-actions">${(fields.links || []).map((l) => `<a href="${esc(l.href || '#')}">${esc(l.label || 'Learn more')}</a>`).join('')}</div>
-  ${img ? `<div class="px-media"><img src="${esc(img.src)}" alt="${esc(img.alt || '')}" /></div>` : ''}
+  ${img ? `<div class="px-media"><img ${EAGER} src="${esc(img.src)}" alt="${esc(img.alt || '')}" /></div>` : ''}
 </div>`;
 }
 
@@ -740,7 +751,7 @@ export function renderFeatureRows(fields) {
 </style>
 <div class="px-frows">
   ${items.map((it) => `<div class="px-frow">
-    <div class="px-media">${it.image ? `<img src="${esc(it.image)}" alt="" />` : ''}</div>
+    <div class="px-media">${it.image ? `<img ${LAZY} src="${esc(it.image)}" alt="" />` : ''}</div>
     <div><h3>${esc(it.heading)}</h3><p>${esc(it.body)}</p></div>
   </div>`).join('')}
 </div>`;
@@ -817,7 +828,7 @@ export function renderTestimonialGrid(fields) {
     ${items.map((it) => `<div class="px-tcard">
       <div class="px-stars">★★★★★</div>
       <p class="px-body">${esc(it.body)}</p>
-      <div class="px-who">${it.image ? `<img src="${esc(it.image)}" alt="" />` : ''}<div><div class="px-name">${esc(it.heading)}</div>${it.meta ? `<div class="px-role">${esc(it.meta)}</div>` : ''}</div></div>
+      <div class="px-who">${it.image ? `<img ${LAZY} src="${esc(it.image)}" alt="" />` : ''}<div><div class="px-name">${esc(it.heading)}</div>${it.meta ? `<div class="px-role">${esc(it.meta)}</div>` : ''}</div></div>
     </div>`).join('')}
   </div>
 </div>`;
@@ -838,7 +849,7 @@ export function renderTeamGrid(fields) {
 <div class="px-team">
   <div class="px-head">${headingsHtml(fields.headings, 2)}</div>
   <div class="px-team-grid">
-    ${items.map((it) => `<div class="px-tm">${it.image ? `<img src="${esc(it.image)}" alt="${esc(it.heading || '')}" />` : ''}<div class="px-name">${esc(it.heading)}</div>${it.meta ? `<div class="px-role">${esc(it.meta)}</div>` : ''}${it.body ? `<div class="px-bio">${esc(it.body)}</div>` : ''}</div>`).join('')}
+    ${items.map((it) => `<div class="px-tm">${it.image ? `<img ${LAZY} src="${esc(it.image)}" alt="${esc(it.heading || '')}" />` : ''}<div class="px-name">${esc(it.heading)}</div>${it.meta ? `<div class="px-role">${esc(it.meta)}</div>` : ''}${it.body ? `<div class="px-bio">${esc(it.body)}</div>` : ''}</div>`).join('')}
   </div>
 </div>`;
 }
@@ -947,7 +958,7 @@ export function renderBlogCards(fields) {
   <div class="px-head">${headingsHtml(fields.headings, 2)}</div>
   <div class="px-blog-grid">
     ${items.map((it) => `<div class="px-post">
-      ${it.image ? `<img src="${esc(it.image)}" alt="" />` : ''}
+      ${it.image ? `<img ${LAZY} src="${esc(it.image)}" alt="" />` : ''}
       <div class="px-body">
         ${it.meta ? `<div class="px-meta">${esc(it.meta)}</div>` : ''}
         <h3>${esc(it.heading)}</h3>
@@ -972,7 +983,7 @@ export function renderBannerImage(fields) {
 .px-bannerimg a { display:inline-block; padding:13px 28px; border-radius:12px; background:#fff; color:#111; font-weight:700; text-decoration:none; }
 </style>
 <div class="px-bannerimg">
-  ${img ? `<img src="${esc(img.src)}" alt="${esc(img.alt || '')}" />` : ''}
+  ${img ? `<img ${EAGER} src="${esc(img.src)}" alt="${esc(img.alt || '')}" />` : ''}
   <div class="px-inner">
     ${headingsHtml(fields.headings, 2)}
     ${textHtml(fields.text)}
@@ -1028,7 +1039,7 @@ export function renderVideoBg(fields) {
 <div class="px-videobg">
   ${src
     ? `<video autoplay muted loop playsinline ${poster ? `poster="${esc(poster.src)}"` : ''}><source src="${src}" type="video/mp4" /></video>`
-    : (poster ? `<img class="px-poster" src="${esc(poster.src)}" alt="${esc(poster.alt || '')}" />` : '')}
+    : (poster ? `<img class="px-poster" ${EAGER} src="${esc(poster.src)}" alt="${esc(poster.alt || '')}" />` : '')}
   <div class="px-inner">
     ${headingsHtml(fields.headings, 2)}
     ${textHtml(fields.text)}
@@ -1153,7 +1164,7 @@ export function renderFlyerSlider(fields) {
 <div class="px-slider-wrap">
   ${headingsHtml(fields.headings, 2)}
   <div class="px-slider">
-    ${images.map((im) => `<figure class="px-slide"><img src="${esc(im.src)}" alt="${esc(im.alt || '')}" />${im.alt ? `<figcaption>${esc(im.alt)}</figcaption>` : ''}</figure>`).join('')}
+    ${images.map((im) => `<figure class="px-slide"><img ${LAZY} src="${esc(im.src)}" alt="${esc(im.alt || '')}" />${im.alt ? `<figcaption>${esc(im.alt)}</figcaption>` : ''}</figure>`).join('')}
   </div>
   <div class="px-slider-hint">← swipe / scroll →</div>
 </div>`;
@@ -1173,7 +1184,7 @@ export function renderLogoMarquee(fields) {
 </style>
 <div class="px-lm">
   ${(fields.headings || [])[0] ? `<div class="px-head">${esc(fields.headings[0])}</div>` : ''}
-  <div class="px-lm-track">${strip.map((im) => `<img src="${esc(im.src)}" alt="${esc(im.alt || '')}" />`).join('')}</div>
+  <div class="px-lm-track">${strip.map((im) => `<img ${LAZY} src="${esc(im.src)}" alt="${esc(im.alt || '')}" />`).join('')}</div>
 </div>`;
 }
 
@@ -1198,7 +1209,7 @@ export function renderTestimonialMarquee(fields) {
 <div class="px-tm-wrap">
   <div class="px-head">${headingsHtml(fields.headings, 2)}</div>
   <div class="px-tm-track">
-    ${strip.map((it) => `<div class="px-tmc"><p class="px-q">${esc(it.body)}</p><div class="px-who">${it.image ? `<img src="${esc(it.image)}" alt="" />` : ''}<div><div class="px-n">${esc(it.heading)}</div>${it.meta ? `<div class="px-r">${esc(it.meta)}</div>` : ''}</div></div></div>`).join('')}
+    ${strip.map((it) => `<div class="px-tmc"><p class="px-q">${esc(it.body)}</p><div class="px-who">${it.image ? `<img ${LAZY} src="${esc(it.image)}" alt="" />` : ''}<div><div class="px-n">${esc(it.heading)}</div>${it.meta ? `<div class="px-r">${esc(it.meta)}</div>` : ''}</div></div></div>`).join('')}
   </div>
 </div>`;
 }

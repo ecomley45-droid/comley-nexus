@@ -49,7 +49,15 @@ async function request(path, options = {}) {
     if (!options.suppressPausedTakeover) pausedHandler?.();
     throw new Error(data?.error || 'Something went wrong. Please contact support.');
   }
-  if (!res.ok) throw new Error(data?.error || `Request to ${path} failed (${res.status})`);
+  if (!res.ok) {
+    // Carry the status and body along: callers that need to react to a
+    // specific failure (the 409 save conflict, which ships a `conflicts`
+    // array) can't do it from a message string alone.
+    const err = new Error(data?.error || `Request to ${path} failed (${res.status})`);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
   return data;
 }
 
@@ -97,8 +105,17 @@ export const getPages = () => request('/pages');
 // inline save error instead of yanking the editor away with a full-page
 // takeover -- the in-progress edit stays visible even though it can't be
 // saved elsewhere right now.
-export const savePages = (pages, globalSettings) =>
-  request('/pages', { method: 'POST', body: JSON.stringify({ pages, globalSettings }), suppressPausedTakeover: true });
+// `knownPageIds` is the set of pages this client had loaded. The server
+// scopes deletions to it, so a page created in another tab since load isn't
+// wiped by this save. Each page also carries the `updatedAt` it was loaded
+// with, which the server uses to refuse a save that would overwrite someone
+// else's newer edit (409 with a `conflicts` array).
+export const savePages = (pages, globalSettings, { knownPageIds, force } = {}) =>
+  request('/pages', {
+    method: 'POST',
+    body: JSON.stringify({ pages, globalSettings, knownPageIds, force }),
+    suppressPausedTakeover: true,
+  });
 
 export const getVersions = (pageId) => request(`/versions/${pageId}`);
 export const restoreVersion = (pageId, versionId) =>
@@ -115,6 +132,9 @@ export const saveLibrary = (library) => request('/library', { method: 'POST', bo
 
 // ---- Nexus (super-admin only: the platform's own site, not any client org's) ----
 export const getNexusPages = () => request('/nexus/pages');
+// Nexus's own site has exactly one editor (a super admin), so it takes the
+// same signature for interchangeability with savePages but ignores the
+// concurrency options.
 export const saveNexusPages = (pages, globalSettings) =>
   request('/nexus/pages', { method: 'POST', body: JSON.stringify({ pages, globalSettings }) });
 export const getNexusLibrary = () => request('/nexus/library');

@@ -206,10 +206,28 @@ app.post('/api/pages', requireOrg, requireRole('editor'), async (req, res, next)
     if (pagesContainFullHtmlMode(pages) && req.viewer?.role !== 'admin') {
       return res.status(403).json({ error: 'Only workspace admins can save a page in Full HTML mode.' });
     }
+    // Optimistic concurrency. The client echoes back the `updatedAt` it
+    // loaded for each page; if the stored row is newer, someone else saved
+    // in the meantime and this write would silently overwrite them, so it's
+    // refused with the list of pages that moved.
+    const conflicts = req.body.force === true ? [] : await storage.pages.detectConflicts(req.org.id, pages);
+    if (conflicts.length > 0) {
+      return res.status(409).json({
+        error: conflicts.length === 1
+          ? `"${conflicts[0].name}" was changed by someone else while you were editing.`
+          : `${conflicts.length} pages were changed by someone else while you were editing.`,
+        conflicts,
+      });
+    }
     const cleanPages = pages.map(sanitizePage);
     const oldPages = await storage.pages.list(req.org.id);
     await storage.versions.snapshot(req.org.id, oldPages, cleanPages);
-    const written = await storage.pages.bulkReplace(req.org.id, cleanPages);
+    // Deletions are scoped to the pages this client actually had loaded, so
+    // a page created in another tab since then is never collateral damage.
+    const knownIds = Array.isArray(req.body.knownPageIds)
+      ? req.body.knownPageIds.filter((id) => typeof id === 'string')
+      : null;
+    const written = await storage.pages.bulkReplace(req.org.id, cleanPages, { knownIds });
     let updatedGlobals;
     if (incomingGlobalSettings && req.viewer?.role === 'admin') {
       updatedGlobals = await storage.settings.replace(req.org.id, sanitizeGlobalSettings(incomingGlobalSettings));
