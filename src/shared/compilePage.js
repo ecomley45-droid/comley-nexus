@@ -4,6 +4,7 @@
 
 import { buildThemeStyleBlock } from './theme.js';
 import { buildPageStyleCss } from './blockStyle.js';
+import { extractSharedStyles } from './dedupeStyles.js';
 
 // Walks a page's parentId chain to build its full nested slug path, e.g.
 // a page "contact" whose parent is "about" (whose parent is root) becomes
@@ -96,6 +97,12 @@ export function compilePageHtml(page, pages, library, globalSettings, abChoices 
     })
     .join('\n');
 
+  // Every block inlines its own <style>, so a page with eight card grids
+  // shipped the same rules eight times. Identical blocks are hoisted into one
+  // stylesheet in the head; anything that appears once is left exactly where
+  // it was, so a block's own scoping and ordering are untouched.
+  const { html: dedupedSections, css: hoistedCss } = extractSharedStyles(sectionsHtml);
+
   // Per-section design tokens (the editor's Design inspector) compile to one
   // stylesheet scoped by data-section-id — see src/shared/blockStyle.js.
   // Empty string for any page whose sections were never styled, so those
@@ -130,6 +137,7 @@ ${globalSettings?.siteName ? `<meta property="og:site_name" content="${escapeHtm
 <style>
 ${buildThemeStyleBlock(theme)}
 </style>
+${hoistedCss ? `<style>\n${hoistedCss}\n</style>` : ''}
 ${sectionStyleCss ? `<style>\n${sectionStyleCss}\n</style>` : ''}
 ${theme.customCss ? `<style>\n${theme.customCss}\n</style>` : ''}
 ${globalAnalytics.headSnippet || ''}
@@ -137,7 +145,7 @@ ${pageAnalytics.headSnippet || ''}
 </head>
 <body>
 ${headerHtml ? `<header data-global="header">${headerHtml}</header>` : ''}
-${sectionsHtml}
+${dedupedSections}
 ${footerHtml ? `<footer data-global="footer">${footerHtml}</footer>` : ''}
 ${globalAnalytics.bodySnippet || ''}
 ${pageAnalytics.bodySnippet || ''}

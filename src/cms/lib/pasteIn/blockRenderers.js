@@ -28,6 +28,8 @@ const esc = (s) =>
 const LAZY = 'loading="lazy" decoding="async"';
 const EAGER = 'decoding="async" fetchpriority="high"';
 
+import { FORM_FIELD_TYPES, formFieldsFor } from '../../../shared/formFields.js';
+
 const headingsHtml = (headings = [], startAt = 1) =>
   headings.map((h, i) => `<h${Math.min(startAt + i, 4)}>${esc(h)}</h${Math.min(startAt + i, 4)}>`).join('\n');
 
@@ -160,19 +162,46 @@ const FORM_STYLE = `
 `;
 
 export function renderForm(fields) {
-  return `<style>${BASE_STYLE}${FORM_STYLE}</style>
+  // The form's own title travels with the submission, so a workspace running
+  // several forms can tell them apart in the inbox instead of seeing a wall
+  // of "Contact form".
+  const formName = fields.headings?.[0] || 'Contact form';
+  const control = (f, i) => {
+    const id = `nx-f${i}`;
+    const req = f.required ? ' required' : '';
+    const ph = f.placeholder ? ` placeholder="${esc(f.placeholder)}"` : '';
+    if (f.type === 'textarea') {
+      return `<textarea id="${id}" name="${esc(f.name)}" rows="4"${ph}${req}></textarea>`;
+    }
+    if (f.type === 'select') {
+      const options = (f.options || []).map((o) => `<option value="${esc(o)}">${esc(o)}</option>`).join('');
+      return `<select id="${id}" name="${esc(f.name)}"${req}><option value="">Choose…</option>${options}</select>`;
+    }
+    const inputType = FORM_FIELD_TYPES[f.type]?.input || 'text';
+    return `<input type="${inputType}" id="${id}" name="${esc(f.name)}"${ph}${req} />`;
+  };
+
+  const controls = formFieldsFor(fields).map((f, i) => {
+    const id = `nx-f${i}`;
+    // A checkbox reads as "[x] I agree", not as a label stacked above a box.
+    if (f.type === 'checkbox') {
+      return `<label class="nx-check" for="${id}"><input type="checkbox" id="${id}" name="${esc(f.name)}" value="yes"${f.required ? ' required' : ''} /> ${esc(f.label)}</label>`;
+    }
+    return `<label for="${id}">${esc(f.label)}${f.required ? ' *' : ''}</label>\n    ${control(f, i)}`;
+  }).join('\n    ');
+
+  return `<style>${BASE_STYLE}${FORM_STYLE}
+.nx-form .nx-check { display:flex; align-items:center; gap:8px; font-weight:400; }
+.nx-form .nx-check input { width:auto; margin:0; }
+.nx-form select { width:100%; }
+</style>
 <div class="nx-form">
   ${headingsHtml(fields.headings, 2)}
   ${textHtml(fields.text)}
   <form action="/api/public/forms" method="POST">
-    <input type="hidden" name="_form" value="Contact form" />
+    <input type="hidden" name="_form" value="${esc(formName)}" />
     <input type="text" name="_hp" class="nx-hp" tabindex="-1" autocomplete="off" />
-    <label for="nx-name">Name</label>
-    <input type="text" id="nx-name" name="name" required />
-    <label for="nx-email">Email</label>
-    <input type="email" id="nx-email" name="email" required />
-    <label for="nx-message">Message</label>
-    <textarea id="nx-message" name="message" rows="4" required></textarea>
+    ${controls}
     <button type="submit">${esc(fields.buttonLabel || 'Send message')}</button>
   </form>
 </div>`;

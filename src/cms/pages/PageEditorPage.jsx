@@ -17,6 +17,7 @@ import ScaledPreviewFrame from '../lib/ScaledPreviewFrame.jsx';
 import { fetchBlockCatalog } from '../lib/blocks/catalog.js';
 import DesignInspector, { DEVICES } from '../lib/design/DesignInspector.jsx';
 import { describeSectionStyle, hasSectionStyle } from '../../shared/blockStyle.js';
+import { readExperiment, formatRate } from '../../shared/abStats.js';
 import { PAGE_MODES, modeOf, otherMode, conversionSummary } from '../lib/pageModes.js';
 import { convertPage } from '../lib/pageActions.js';
 
@@ -80,25 +81,69 @@ function AbVariantsEditor({ section, onChange }) {
   const updateVariant = (id, patch) => update(variants.map((v) => (v.id === id ? { ...v, ...patch } : v)));
   const removeVariant = (id) => update(variants.filter((v) => v.id !== id));
 
+  // Promoting a winner makes it the block's own content and ends the test.
+  // That's the whole point of running one, and doing it by hand meant
+  // copy-pasting HTML between two textareas.
+  const promote = (variant) => {
+    if (!confirm(`Make "${variant.name}" the permanent content of this block and stop the test?`)) return;
+    onChange({ ...section, html: variant.html, abVariants: [] });
+  };
+
+  const { results, verdict, leader } = readExperiment(variants, stats);
+  const VERDICT_TONE = {
+    winner: 'border-emerald-400/30 bg-emerald-400/[0.07] text-emerald-200',
+    collecting: 'border-white/10 bg-white/[0.03] text-zinc-400',
+    'no-difference': 'border-white/10 bg-white/[0.03] text-zinc-300',
+    idle: 'border-white/10 bg-white/[0.03] text-zinc-500',
+  };
+
   return (
     <div className="mt-3 border-t border-white/10 pt-3">
       <div className="flex justify-between items-center mb-2">
         <span className="text-xs font-medium text-zinc-400">A/B variants</span>
         <button onClick={addVariant} className="text-xs text-glass-sky hover:underline">Add variant</button>
       </div>
-      {variants.map((v) => (
-        <GlassPanel key={v.id} className="p-2 mb-2">
-          <div className="flex gap-2 items-center mb-1">
-            <GlassInput value={v.name} onChange={(e) => updateVariant(v.id, { name: e.target.value })} className="flex-1 py-1" />
-            <GlassInput type="number" min="1" value={v.weight} onChange={(e) => updateVariant(v.id, { weight: Number(e.target.value) })} className="w-16 py-1" title="Weight" />
-            <GlassButton variant="danger" onClick={() => removeVariant(v.id)}>Remove</GlassButton>
-          </div>
-          <GlassTextarea value={v.html} onChange={(e) => updateVariant(v.id, { html: e.target.value })} rows={3} className="w-full" />
-          <p className="text-xs text-zinc-500 mt-1">
-            Impressions: {stats[v.id]?.impressions ?? 0} · Clicks: {stats[v.id]?.clicks ?? 0}
-          </p>
-        </GlassPanel>
-      ))}
+
+      {variants.length > 0 && verdict && (
+        <div className={`rounded-lg border px-2.5 py-2 mb-2 ${VERDICT_TONE[verdict.state]}`}>
+          <p className="text-[11px] leading-relaxed">{verdict.message}</p>
+          {leader && (
+            <button onClick={() => promote(variants.find((v) => v.id === leader.id))} className="text-[11px] underline hover:text-white mt-1">
+              Use &quot;{leader.name}&quot; and end the test
+            </button>
+          )}
+        </div>
+      )}
+
+      {variants.map((v) => {
+        const r = results.find((x) => x.id === v.id);
+        return (
+          <GlassPanel key={v.id} className="p-2 mb-2">
+            <div className="flex gap-2 items-center mb-1">
+              <GlassInput value={v.name} onChange={(e) => updateVariant(v.id, { name: e.target.value })} className="flex-1 py-1" />
+              <GlassInput type="number" min="0" value={v.weight} onChange={(e) => updateVariant(v.id, { weight: Number(e.target.value) })} className="w-16 py-1" title="Share of traffic — 0 holds this variant back" />
+              <GlassButton variant="danger" onClick={() => removeVariant(v.id)}>Remove</GlassButton>
+            </div>
+            <GlassTextarea value={v.html} onChange={(e) => updateVariant(v.id, { html: e.target.value })} rows={3} className="w-full" />
+            {r && (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-zinc-500 mt-1">
+                <span>{r.impressions} views · {r.clicks} clicks</span>
+                <span className="text-zinc-300">{formatRate(r.rate)}</span>
+                {r.isControl && <span className="text-zinc-600">control</span>}
+                {!r.isControl && r.enoughData && (
+                  <span className={r.significant ? (r.lift > 0 ? 'text-emerald-300' : 'text-red-300') : 'text-zinc-600'}>
+                    {r.lift >= 0 ? '+' : ''}{(r.lift * 100).toFixed(0)}%{r.significant ? '' : ' (not conclusive)'}
+                  </span>
+                )}
+                {!r.isControl && !r.enoughData && <span className="text-zinc-600">too early to say</span>}
+                {!r.isControl && r.significant && r.lift > 0 && (
+                  <button onClick={() => promote(v)} className="text-glass-sky hover:underline">Promote</button>
+                )}
+              </div>
+            )}
+          </GlassPanel>
+        );
+      })}
     </div>
   );
 }

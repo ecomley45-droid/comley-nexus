@@ -57,6 +57,14 @@ function fieldsRead(fnName, seen = new Set()) {
   return keys;
 }
 
+// Fields a renderer consumes through a helper rather than by naming
+// `fields.x` directly, so the static scan can't see them. Each is a real,
+// rendered field with a real editor -- just reached indirectly.
+const INDIRECT = {
+  form: ['formFields'],            // via formFieldsFor()
+  'collection-list': ['mapping'],  // via applyCollectionToBlock() at hydrate
+};
+
 // Fields the editor never surfaces as an editor of their own, by design.
 const IGNORED = new Set([
   'customCss',   // its own always-on textarea at the bottom of the panel
@@ -77,7 +85,7 @@ const lines = [];
 
 for (const [blockType, fnName] of entries) {
   if (CUSTOM_EDITOR_TYPES.includes(blockType)) continue;
-  const read = [...fieldsRead(fnName)].filter((k) => !IGNORED.has(k));
+  const read = [...new Set([...fieldsRead(fnName), ...(INDIRECT[blockType] || [])])].filter((k) => !IGNORED.has(k));
   const offered = offeredBy(blockType);
   const missing = read.filter((k) => !offered.has(k));
   const unused = [...offered].filter((k) => !read.includes(k));

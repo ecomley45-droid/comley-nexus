@@ -5,6 +5,7 @@ import BlockCatalogPicker from '../blocks/BlockCatalogPicker.jsx';
 import { getCalendars, getEvents, getMedia, getCollections, getCollectionEntries } from '../api.js';
 import { EVENT_BOUND_TYPES, applyEventsToFields, expandRecurring, accentWrap } from '../../../shared/eventsMap.js';
 import { applyCollectionToBlock } from '../../../shared/collectionsMap.js';
+import { FORM_FIELD_TYPES, DEFAULT_FORM_FIELDS } from '../../../shared/formFields.js';
 import { schemaFor } from './blockFields.js';
 
 // The Content panel for a selected block. Only usable on blocks that carry
@@ -305,36 +306,142 @@ function PlansEditor({ spec, plans, onChange }) {
   );
 }
 
-// Picks which collection a Collection List block reads from. Lists what the
-// workspace actually has rather than asking for a slug, and says so plainly
-// when there are none yet.
-function CollectionPicker({ spec, value, onChange }) {
+// Builds the fields a Contact Form collects. Starts from whatever the block
+// renders today (the classic Name / Email / Message when it has no explicit
+// list), so opening the editor and saving can't silently change a live form.
+function FormFieldsEditor({ spec, value, onChange }) {
+  const fields = Array.isArray(value) && value.length ? value : DEFAULT_FORM_FIELDS;
+  const commit = (next) => onChange(next);
+  const update = (i, patch) => commit(fields.map((f, j) => (j === i ? { ...f, ...patch } : f)));
+  const remove = (i) => commit(fields.filter((_, j) => j !== i));
+  const move = (i, dir) => {
+    const j = i + dir;
+    if (j < 0 || j >= fields.length) return;
+    const next = [...fields];
+    [next[i], next[j]] = [next[j], next[i]];
+    commit(next);
+  };
+  const add = () => commit([...fields, { name: `field_${fields.length + 1}`, label: `Field ${fields.length + 1}`, type: 'text' }]);
+
+  return (
+    <FieldShell
+      label={`${spec.label} (${fields.length})`}
+      hint={spec.hint}
+      action={fields.length < 25 && <AddButton onClick={add}>Add field</AddButton>}
+    >
+      {fields.map((f, i) => (
+        <div key={i} className="rounded-lg border border-white/10 bg-white/[0.03] p-2 mb-2">
+          <div className="flex gap-1.5 items-center mb-1.5">
+            <GlassInput
+              value={f.label || ''}
+              onChange={(e) => update(i, { label: e.target.value, name: e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') })}
+              placeholder="Question"
+              className="flex-1 min-w-0 py-1"
+            />
+            <GlassSelect value={f.type || 'text'} onChange={(e) => update(i, { type: e.target.value })} className="w-28 py-1 text-xs">
+              {Object.entries(FORM_FIELD_TYPES).map(([k, t]) => <option key={k} value={k}>{t.label}</option>)}
+            </GlassSelect>
+            <button onClick={() => move(i, -1)} disabled={i === 0} className="text-zinc-400 hover:text-zinc-100 disabled:opacity-30 text-xs px-1">↑</button>
+            <button onClick={() => move(i, 1)} disabled={i === fields.length - 1} className="text-zinc-400 hover:text-zinc-100 disabled:opacity-30 text-xs px-1">↓</button>
+            <button onClick={() => remove(i)} className="text-red-400 hover:text-red-300 text-xs px-1">✕</button>
+          </div>
+          <label className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+            <input type="checkbox" checked={!!f.required} onChange={(e) => update(i, { required: e.target.checked })} className="w-3.5 h-3.5" />
+            Required
+          </label>
+          {f.type === 'select' && (
+            <GlassInput
+              value={(f.options || []).join(', ')}
+              onChange={(e) => update(i, { options: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })}
+              placeholder="Choices, comma separated"
+              className="w-full mt-1.5 py-1 text-xs"
+            />
+          )}
+        </div>
+      ))}
+    </FieldShell>
+  );
+}
+
+// Picks which collection a Collection List block reads from, and — once one
+// is chosen — which of its fields fill each slot the layout draws.
+//
+// The mapping is optional: applyCollectionToBlock guesses by field name and
+// then by type, which is right for a collection called Title/Description/
+// Cover. It exists for the collection whose fields are called something else
+// entirely, so that case is fixable without renaming anyone's data.
+const MAPPING_SLOTS = [
+  { role: 'title', label: 'Title' },
+  { role: 'meta', label: 'Subtitle' },
+  { role: 'body', label: 'Description' },
+  { role: 'image', label: 'Image' },
+  { role: 'link', label: 'Link' },
+];
+
+function CollectionPicker({ spec, fields, setFields }) {
   const [collections, setCollections] = useState(null);
   useEffect(() => { getCollections().then((d) => setCollections(d.collections)).catch(() => setCollections([])); }, []);
 
+  const slug = fields.collectionSlug || '';
+  const chosen = (collections || []).find((c) => c.slug === slug) || null;
+  const mapping = fields.mapping || {};
+
+  const setMapping = (role, key) => {
+    const next = { ...mapping };
+    if (key) next[role] = key; else delete next[role];
+    setFields({ mapping: Object.keys(next).length ? next : undefined });
+  };
+
   return (
-    <FieldShell label={spec.label} hint={spec.hint}>
-      {collections === null && <p className="text-xs text-zinc-600">Loading…</p>}
-      {collections?.length === 0 && (
-        <p className="text-xs text-zinc-500">
-          No collections yet — create one under <strong className="text-zinc-300">Collections</strong>, then come back.
-        </p>
+    <>
+      <FieldShell label={spec.label} hint={spec.hint}>
+        {collections === null && <p className="text-xs text-zinc-600">Loading…</p>}
+        {collections?.length === 0 && (
+          <p className="text-xs text-zinc-500">
+            No collections yet — create one under <strong className="text-zinc-300">Collections</strong>, then come back.
+          </p>
+        )}
+        {collections?.length > 0 && (
+          <GlassSelect
+            value={slug}
+            onChange={(e) => setFields({ collectionSlug: e.target.value, mapping: undefined })}
+            className="w-full"
+          >
+            <option value="">Choose a collection…</option>
+            {collections.map((c) => <option key={c.id} value={c.slug}>{c.name}</option>)}
+          </GlassSelect>
+        )}
+      </FieldShell>
+
+      {chosen && chosen.fields.length > 0 && (
+        <FieldShell
+          label="Which field goes where"
+          hint="Left on Auto, fields are matched by name and then by type — usually right."
+        >
+          {MAPPING_SLOTS.map((slot) => (
+            <div key={slot.role} className="flex items-center gap-2 mb-1.5">
+              <span className="text-[11px] text-zinc-500 w-20 shrink-0">{slot.label}</span>
+              <GlassSelect
+                value={mapping[slot.role] || ''}
+                onChange={(e) => setMapping(slot.role, e.target.value)}
+                className="flex-1 min-w-0 py-1 text-xs"
+              >
+                <option value="">Auto</option>
+                {chosen.fields.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+              </GlassSelect>
+            </div>
+          ))}
+        </FieldShell>
       )}
-      {collections?.length > 0 && (
-        <GlassSelect value={value || ''} onChange={(e) => onChange(e.target.value)} className="w-full">
-          <option value="">Choose a collection…</option>
-          {collections.map((c) => <option key={c.id} value={c.slug}>{c.name}</option>)}
-        </GlassSelect>
-      )}
-    </FieldShell>
+    </>
   );
 }
 
 // One block-specific scalar field (button label, video URL, product ID,
 // countdown date, feed platform…), rendered from its `kind`.
 function ExtraField({ fieldKey, spec, value, onChange }) {
-  if (spec.kind === 'collection') {
-    return <CollectionPicker spec={spec} value={value} onChange={onChange} />;
+  if (spec.kind === 'formFields') {
+    return <FormFieldsEditor spec={spec} value={value} onChange={onChange} />;
   }
   if (spec.kind === 'image') {
     return <MediaUrlField spec={spec} value={value} onChange={onChange} />;
@@ -667,6 +774,13 @@ export default function StructuredBlockEditor({ section, onChange }) {
       }
     }
     const extra = schema.extras?.[key];
+    // The collection picker writes two fields at once (which collection, and
+    // the optional field mapping), so it takes setFields rather than the
+    // single-key onChange every other extra uses.
+    if (extra?.kind === 'collection') {
+      return <CollectionPicker key={key} spec={extra} fields={fields} setFields={setFields} />;
+    }
+    if (extra?.kind === 'collectionMapping') return null;
     if (extra) {
       return (
         <ExtraField

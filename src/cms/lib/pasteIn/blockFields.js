@@ -361,11 +361,15 @@ export const BLOCK_FIELDS = {
     },
   },
   form: {
-    order: ['headings', 'text', 'buttonLabel'],
-    headings: { label: 'Heading' },
+    order: ['headings', 'text', 'formFields', 'buttonLabel'],
+    headings: { label: 'Heading', hint: 'Also names this form in your Forms inbox.' },
     text: BODY_TEXT,
     extras: {
-      buttonLabel: { ...BUTTON_LABEL, hint: 'The form always collects name, email and message, and posts to your Forms inbox.' },
+      formFields: {
+        kind: 'formFields', label: 'Fields',
+        hint: 'Submissions land in Forms. New fields show up there automatically.',
+      },
+      buttonLabel: BUTTON_LABEL,
     },
   },
   newsletter: {
@@ -489,6 +493,8 @@ export const BLOCK_FIELDS = {
         ],
       },
       limit: { kind: 'number', label: 'Entries to show', min: 1, max: 60, placeholder: 'All' },
+      // Edited inside the collection picker above, not as a field of its own.
+      mapping: { kind: 'collectionMapping', label: 'Field mapping' },
     },
   },
 
