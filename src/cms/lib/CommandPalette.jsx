@@ -2,30 +2,64 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getPages } from './api.js';
 
-// Cmd/Ctrl+K palette: jump to any page by name, or to a CMS surface.
+// Cmd/Ctrl+K palette: jump to any page by name, or to any CMS surface. Also
+// opened by the search field in the top bar, which is now the only other
+// search affordance — previously that field matched page names only while
+// this matched everything, so the same gesture gave two different answers.
+//
 // Pages are fetched lazily on first open (not on layout mount) so the
 // palette adds zero cost to normal navigation.
-
+//
+// This list must cover every nav destination. When it lagged behind, the
+// surfaces added since (Collections, Templates, Newsletter…) were reachable
+// by clicking but invisible to search, which is the worst of both.
 const SURFACES = [
   { label: 'Dashboard', to: '' },
+  // Content
   { label: 'Pages', to: '/pages' },
-  { label: 'Blocks', to: '/blocks' },
+  { label: 'Collections', to: '/collections' },
+  { label: 'Events', to: '/events' },
   { label: 'Media', to: '/media' },
-  { label: 'Forms', to: '/forms' },
-  { label: 'Redirects', to: '/redirects' },
-  { label: 'Design settings', to: '/settings/design' },
+  { label: 'Form responses', to: '/forms' },
+  { label: 'Comments', to: '/comments' },
+  // Design
+  { label: 'Site templates', to: '/templates' },
+  { label: 'Block catalog', to: '/blocks' },
+  { label: 'Saved sections', to: '/library' },
+  { label: 'Theme & branding', to: '/settings/design' },
+  // Marketing
+  { label: 'Newsletter', to: '/email' },
+  { label: 'Newsletter campaigns', to: '/email/campaigns' },
+  { label: 'Social', to: '/social' },
+  // Settings
+  { label: 'Settings', to: '/settings' },
   { label: 'Workspace settings', to: '/settings/workspace' },
-  { label: 'Team', to: '/team' },
+  { label: 'Team & permissions', to: '/team' },
+  { label: 'Integrations', to: '/connections' },
+  { label: 'Redirects', to: '/redirects' },
+  { label: 'Backups', to: '/settings/backups' },
+  { label: 'Billing', to: '/settings/billing' },
   { label: 'Audit log', to: '/audit' },
+  // Ops
+  { label: 'Ops overview', to: '/ops/dashboard' },
+  { label: 'Feedback inbox', to: '/feedback' },
+  { label: 'System status', to: '/ops/system-status' },
+  { label: 'Profile & preferences', to: '/ops/profile' },
 ];
 
-export default function CommandPalette({ base }) {
+export default function CommandPalette({ base, openSignal = 0 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [pages, setPages] = useState(null);
   const [active, setActive] = useState(0);
   const inputRef = useRef(null);
   const navigate = useNavigate();
+
+  // The top-bar search field bumps `openSignal` to open the palette, so
+  // there's one implementation behind both entry points.
+  useEffect(() => {
+    if (openSignal > 0) { setOpen(true); setQuery(''); }
+  }, [openSignal]);
 
   useEffect(() => {
     const onKey = (e) => {

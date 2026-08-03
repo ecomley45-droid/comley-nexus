@@ -72,7 +72,7 @@ export default function TemplateMarketplacePage() {
   return (
     <div className="max-w-6xl">
       <div className="flex items-center justify-between mb-1">
-        <h1 className="text-2xl font-semibold">Templates</h1>
+        <h1 className="text-2xl font-semibold">Site templates</h1>
         <div className="flex gap-2">
           {isSuperAdmin && (
             <GlassButton variant="secondary" onClick={onCaptureSite}>Save this site as template</GlassButton>

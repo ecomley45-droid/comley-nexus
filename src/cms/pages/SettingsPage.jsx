@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
 import {
-  Building2, Palette, Users, Plug, CreditCard, ScrollText, Database,
+  Building2, Palette, Users, Plug, CreditCard, ScrollText,
   Globe2,
 } from 'lucide-react';
-import { GlassShell, GlassPanel } from '../lib/ui/Glass.jsx';
+import { GlassPanel } from '../lib/ui/Glass.jsx';
 import { useOrgBase, useMe } from '../lib/useMe.jsx';
 
 // Settings landing. Categorized so it doesn't feel overwhelming.
@@ -20,10 +20,15 @@ const CATEGORIES = ({ base }) => [
     items: [
       { icon: Building2, label: 'Workspace', to: `${base}/settings/workspace`,
         blurb: 'Name, timezone, custom domain, maintenance mode.' },
-      { icon: Palette, label: 'Design', to: `${base}/settings/design`,
-        blurb: 'Theme colors, global header/footer, styleguide.' },
-      { icon: Globe2, label: 'Content globals', to: `${base}/settings/design#globals`,
-        blurb: 'Header, footer, and analytics that live outside any single page.' },
+      { icon: Palette, label: 'Theme & branding', to: `${base}/settings/design`,
+        blurb: 'Colors, fonts, languages, and the header/footer every page inherits.' },
+    ],
+  },
+  {
+    group: 'Site',
+    items: [
+      { icon: Globe2, label: 'Redirects', to: `${base}/redirects`,
+        blurb: 'Send old URLs somewhere new so links never dead-end.' },
     ],
   },
   {
@@ -45,8 +50,11 @@ const CATEGORIES = ({ base }) => [
   {
     group: 'Data & history',
     items: [
-      { icon: Database, label: 'Import / export', to: `${base}/import-export`,
-        blurb: 'CSV round-trips for pages, redirects, team, and more.' },
+      // Import/export is hidden here for the same reason it's hidden in the
+      // nav: every one of its endpoints returns 501 while the storage
+      // migration is in progress (see DEFERRED SURFACES in server.js).
+      // Advertising it on the settings hub sent people to a page that can
+      // only fail. Restore the card when the endpoints come back.
       { icon: ScrollText, label: 'Audit log', to: `${base}/audit`,
         blurb: 'Every change your team has made.' },
     ],

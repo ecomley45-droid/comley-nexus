@@ -33,7 +33,7 @@ export default function LibraryPage() {
   return (
     <div className="max-w-3xl">
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-semibold">Section library</h1>
+        <h1 className="text-2xl font-semibold">Saved sections</h1>
         <GlassButton onClick={addEntry}>New template</GlassButton>
       </div>
       <p className="text-sm text-zinc-500 mb-4 max-w-2xl">

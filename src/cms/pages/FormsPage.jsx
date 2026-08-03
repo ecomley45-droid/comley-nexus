@@ -37,7 +37,7 @@ export default function FormsPage() {
   return (
     <div className="max-w-3xl">
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-semibold">Forms</h1>
+        <h1 className="text-2xl font-semibold">Form responses</h1>
         {unread > 0 && <Badge>{unread} unread</Badge>}
       </div>
       <p className="text-sm text-zinc-400 mb-4">

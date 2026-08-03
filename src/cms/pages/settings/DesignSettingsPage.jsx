@@ -33,7 +33,7 @@ export default function DesignSettingsPage() {
   return (
     <div className="max-w-2xl">
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-semibold">Design</h1>
+        <h1 className="text-2xl font-semibold">Theme &amp; branding</h1>
         <div className="flex gap-2">
           <GlassButton variant="secondary" onClick={() => setWizardOpen(true)}>Guided setup</GlassButton>
           <GlassButton onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</GlassButton>

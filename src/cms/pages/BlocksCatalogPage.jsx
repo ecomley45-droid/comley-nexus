@@ -43,7 +43,7 @@ export default function BlocksCatalogPage() {
   return (
     <div className="max-w-6xl">
       <div className="flex justify-between items-center mb-1">
-        <h1 className="text-2xl font-semibold">Blocks</h1>
+        <h1 className="text-2xl font-semibold">Block catalog</h1>
         <div className="flex gap-2">
           {canEditWorkspace && (
             <GlassButton variant="secondary" onClick={() => setNewScope('workspace')}>New workspace block</GlassButton>

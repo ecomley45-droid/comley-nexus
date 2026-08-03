@@ -44,6 +44,12 @@
    unlayered, so they win. Only affects the SPA console -- published sites
    are server-rendered with their own theme.
    ------------------------------------------------------------------------- */
+/* The dark theme's text colour came only from GlassShell's `text-zinc-100`,
+   so anything rendered outside that wrapper inherited the browser default —
+   near-black on a near-black page. One base rule makes the default correct
+   everywhere; the light override below still wins when it applies. */
+body { color: #e4e4e7; }
+
 [data-theme="light"] { --color-glass-base: #edeff3; }
 [data-theme="light"] body { background: var(--color-glass-base); color: #18181b; }
 
@@ -76,6 +82,11 @@
    Without a remap they stay dark while their text flips to near-black --
    an unreadable dark-on-dark panel in an otherwise light console. */
 [data-theme="light"] .bg-zinc-900\/95 { background-color: rgba(255,255,255,0.97); }
+
+/* The nav's active row. On dark, an 18% indigo tint reads clearly against the
+   translucent rail; on light that same tint is nearly invisible, so it gets a
+   stronger, opaque wash instead. */
+[data-theme="light"] .bg-glass-indigo\/\[0\.18\] { background-color: rgba(99,102,241,0.14); }
 
 /* Inset wells (segmented control tracks, the preview canvas backdrop) are
    darker-than-surface on dark; on light they have to go the other way. */

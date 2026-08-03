@@ -6,77 +6,103 @@ import AppShell from './ui/AppShell.jsx';
 import FeedbackWidget from './FeedbackWidget.jsx';
 import AuthTokenBridge from './AuthTokenBridge.jsx';
 import CommandPalette from './CommandPalette.jsx';
+import {
+  LayoutDashboard, FileText, Database, CalendarDays, Image, Inbox, MessageSquare,
+  LayoutTemplate, Blocks, BookMarked, Mail, Share2, Settings, Building2, Palette,
+  Users, Plug, CreditCard, ScrollText, ArrowLeftRight, Archive, Wrench, Activity,
+  GitPullRequest, CalendarClock, Lightbulb, ShoppingBag,
+} from 'lucide-react';
 import { useMe, useIsSuperAdmin } from './useMe.jsx';
 import { setDocumentFavicon } from './favicon.js';
 
-// Nav item definitions live as relative paths so they can be rebased onto
-// /:orgSlug at render time. That keeps the component agnostic to which
-// org is active — for Ethan it's "/admin/*", for future clients it'll be
-// "/{their-slug}/*".
+// Navigation.
+//
+// Grouped by the job being done rather than listed flat. Fifteen unlabelled
+// top-level links meant scanning the whole rail to find anything and gave no
+// hint which surfaces relate to each other -- Blocks / Templates / Library
+// in particular read as three names for the same idea. Sections make the
+// relationships obvious and cut the top-level list to what someone reaches
+// for daily.
+//
+// Paths are relative so they can be rebased onto /:orgSlug at render time,
+// keeping this component agnostic to which workspace is active.
+//
+// `section: true` is a heading with items under it — not itself a link.
+// `children` is a collapsible group that IS also a link (it has a real
+// landing page). Mixing the two behaviours on one row is what made the old
+// "click the label or click the chevron?" ambiguity.
 const NAV_ITEMS = [
-  { to: '', label: 'Dashboard', end: true },
-  { to: 'pages', label: 'Pages' },
-  { to: 'blocks', label: 'Blocks' },
-  { to: 'templates', label: 'Templates' },
-  { to: 'library', label: 'Library' },
-  { to: 'media', label: 'Media' },
-  { to: 'events', label: 'Events' },
-  { to: 'collections', label: 'Collections' },
-  { to: 'redirects', label: 'Redirects' },
-  { to: 'forms', label: 'Forms' },
-  { to: 'comments', label: 'Comments' },
-  // Social is per-org (feature_flags.social); the group is spliced in below
-  // only when the workspace has it enabled, so it isn't rebased when absent.
+  { to: '', label: 'Dashboard', end: true, icon: LayoutDashboard },
+
   {
-    to: 'social',
-    label: 'Social',
-    social: true,
+    section: true,
+    label: 'Content',
     children: [
-      { to: 'social', label: 'Dashboard', end: true },
-      { to: 'social/compose', label: 'Compose' },
-      { to: 'social/calendar', label: 'Calendar' },
-      { to: 'social/accounts', label: 'Accounts' },
+      { to: 'pages', label: 'Pages', icon: FileText },
+      { to: 'collections', label: 'Collections', icon: Database },
+      { to: 'events', label: 'Events', icon: CalendarDays },
+      { to: 'media', label: 'Media', icon: Image },
+      { to: 'forms', label: 'Form responses', icon: Inbox },
+      { to: 'comments', label: 'Comments', icon: MessageSquare },
     ],
   },
-  // Newsletter (email builder) — a standard CMS feature, available to every
-  // workspace independent of Commerce. Sending stays safe: it only delivers
-  // for real when Resend is configured, otherwise it sandboxes.
+
   {
-    to: 'email',
-    label: 'Newsletter',
+    section: true,
+    label: 'Design',
     children: [
-      { to: 'email', label: 'Templates', end: true },
-      { to: 'email/campaigns', label: 'Campaigns' },
+      // Renamed from "Templates / Blocks / Library", which read as three
+      // words for one thing. These are: whole starter sites, the palette of
+      // block types, and your own saved sections.
+      { to: 'templates', label: 'Site templates', icon: LayoutTemplate },
+      { to: 'blocks', label: 'Block catalog', icon: Blocks },
+      { to: 'library', label: 'Saved sections', icon: BookMarked },
+      { to: 'settings/design', label: 'Theme & branding', icon: Palette },
     ],
   },
-  // Import/Export is hidden while its backend is stubbed (501s in
-  // server.js's DEFERRED SURFACES block) -- a live nav link to a dead
-  // page costs trial credibility. Restore when CSV/static export ships.
+
   {
-    to: 'ops/dashboard',
-    label: 'Ops',
+    section: true,
+    label: 'Marketing',
     children: [
-      { to: 'ops/dashboard', label: 'Dashboard', end: true },
-      { to: 'feedback', label: 'Feedback' },
-      { to: 'ops/system-status', label: 'System Status' },
-      { to: 'ops/feature-requests', label: 'Feature Requests' },
-      { to: 'ops/schedule', label: 'Schedule' },
-      { to: 'ops/git-pull', label: 'Git Pull' },
-      { to: 'ops/profile', label: 'Profile' },
+      { to: 'email', label: 'Newsletter', icon: Mail },
+      // Spliced out below when the workspace doesn't have the social flag.
+      { to: 'social', label: 'Social', icon: Share2, social: true },
     ],
   },
+
   {
     to: 'settings',
     label: 'Settings',
+    icon: Settings,
+    pinned: true,
     children: [
-      { to: 'settings', label: 'Overview', end: true },
-      { to: 'settings/workspace', label: 'Workspace' },
-      { to: 'settings/design', label: 'Design' },
-      { to: 'settings/backups', label: 'Backups' },
-      { to: 'team', label: 'Team & Permissions' },
-      { to: 'connections', label: 'Integrations' },
-      { to: 'settings/billing', label: 'Billing' },
-      { to: 'audit', label: 'Audit Log' },
+      { to: 'settings', label: 'Overview', end: true, icon: Settings },
+      { to: 'settings/workspace', label: 'Workspace', icon: Building2 },
+      { to: 'team', label: 'Team & permissions', icon: Users },
+      { to: 'connections', label: 'Integrations', icon: Plug },
+      { to: 'redirects', label: 'Redirects', icon: ArrowLeftRight },
+      { to: 'settings/backups', label: 'Backups', icon: Archive },
+      { to: 'settings/billing', label: 'Billing', icon: CreditCard },
+      { to: 'audit', label: 'Audit log', icon: ScrollText },
+    ],
+  },
+
+  {
+    to: 'ops/dashboard',
+    label: 'Ops',
+    icon: Wrench,
+    pinned: true,
+    children: [
+      { to: 'ops/dashboard', label: 'Overview', end: true, icon: Wrench },
+      { to: 'feedback', label: 'Feedback inbox', icon: Lightbulb },
+      { to: 'ops/system-status', label: 'System status', icon: Activity },
+      { to: 'ops/feature-requests', label: 'Feature requests', icon: Lightbulb },
+      { to: 'ops/schedule', label: 'Schedule', icon: CalendarClock },
+      // A deploy tool has no business in a client's CMS -- super admin only.
+      { to: 'ops/git-pull', label: 'Git pull', icon: GitPullRequest, superAdmin: true },
+      // Profile is reached from the avatar in the top bar and the rail
+      // footer, which is where every other app puts it.
     ],
   },
 ];
@@ -97,9 +123,9 @@ export default function CmsLayout() {
   const base = `/${orgSlug}`;
   const { me, refresh } = useMe();
   const isSuperAdmin = useIsSuperAdmin();
-  const [pages, setPages] = useState([]);
   const [commerceEnabled, setCommerceEnabled] = useState(false);
   const [socialEnabled, setSocialEnabled] = useState(false);
+  const [searchSignal, setSearchSignal] = useState(0);
   const navigate = useNavigate();
 
   const exitWorkspaceView = async () => {
@@ -109,11 +135,11 @@ export default function CmsLayout() {
   };
 
   useEffect(() => {
-    getPages().then((d) => {
-      setPages(d.pages);
-      // Use this workspace's own favicon for its console tab icon.
-      setDocumentFavicon(d.globalSettings?.favicon);
-    }).catch(() => {});
+    // Only the favicon is needed here now — page search moved to the
+    // command palette, which fetches its own list lazily on first open.
+    getPages()
+      .then((d) => setDocumentFavicon(d.globalSettings?.favicon))
+      .catch(() => {});
   }, []);
 
   // Commerce is per-org opt-in. The flag lives in the signed-in user's
@@ -141,12 +167,25 @@ export default function CmsLayout() {
       .catch(() => {});
   }, []);
 
+  // Feature flags prune items at BOTH levels now that the nav is grouped —
+  // a hidden child used to leave its parent section rendering an empty box.
   const navItems = useMemo(() => {
-    const filtered = NAV_ITEMS.filter((i) => (i.social ? socialEnabled : true));
+    const allowed = (item) => {
+      if (item.social && !socialEnabled) return false;
+      if (item.superAdmin && !isSuperAdmin) return false;
+      return true;
+    };
+    const filtered = NAV_ITEMS
+      .filter(allowed)
+      .map((item) => (item.children ? { ...item, children: item.children.filter(allowed) } : item))
+      .filter((item) => !item.section || item.children.length > 0);
+
     const items = rebaseNav(filtered, base);
-    if (commerceOn) items.push({ to: `${base}/commerce`, label: 'Commerce' });
+    // Commerce is a whole separate console, so it sits on its own at the
+    // bottom rather than inside a content group.
+    if (commerceOn) items.push({ to: `${base}/commerce`, label: 'Commerce', icon: ShoppingBag, pinned: true });
     return items;
-  }, [base, commerceOn, socialEnabled]);
+  }, [base, commerceOn, socialEnabled, isSuperAdmin]);
 
   // White-label (Agency tier): a workspace with feature_flags.white_label
   // shows the agency's brand instead of Nexus anywhere in the client-facing
@@ -180,14 +219,14 @@ export default function CmsLayout() {
         logoLabel={logoLabel}
         navItems={navItems}
         extraNavItem={superAdminExtra}
-        searchItems={pages.map((p) => ({ label: p.name, to: `${base}/pages/${p.id}` }))}
-        searchPlaceholder="Search pages…"
+        onSearch={() => setSearchSignal((n) => n + 1)}
+        searchPlaceholder="Search pages and settings…"
         banner={banner}
       >
         <Outlet />
       </AppShell>
       <FeedbackWidget area="cms" />
-      <CommandPalette base={base} />
+      <CommandPalette base={base} openSignal={searchSignal} />
     </GlassShell>
   );
 }
