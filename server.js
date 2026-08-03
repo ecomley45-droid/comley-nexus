@@ -1145,8 +1145,25 @@ app.use(async (req, res, next) => {
 
 Sentry.setupExpressErrorHandler(app);
 
+// A table that doesn't exist is not a server fault, it's a deploy that got
+// ahead of its migrations — and it has a specific, one-command fix. Returning
+// a bare "Internal server error" for it sent people hunting through logs for
+// something the message could have just said. Postgres reports it as 42P01;
+// PostgREST passes the text through, so matching on either is enough.
+const MISSING_TABLE = /relation "[^"]*" does not exist|\b42P01\b/i;
+
 app.use((err, req, res, _next) => {
   console.error('[unhandled]', err.message);
+
+  if (MISSING_TABLE.test(err.message || '')) {
+    const table = /relation "(?:public\.)?([^"]+)"/i.exec(err.message)?.[1];
+    return res.status(503).json({
+      error: table
+        ? `This feature needs a database table ("${table}") that hasn't been created yet. Run the pending migrations: npm run migrate`
+        : "This feature needs a database migration that hasn't been applied yet. Run: npm run migrate",
+    });
+  }
+
   res.status(500).json({ error: 'Internal server error' });
 });
 
