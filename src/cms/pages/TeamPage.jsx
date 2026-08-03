@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { Users } from 'lucide-react';
 import { getTeam, addTeamMember, removeTeamMember } from '../lib/api.js';
 import { GlassPanel, GlassButton, GlassInput, GlassSelect, Badge } from '../lib/ui/Glass.jsx';
+import EmptyState from '../lib/ui/EmptyState.jsx';
 
 const ROLE_CAPABILITIES = [
   { role: 'viewer', tone: 'default', can: 'View pages, library, media, redirects, comments, audit log' },
@@ -82,7 +84,12 @@ export default function TeamPage() {
         {notice && <p className="text-amber-300/90 mt-2 text-sm">{notice}</p>}
       </GlassPanel>
 
-      {team.length === 0 && <p className="text-zinc-500">No team members added yet.</p>}
+      {team.length === 0 && (
+        <EmptyState compact icon={Users} title="Just you so far">
+          Invite the people who work on this site. Viewers can look, editors can change content,
+          admins can change settings and billing.
+        </EmptyState>
+      )}
       {team.length > 0 && (
         <GlassPanel className="p-2 overflow-x-auto">
           <table className="w-full min-w-lg text-sm">

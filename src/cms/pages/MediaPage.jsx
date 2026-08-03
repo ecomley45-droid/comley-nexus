@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
+import { Image as ImageIcon, Upload } from 'lucide-react';
 import {
   getMedia, uploadMedia, updateMedia, deleteMedia,
   getNexusMedia, uploadNexusMedia, updateNexusMedia, deleteNexusMedia,
 } from '../lib/api.js';
+import EmptyState from '../lib/ui/EmptyState.jsx';
+import { useConfirm } from '../lib/ui/useConfirm.jsx';
 import { GlassPanel, GlassInput, GlassTextarea, GlassButton } from '../lib/ui/Glass.jsx';
 
 const fileToBase64 = (file) =>
@@ -75,6 +78,7 @@ export default function MediaPage({ nexus = false }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState('');
+  const [confirm, confirmUi] = useConfirm();
   const [editing, setEditing] = useState(null);
 
   const load = () => api.list().then(setMedia).catch((e) => setError(e.message));
@@ -98,9 +102,14 @@ export default function MediaPage({ nexus = false }) {
     }
   };
 
-  const remove = async (id) => {
-    if (!confirm('Delete this file?')) return;
-    await api.remove(id);
+  const remove = async (item) => {
+    const ok = await confirm({
+      title: `Delete “${item.name}”?`,
+      body: 'Any block or page still pointing at this file will show a broken image. This can\'t be undone.',
+      confirmLabel: 'Delete file',
+    });
+    if (!ok) return;
+    await api.remove(item.id);
     load();
   };
 
@@ -118,12 +127,21 @@ export default function MediaPage({ nexus = false }) {
         <h1 className="text-2xl font-semibold">Media library</h1>
         <label className="inline-flex items-center justify-center gap-1.5 rounded-xl text-sm font-medium transition active:scale-95 px-4 py-2 text-white bg-gradient-to-tr from-glass-indigo to-glass-fuchsia shadow-lg shadow-glass-fuchsia/20 hover:brightness-110 cursor-pointer">
           {uploading ? 'Uploading…' : 'Upload file'}
-          <input type="file" onChange={handleUpload} className="hidden" disabled={uploading} />
+          <input id="nx-media-input" type="file" onChange={handleUpload} className="hidden" disabled={uploading} />
         </label>
       </div>
       <p className="text-xs text-zinc-500 mb-4">Images are automatically optimized to WebP on upload.</p>
       {error && <p className="text-red-400 mb-2">{error}</p>}
-      {media.length === 0 && <p className="text-zinc-500">No media uploaded yet.</p>}
+      {media.length === 0 && (
+        <EmptyState
+          icon={ImageIcon}
+          title="No media yet"
+          action={{ label: 'Upload your first file', icon: Upload, onClick: () => document.getElementById('nx-media-input')?.click() }}
+        >
+          Images you upload here can be picked from any block, so you never have to paste a URL.
+          They're converted to WebP automatically.
+        </EmptyState>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {media.map((item) => (
@@ -144,7 +162,7 @@ export default function MediaPage({ nexus = false }) {
                 {copied === item.url ? 'Copied!' : 'Copy URL'}
               </button>
               <button onClick={() => setEditing(item)} className="text-xs text-zinc-300 hover:text-white">Edit</button>
-              <button onClick={() => remove(item.id)} className="text-xs text-red-400 hover:text-red-300">Delete</button>
+              <button onClick={() => remove(item)} className="text-xs text-red-400 hover:text-red-300">Delete</button>
             </div>
           </GlassPanel>
         ))}
@@ -161,6 +179,7 @@ export default function MediaPage({ nexus = false }) {
           }}
         />
       )}
+      {confirmUi}
     </div>
   );
 }

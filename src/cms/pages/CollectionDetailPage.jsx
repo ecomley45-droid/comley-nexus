@@ -5,6 +5,8 @@ import {
   getCollectionEntries, updateCollection, createEntry, updateEntry, deleteEntry, getMedia,
 } from '../lib/api.js';
 import { GlassPanel, GlassButton, GlassInput, GlassTextarea, GlassSelect, Badge } from '../lib/ui/Glass.jsx';
+import EmptyState from '../lib/ui/EmptyState.jsx';
+import { useConfirm } from '../lib/ui/useConfirm.jsx';
 import { useOrgBase, useIsAdmin } from '../lib/useMe.jsx';
 import { FIELD_TYPES, keyify, normalizeEntryData } from '../../shared/collectionFields.js';
 
@@ -161,6 +163,7 @@ export default function CollectionDetailPage() {
   const [error, setError] = useState('');
   const [showFields, setShowFields] = useState(false);
   const [pendingFields, setPendingFields] = useState(null);
+  const [confirm, confirmUi] = useConfirm();
 
   const load = () => getCollectionEntries(id).then(setState).catch((e) => setError(e.message));
   useEffect(() => { load(); }, [id]);
@@ -281,7 +284,18 @@ export default function CollectionDetailPage() {
         <GlassButton onClick={add} className="py-1.5 text-xs"><Plus size={12} /> New entry</GlassButton>
       </div>
 
-      {state.entries.length === 0 && <p className="text-zinc-500 text-sm">No entries yet.</p>}
+      {state.entries.length === 0 && (
+        <EmptyState
+          compact
+          icon={Plus}
+          title={`No ${collection.name.toLowerCase()} yet`}
+          action={{ label: 'Add the first entry', icon: Plus, onClick: add }}
+        >
+          Entries you add here appear anywhere a Collection List block points at{' '}
+          {collection.name} — add once, and every page using it updates.
+        </EmptyState>
+      )}
+      {confirmUi}
       {state.entries.map((entry) => (
         <EntryEditor
           key={entry.id}
@@ -289,7 +303,15 @@ export default function CollectionDetailPage() {
           entry={entry}
           onSave={async (patch) => { await updateEntry(entry.id, patch); await load(); }}
           onRemove={async () => {
-            if (!confirm('Delete this entry?')) return;
+            const label = entry.data?.[collection.fields[0]?.key] || entry.slug;
+            const ok = await confirm({
+              title: `Delete “${label}”?`,
+              body: collection.detailEnabled
+                ? `Its page at /${collection.detailBase}/${entry.slug} will 404, and it disappears from every block showing this collection.`
+                : 'It disappears from every block showing this collection.',
+              confirmLabel: 'Delete entry',
+            });
+            if (!ok) return;
             await deleteEntry(entry.id); await load();
           }}
         />

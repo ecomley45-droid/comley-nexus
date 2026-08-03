@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { CalendarDays, Plus } from 'lucide-react';
 import {
   getMe,
   getCalendars, createCalendar, updateCalendar, deleteCalendar,
   getEvents, createEvent, updateEvent, deleteEvent,
 } from '../lib/api.js';
 import { GlassPanel, GlassButton, GlassInput, GlassSelect, GlassTextarea, Badge } from '../lib/ui/Glass.jsx';
+import EmptyState from '../lib/ui/EmptyState.jsx';
+import { useOrgBase } from '../lib/useMe.jsx';
 
 // Central events manager: create multiple calendars and add events to them.
 // Any Events List / Calendar / Flyer Slider block can then be bound to a
@@ -26,6 +30,7 @@ const RECUR_LABEL = { none: '', daily: 'Repeats daily', weekly: 'Repeats weekly'
 const emptyEvent = (calendarId) => ({ title: '', calendarId: calendarId && calendarId !== 'all' ? calendarId : '', startsAt: '', allDay: false, location: '', description: '', flyerUrl: '', linkUrl: '', recurrence: 'none', recurrenceUntil: '' });
 
 export default function EventsPage() {
+  const base = useOrgBase() || '/admin';
   const [calendars, setCalendars] = useState(null);
   const [selected, setSelected] = useState('all');
   const [events, setEvents] = useState(null);
@@ -84,8 +89,14 @@ export default function EventsPage() {
         <h1 className="text-2xl font-semibold">Events</h1>
         <GlassButton onClick={() => setEditing(emptyEvent(selected))}>Add event</GlassButton>
       </div>
-      <p className="text-sm text-zinc-400 mb-6">
-        Manage your calendars and events here once. In the page editor, bind an Events List, Calendar, or Flyer Slider block to a calendar to display them.
+      <p className="text-sm text-zinc-400 mb-2 max-w-3xl">
+        Calendars and events, managed once. In the page editor, bind an Events List, Calendar or
+        Flyer Slider block to a calendar to show them.
+      </p>
+      <p className="text-xs text-zinc-500 mb-6 max-w-3xl">
+        Events are for anything with a date — they get recurrence, an .ics feed and calendar
+        subscriptions. For dated-but-not-scheduled content like case studies or recipes, use{' '}
+        <Link to={`${base}/collections`} className="text-glass-sky hover:underline">Collections</Link> instead.
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-5">
@@ -123,7 +134,15 @@ export default function EventsPage() {
           {!events ? (
             <p className="text-zinc-400">Loading…</p>
           ) : events.length === 0 ? (
-            <GlassPanel className="p-6 text-sm text-zinc-400">No events yet. Click “Add event” to create one.</GlassPanel>
+            <EmptyState
+              compact
+              icon={CalendarDays}
+              title="No events yet"
+              action={{ label: 'Add an event', icon: Plus, onClick: () => setEditing(emptyEvent(selected)) }}
+            >
+              Add opening times, classes, gigs — anything with a date. They can repeat, and visitors
+              can subscribe to the calendar.
+            </EmptyState>
           ) : (
             <div className="flex flex-col gap-2">
               {events.map((ev) => (

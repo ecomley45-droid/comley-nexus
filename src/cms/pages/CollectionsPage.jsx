@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { Database, Plus, Trash2 } from 'lucide-react';
 import { getCollections, createCollection, deleteCollection } from '../lib/api.js';
 import { GlassPanel, GlassButton, GlassInput, Badge } from '../lib/ui/Glass.jsx';
+import EmptyState from '../lib/ui/EmptyState.jsx';
+import { useConfirm } from '../lib/ui/useConfirm.jsx';
 import { useOrgBase, useIsAdmin } from '../lib/useMe.jsx';
 
 // The list of a workspace's content types. Creating and deleting a type is
@@ -15,6 +17,7 @@ export default function CollectionsPage() {
   const [error, setError] = useState('');
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
+  const [confirm, confirmUi] = useConfirm();
 
   const load = () => getCollections().then((d) => setCollections(d.collections)).catch((e) => setError(e.message));
   useEffect(() => { load(); }, []);
@@ -38,7 +41,12 @@ export default function CollectionsPage() {
   };
 
   const remove = async (c) => {
-    if (!confirm(`Delete "${c.name}" and all of its entries? This can't be undone.`)) return;
+    const ok = await confirm({
+      title: `Delete “${c.name}”?`,
+      body: `Every entry in this collection goes with it, and any Collection List block pointing at it stops showing content. This can't be undone.`,
+      confirmLabel: 'Delete collection',
+    });
+    if (!ok) return;
     try { await deleteCollection(c.id); await load(); } catch (e) { setError(e.message); }
   };
 
@@ -54,6 +62,11 @@ export default function CollectionsPage() {
         Your own content types — case studies, recipes, properties, job openings. Define the fields
         once, add entries, then drop a <strong className="text-zinc-200">Collection List</strong> block
         on any page. Edit an entry and every page showing it updates.
+      </p>
+      <p className="text-xs text-zinc-500 mb-4 max-w-2xl">
+        For anything scheduled — classes, gigs, opening times — use{' '}
+        <Link to={`${base}/events`} className="text-glass-sky hover:underline">Events</Link> instead;
+        it adds recurrence and a calendar feed.
       </p>
 
       {isAdmin && (
@@ -72,9 +85,18 @@ export default function CollectionsPage() {
       )}
 
       {collections.length === 0 && (
-        <p className="text-zinc-500">No collections yet{isAdmin ? ' — create one above.' : '.'}</p>
+        <EmptyState
+          icon={Database}
+          title="No collections yet"
+          action={isAdmin ? { label: 'Name one above', icon: Plus, onClick: () => document.querySelector('input')?.focus() } : undefined}
+        >
+          A collection is your own content type — case studies, recipes, team members. Define its
+          fields once, add entries, then show them anywhere with a Collection List block.
+          {!isAdmin && ' Ask a workspace admin to create the first one.'}
+        </EmptyState>
       )}
 
+      {confirmUi}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {collections.map((c) => (
           <GlassPanel key={c.id} className="p-4 flex flex-col gap-2">

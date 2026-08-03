@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Blocks, Code2, Plus } from 'lucide-react';
+import { Blocks, Code2, Plus, FileText } from 'lucide-react';
 import { usePagesStore } from '../lib/usePagesStore.js';
 import { getFullPath } from '../../shared/compilePage.js';
 import { createPage as createPageAction } from '../lib/pageActions.js';
 import { PAGE_MODES, modeOf } from '../lib/pageModes.js';
 import { GlassPanel, GlassButton, Badge } from '../lib/ui/Glass.jsx';
+import EmptyState from '../lib/ui/EmptyState.jsx';
+import { useConfirm } from '../lib/ui/useConfirm.jsx';
 import { useOrgBase, useIsAdmin, useIsSuperAdmin } from '../lib/useMe.jsx';
 import { getNexusPages, saveNexusPages } from '../lib/api.js';
 
@@ -22,6 +24,7 @@ export default function PagesListPage({ nexus = false }) {
   const isSuperAdmin = useIsSuperAdmin();
   const base = nexus ? '/super-admin' : (orgBase || '/admin');
   const [choosingMode, setChoosingMode] = useState(false);
+  const [confirm, confirmUi] = useConfirm();
 
   if (loading) return <p className="text-zinc-300">Loading…</p>;
   if (error) return <p className="text-red-400">{error}</p>;
@@ -35,9 +38,17 @@ export default function PagesListPage({ nexus = false }) {
     return createPageAction(pages, setPages, save, navigate, base, mode);
   };
 
-  const deletePage = async (id) => {
-    if (!confirm('Delete this page?')) return;
-    const nextPages = pages.filter((p) => p.id !== id);
+  const deletePage = async (page) => {
+    const children = pages.filter((p) => p.parentId === page.id).length;
+    const ok = await confirm({
+      title: `Delete “${page.name}”?`,
+      body: children > 0
+        ? `Its ${children} child page${children === 1 ? '' : 's'} will be left without a parent, changing their addresses. This can't be undone.`
+        : `The page and its blocks are removed. Anyone visiting /${getFullPath(page, pages)} will get a 404. This can't be undone.`,
+      confirmLabel: 'Delete page',
+    });
+    if (!ok) return;
+    const nextPages = pages.filter((p) => p.id !== page.id);
     setPages(nextPages);
     await save(nextPages);
   };
@@ -86,8 +97,17 @@ export default function PagesListPage({ nexus = false }) {
         </div>
       </div>
 
-      {pages.length === 0 && <p className="text-zinc-500">No pages yet. Create your first one.</p>}
-
+      {pages.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="No pages yet"
+          action={{ label: 'Create your first page', icon: Plus, onClick: () => setChoosingMode(true) }}
+          secondary={{ label: 'Start from a template', to: `${base}/templates` }}
+        >
+          Pages are what visitors see. Build one from blocks, or install a whole starter
+          site from a template and edit it.
+        </EmptyState>
+      ) : (
       <GlassPanel className="p-2 overflow-x-auto">
         <table className="w-full min-w-lg text-sm border-collapse">
           <thead>
@@ -118,7 +138,7 @@ export default function PagesListPage({ nexus = false }) {
                     <Badge tone={page.status === 'published' ? 'published' : 'draft'}>{page.status}</Badge>
                   </td>
                   <td className="text-right px-2">
-                    <button onClick={() => deletePage(page.id)} className="text-red-400 hover:text-red-300 text-xs">Delete</button>
+                    <button onClick={() => deletePage(page)} className="text-red-400 hover:text-red-300 text-xs">Delete</button>
                   </td>
                 </tr>
               );
@@ -126,6 +146,8 @@ export default function PagesListPage({ nexus = false }) {
           </tbody>
         </table>
       </GlassPanel>
+      )}
+      {confirmUi}
     </div>
   );
 }

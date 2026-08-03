@@ -33,7 +33,12 @@ const BUTTON_VARIANTS = {
   primary: 'px-4 py-2 text-white bg-gradient-to-tr from-glass-indigo to-glass-fuchsia shadow-lg shadow-glass-fuchsia/20 hover:brightness-110',
   secondary: 'px-4 py-2 text-zinc-100 backdrop-blur-xl bg-white/10 border border-white/15 hover:bg-white/15',
   ghost: 'px-3 py-1.5 text-zinc-300 hover:text-white hover:bg-white/10',
+  // A quiet red text button, for a delete that sits inline in a row.
   danger: 'px-3 py-1.5 text-red-300 hover:text-red-200 hover:bg-red-500/10',
+  // The solid version, for when the destructive action IS the primary action
+  // — the confirm button in a dialog. Without this, "Delete" looked lighter
+  // than "Cancel", which is backwards for the choice being made.
+  destructive: 'px-4 py-2 text-white bg-red-600 hover:bg-red-500 shadow-lg shadow-red-900/30',
 };
 
 export function GlassButton({ children, variant = 'primary', className = '', ...props }) {

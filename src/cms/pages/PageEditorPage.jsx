@@ -24,6 +24,7 @@ import { editableView, applyEdit, publishDraft, discardDraft, hasPendingChanges,
 import { localesOf, isMultilingual, localizedPage, setTranslation, seedTranslation, removeTranslation, hasTranslation } from '../../shared/i18n.js';
 import { PAGE_MODES, modeOf, otherMode, conversionSummary } from '../lib/pageModes.js';
 import { convertPage } from '../lib/pageActions.js';
+import { useConfirm } from '../lib/ui/useConfirm.jsx';
 
 const newSection = () => ({ id: 'sec-' + Date.now() + '-' + Math.floor(Math.random() * 1e6), name: 'New section', html: '<div class="p-8">New section</div>' });
 
@@ -69,6 +70,7 @@ function withEditorOverlay(html, selectedId) {
 
 function AbVariantsEditor({ section, onChange }) {
   const [stats, setStats] = useState({});
+  const [confirm, confirmUi] = useConfirm();
   const variants = section.abVariants || [];
 
   useEffect(() => {
@@ -88,8 +90,14 @@ function AbVariantsEditor({ section, onChange }) {
   // Promoting a winner makes it the block's own content and ends the test.
   // That's the whole point of running one, and doing it by hand meant
   // copy-pasting HTML between two textareas.
-  const promote = (variant) => {
-    if (!confirm(`Make "${variant.name}" the permanent content of this block and stop the test?`)) return;
+  const promote = async (variant) => {
+    const ok = await confirm({
+      title: `Make “${variant.name}” permanent?`,
+      body: 'It becomes this block\'s content and the test ends. The other variants and their results are removed.',
+      confirmLabel: 'Use this variant',
+      tone: 'primary',
+    });
+    if (!ok) return;
     onChange({ ...section, html: variant.html, abVariants: [] });
   };
 
@@ -103,6 +111,7 @@ function AbVariantsEditor({ section, onChange }) {
 
   return (
     <div className="mt-3 border-t border-white/10 pt-3">
+      {confirmUi}
       <div className="flex justify-between items-center mb-2">
         <span className="text-xs font-medium text-zinc-400">A/B variants</span>
         <button onClick={addVariant} className="text-xs text-glass-sky hover:underline">Add variant</button>
@@ -489,6 +498,7 @@ export default function PageEditorPage({ nexus = false }) {
   const [pasteInOpen, setPasteInOpen] = useState(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [confirm, confirmUi] = useConfirm();
 
   // Unsaved-work protection: any page edit marks the editor dirty; a
   // browser-nav warning fires while dirty, Cmd/Ctrl+S saves, and an idle
@@ -614,8 +624,13 @@ export default function PageEditorPage({ nexus = false }) {
     // edits it promotes.
     setTimeout(() => saveRef.current?.(), 0);
   };
-  const discardChanges = () => {
-    if (!confirm('Throw away the unpublished changes and go back to the live version?')) return;
+  const discardChanges = async () => {
+    const ok = await confirm({
+      title: 'Discard your unpublished changes?',
+      body: 'The page goes back to the version visitors see now. Your edits are not recoverable.',
+      confirmLabel: 'Discard changes',
+    });
+    if (!ok) return;
     writePage(discardDraft());
     setTimeout(() => saveRef.current?.(), 0);
   };
@@ -1119,8 +1134,13 @@ export default function PageEditorPage({ nexus = false }) {
                     published state are shared across all languages.
                   </p>
                   <button
-                    onClick={() => {
-                      if (!confirm('Delete this translation? The page will fall back to the default language.')) return;
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: 'Delete this translation?',
+                        body: `Visitors on /${locale}/ will see the default language instead. The translated text is not recoverable.`,
+                        confirmLabel: 'Delete translation',
+                      });
+                      if (!ok) return;
                       writePage(removeTranslation(storedPage, locale));
                       setLocale('');
                     }}
@@ -1154,6 +1174,7 @@ export default function PageEditorPage({ nexus = false }) {
         </GlassPanel>
       </div>
 
+      {confirmUi}
       {pasteInOpen && <PasteInModal onClose={() => setPasteInOpen(false)} onImport={importPastedBlocks} />}
       {catalogOpen && <BlockCatalogPicker onClose={() => setCatalogOpen(false)} onInsert={insertCatalogBlock} />}
 

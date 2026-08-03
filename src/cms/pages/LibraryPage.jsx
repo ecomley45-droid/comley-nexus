@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link2 } from 'lucide-react';
+import { Link2, BookMarked, Plus } from 'lucide-react';
 import { getLibrary, saveLibrary, getPages } from '../lib/api.js';
 import { syncUsageMap } from '../../shared/syncedBlocks.js';
 import { GlassPanel, GlassButton, GlassInput, GlassTextarea } from '../lib/ui/Glass.jsx';
+import EmptyState from '../lib/ui/EmptyState.jsx';
 
 export default function LibraryPage() {
   const [library, setLibrary] = useState(null);
@@ -43,7 +44,17 @@ export default function LibraryPage() {
         <strong className="text-zinc-300"> copy</strong>, it belongs to that page from then on.
       </p>
 
-      {library.length === 0 && <p className="text-zinc-500">No templates yet.</p>}
+      {library.length === 0 && (
+        <EmptyState
+          icon={BookMarked}
+          title="No saved sections yet"
+          action={{ label: 'Create one', icon: Plus, onClick: addEntry }}
+        >
+          Save a section you use across pages — a footer CTA, an opening-hours panel — then insert
+          it anywhere. Insert it <strong className="text-zinc-300">linked</strong> and editing it
+          here updates every page at once.
+        </EmptyState>
+      )}
 
       {library.map((entry) => (
         <GlassPanel key={entry.id} className="p-3 mb-3">
