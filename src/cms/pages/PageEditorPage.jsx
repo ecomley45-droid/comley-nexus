@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Layers, Plus, ClipboardPaste, Square, Trash2, Copy, ChevronUp, ChevronDown, GripVertical,
-  SlidersHorizontal, Paintbrush, FileCog, Code2, Blocks, ArrowLeftRight, EyeOff, X,
+  SlidersHorizontal, Paintbrush, FileCog, Code2, Blocks, ArrowLeftRight, EyeOff, X, ShieldCheck,
 } from 'lucide-react';
 import { usePagesStore } from '../lib/usePagesStore.js';
 import { useDebouncedValue } from '../lib/useDebouncedValue.js';
@@ -16,8 +16,9 @@ import BlockCatalogPicker from '../lib/blocks/BlockCatalogPicker.jsx';
 import ScaledPreviewFrame from '../lib/ScaledPreviewFrame.jsx';
 import { fetchBlockCatalog } from '../lib/blocks/catalog.js';
 import DesignInspector, { DEVICES } from '../lib/design/DesignInspector.jsx';
-import { describeSectionStyle, hasSectionStyle } from '../../shared/blockStyle.js';
+import { describeSectionStyle, hasSectionStyle, normalizeSectionStyle } from '../../shared/blockStyle.js';
 import { readExperiment, formatRate } from '../../shared/abStats.js';
+import { auditPage } from '../../shared/pageAudit.js';
 import { PAGE_MODES, modeOf, otherMode, conversionSummary } from '../lib/pageModes.js';
 import { convertPage } from '../lib/pageActions.js';
 
@@ -294,6 +295,52 @@ function LayoutPanel({ layout, globals, onChange }) {
   );
 }
 
+// Accessibility and SEO findings for the page being edited. Sits in the Page
+// tab because most of what it reports is page-level (headings, metadata,
+// theme contrast) even though individual findings point at a block.
+function AuditPanel({ page, globalSettings, onSelectSection }) {
+  const { issues, counts, score, skipped } = auditPage(page, globalSettings);
+
+  if (skipped) {
+    return (
+      <div className="rounded-xl border border-white/10 bg-white/[0.03] mb-2 px-3 py-2.5">
+        <div className="flex items-center gap-2 text-sm text-zinc-200"><ShieldCheck size={14} className="text-zinc-400" /> Checks</div>
+        <p className="text-[11px] text-zinc-500 mt-1">Not run on full-code pages — the markup is yours end to end.</p>
+      </div>
+    );
+  }
+
+  const tone = counts.error ? 'text-red-300' : counts.warning ? 'text-amber-300' : 'text-emerald-300';
+  const LEVEL_DOT = { error: 'bg-red-400', warning: 'bg-amber-400', info: 'bg-sky-400' };
+
+  return (
+    <CollapsibleSection
+      title={`Checks — ${score}/100`}
+      defaultOpen={counts.error > 0}
+    >
+      <p className={`text-xs mb-2 ${tone}`}>
+        {issues.length === 0
+          ? 'No accessibility or SEO problems found.'
+          : `${counts.error} to fix · ${counts.warning} to look at · ${counts.info} for information`}
+      </p>
+      {issues.map((issue, i) => (
+        <div key={`${issue.id}-${i}`} className="flex gap-2 py-1.5 border-t border-white/[0.06] first:border-t-0">
+          <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${LEVEL_DOT[issue.level]}`} />
+          <div className="min-w-0">
+            <div className="text-xs text-zinc-200">{issue.title}</div>
+            <div className="text-[11px] text-zinc-500 leading-relaxed">{issue.detail}</div>
+            {issue.sectionId && (
+              <button onClick={() => onSelectSection(issue.sectionId)} className="text-[11px] text-glass-sky hover:underline mt-0.5">
+                Go to block
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
+    </CollapsibleSection>
+  );
+}
+
 // The Convert card in the Page tab. Conversion is additive by design -- it
 // produces a separate DRAFT copy and leaves this page untouched -- so the
 // confirmation spells out exactly what the copy will and won't carry over.
@@ -403,7 +450,7 @@ export default function PageEditorPage({ nexus = false }) {
   const isAdmin = useIsAdmin();
   const isSuperAdmin = useIsSuperAdmin();
   const base = nexus ? '/super-admin' : (orgBase || '/admin');
-  const { pages, setPages, loading, error, save, saving, saveMessage, globalSettings, reload, conflict, dismissConflict } = usePagesStore(
+  const { pages, setPages, loading, error, save, saving, saveMessage, globalSettings, setGlobalSettings, reload, conflict, dismissConflict } = usePagesStore(
     nexus ? { fetchPages: getNexusPages, savePages: saveNexusPages } : undefined
   );
   const [library, setLibrary] = useState([]);
@@ -543,6 +590,23 @@ export default function PageEditorPage({ nexus = false }) {
   };
   const updateLayout = (patch) => updatePage({ layout: { ...(page.layout || {}), ...patch } });
 
+  // Saved design presets live in the workspace's global settings, so they
+  // follow the site rather than one browser. Only an admin can save
+  // globalSettings, so an editor sees and applies presets but can't add one —
+  // the server would reject the write anyway (see POST /api/pages).
+  const designPresets = globalSettings?.designPresets || [];
+  const savePreset = (name, style) => {
+    const clean = normalizeSectionStyle(style);
+    if (!clean) return;
+    const next = [...designPresets.filter((p) => p.name !== name), { name, style: clean }].slice(-40);
+    setGlobalSettings({ ...globalSettings, designPresets: next });
+    markDirty();
+  };
+  const deletePreset = (name) => {
+    setGlobalSettings({ ...globalSettings, designPresets: designPresets.filter((p) => p.name !== name) });
+    markDirty();
+  };
+
   const selectSection = (secId) => {
     setSelectedId(secId);
     if (secId && tab === 'page') setTab('content');
@@ -606,7 +670,7 @@ export default function PageEditorPage({ nexus = false }) {
 
   const handleSave = async (opts) => {
     try {
-      await save(pages, undefined, opts);
+      await save(pages, globalSettings, opts);
       dirtyRef.current = false;
     } catch {
       // saveMessage already reflects the error; stay dirty so the
@@ -859,6 +923,9 @@ export default function PageEditorPage({ nexus = false }) {
               device={device}
               onDeviceChange={setDevice}
               theme={globalSettings?.theme || {}}
+              presets={designPresets}
+              onSavePreset={isAdmin || nexus ? savePreset : undefined}
+              onDeletePreset={deletePreset}
             />
           )}
 
@@ -914,6 +981,8 @@ export default function PageEditorPage({ nexus = false }) {
                   onChange={updateLayout}
                 />
               )}
+
+              <AuditPanel page={page} globalSettings={globalSettings} onSelectSection={selectSection} />
 
               <CollapsibleSection title="SEO">
                 <GlassInput placeholder="Title" value={page.seo?.title || ''} onChange={(e) => updatePage({ seo: { ...page.seo, title: e.target.value } })} className="w-full mb-1" />

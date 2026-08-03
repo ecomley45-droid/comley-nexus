@@ -18,7 +18,7 @@ import {
   AlignStartVertical, AlignCenterVertical, AlignEndVertical, AlignVerticalSpaceBetween,
   Rows3, Columns3, StretchHorizontal,
   Monitor, Tablet, Smartphone, Eye,
-  LayoutTemplate, Move, Paintbrush, Frame, Type, WandSparkles, RotateCcw,
+  LayoutTemplate, Move, Paintbrush, Frame, Type, WandSparkles, RotateCcw, Bookmark, Check,
 } from 'lucide-react';
 import {
   InspectorGroup, Field, Segmented, NumberSlider, ColorField, ToggleRow, BoxField,
@@ -88,7 +88,87 @@ function swatchesFromTheme(theme = {}) {
     .map(([label, value]) => ({ label, value }));
 }
 
-export default function DesignInspector({ style = {}, onChange, device, onDeviceChange, theme = {} }) {
+// Saved design presets.
+//
+// Design tokens without presets is a manual-labour machine: you tune a card's
+// padding, background, radius and shadow, then do it again for the next
+// eleven. A preset is just a named copy of a block's style object, stored in
+// the workspace's global settings so it travels with the site rather than
+// living in one browser.
+//
+// Presets store DESKTOP tokens plus any responsive overrides — the whole
+// style object — because a design that only holds together on desktop isn't
+// a design worth reusing.
+function PresetBar({ style, presets, onApply, onSave, onDelete }) {
+  const [naming, setNaming] = useState(false);
+  const [name, setName] = useState('');
+  const hasStyle = Object.keys(style || {}).length > 0;
+
+  const save = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    onSave(trimmed);
+    setName('');
+    setNaming(false);
+  };
+
+  return (
+    <div className="mb-3">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[11px] uppercase tracking-wide text-zinc-500">Saved styles</span>
+        {hasStyle && !naming && (
+          <button onClick={() => setNaming(true)} className="text-[11px] text-glass-sky hover:underline">
+            Save this design
+          </button>
+        )}
+      </div>
+
+      {naming && (
+        <div className="flex gap-1.5 mb-2">
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setNaming(false); }}
+            placeholder="Name it — e.g. Soft card"
+            className="flex-1 min-w-0 bg-white/[0.06] border border-white/15 rounded-lg px-2 py-1 text-xs text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-glass-indigo/60"
+          />
+          <button onClick={save} className="px-2 rounded-lg bg-glass-indigo/30 border border-glass-indigo/40 text-indigo-100"><Check size={13} /></button>
+        </div>
+      )}
+
+      {presets.length === 0 && !naming && (
+        <p className="text-[11px] text-zinc-600">
+          {hasStyle ? 'Save this block’s design to reuse it on others.' : 'Style a block, then save it here to reuse.'}
+        </p>
+      )}
+
+      <div className="flex flex-wrap gap-1.5">
+        {presets.map((preset) => (
+          <span key={preset.name} className="group inline-flex items-center rounded-lg border border-white/15 bg-white/[0.06] overflow-hidden">
+            <button
+              onClick={() => onApply(preset)}
+              title="Apply to this block"
+              className="flex items-center gap-1 pl-2 pr-1.5 py-1 text-[11px] text-zinc-200 hover:bg-white/10 transition"
+            >
+              <Bookmark size={11} className="text-zinc-500" />
+              {preset.name}
+            </button>
+            <button
+              onClick={() => onDelete(preset.name)}
+              title="Delete this saved style"
+              className="px-1.5 py-1 text-zinc-600 hover:text-red-300 transition"
+            >
+              ✕
+            </button>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function DesignInspector({ style = {}, onChange, device, onDeviceChange, theme = {}, presets = [], onSavePreset, onDeletePreset }) {
   const [mediaLibrary, setMediaLibrary] = useState([]);
   useEffect(() => { getMedia().then(setMediaLibrary).catch(() => setMediaLibrary([])); }, []);
 
@@ -158,6 +238,16 @@ export default function DesignInspector({ style = {}, onChange, device, onDevice
           );
         })}
       </div>
+
+      {onSavePreset && (
+        <PresetBar
+          style={style}
+          presets={presets}
+          onApply={(preset) => onChange({ ...preset.style })}
+          onSave={(name) => onSavePreset(name, style)}
+          onDelete={onDeletePreset}
+        />
+      )}
 
       {responsiveOnly && (
         <div className="mb-3 rounded-lg border border-glass-sky/25 bg-glass-sky/[0.07] px-3 py-2">
