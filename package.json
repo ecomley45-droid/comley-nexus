@@ -7,6 +7,7 @@
     "dev": "concurrently \"vite\" \"node --import ./instrument.mjs server.js\"",
     "server": "node --import ./instrument.mjs server.js",
     "build": "vite build",
+    "migrate": "node db/apply.mjs",
     "lint": "oxlint",
     "test": "node --test \"test/*.test.js\"",
     "verify": "npm run lint && npm test && npm run audit:blocks && npm run audit:templates",

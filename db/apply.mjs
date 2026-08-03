@@ -1,16 +1,35 @@
-// One-shot: applies db/schema.sql then db/schema_cms.sql against the
-// Postgres URL in SUPABASE_DB_URL. Idempotent — both files use IF NOT
-// EXISTS everywhere, so re-runs are safe.
+// Migration runner for the Postgres behind Supabase (SUPABASE_DB_URL).
 //
-// Usage: node db/apply.mjs
+// Applies db/schema.sql and db/schema_cms.sql as the base, then every file in
+// db/migrations in filename order. What's already been applied is recorded in
+// a `schema_migrations` table, so:
+//   - a re-run does nothing instead of replaying 30 files and hoping every
+//     one of them is still idempotent;
+//   - a new migration is picked up automatically — there's no hand-maintained
+//     list to forget to update (the old failure mode: write the file, deploy,
+//     wonder why the column is missing);
+//   - each file runs inside a transaction, so a half-applied migration rolls
+//     back instead of leaving the schema in a shape nothing expects;
+//   - a file edited after it was applied is reported, since the recorded
+//     checksum no longer matches what's on disk.
+//
+// Usage:
+//   npm run migrate              apply anything pending
+//   npm run migrate -- --status  list applied/pending and exit
+//   npm run migrate -- --force   re-run everything (all files are idempotent)
+
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const args = new Set(process.argv.slice(2));
+const STATUS_ONLY = args.has('--status');
+const FORCE = args.has('--force');
 
 const raw = process.env.SUPABASE_DB_URL;
 if (!raw) {
@@ -18,81 +37,96 @@ if (!raw) {
   process.exit(1);
 }
 
-// Parse the URL manually because Supabase-generated passwords often
-// contain URL-special chars (`,`, `?`, `#`, `@`) that need percent-encoding
-// but usually aren't. Extracting each piece and passing them individually
-// to pg.Client bypasses the URL parser entirely.
+// Parse the URL manually because Supabase-generated passwords often contain
+// URL-special chars (`,`, `?`, `#`, `@`) that need percent-encoding but
+// usually aren't. Passing each piece to pg.Client bypasses the URL parser.
 const m = raw.match(/^postgres(?:ql)?:\/\/([^:]+):(.+)@([^:/]+):(\d+)\/([^?]+)/);
 if (!m) {
   console.error('SUPABASE_DB_URL not in expected postgres://user:pass@host:port/db shape');
-  console.error('Got:', raw.slice(0, 30) + '...');
   process.exit(1);
 }
 const [, user, password, host, port, database] = m;
 
+// Base schema files first, then every migration in filename order. The
+// numeric prefixes sort correctly while they stay zero-padded; the collator
+// is explicit about that rather than relying on it.
+const BASE = ['schema.sql', 'schema_cms.sql'];
+const migrationsDir = path.join(__dirname, 'migrations');
+const MIGRATIONS = fs.readdirSync(migrationsDir)
+  .filter((f) => f.endsWith('.sql'))
+  .sort((a, b) => a.localeCompare(b, 'en', { numeric: true }))
+  .map((f) => `migrations/${f}`);
+
+const ALL = [...BASE, ...MIGRATIONS];
+const read = (rel) => fs.readFileSync(path.join(__dirname, rel), 'utf8');
+const checksum = (sql) => crypto.createHash('sha256').update(sql).digest('hex').slice(0, 16);
+
 const client = new pg.Client({
-  user,
-  password,
-  host,
-  port: Number(port),
-  database,
+  user, password, host, port: Number(port), database,
   ssl: { rejectUnauthorized: false },
 });
 
-const files = [
-  'schema.sql',
-  'schema_cms.sql',
-  'migrations/001_prefs_jsonb.sql',
-  'migrations/002_ops_columns.sql',
-  'migrations/003_multi_tenant.sql',
-  'migrations/004_split_nexus_platform.sql',
-  'migrations/005_integration_api_keys.sql',
-  'migrations/006_block_catalog.sql',
-  'migrations/007_org_paused.sql',
-  'migrations/008_script_block.sql',
-  'migrations/009_layout_blocks.sql',
-  'migrations/010_form_submissions.sql',
-  'migrations/011_page_views.sql',
-  'migrations/012_product_block.sql',
-  'migrations/013_site_pages.sql',
-  'migrations/014_site_backups.sql',
-  'migrations/015_site_templates.sql',
-  'migrations/016_template_installs.sql',
-  'migrations/017_polished_blocks.sql',
-  'migrations/018_more_blocks.sql',
-  'migrations/019_parallax_video_blocks.sql',
-  'migrations/020_events_blocks.sql',
-  'migrations/021_events.sql',
-  'migrations/022_event_recurrence.sql',
-  'migrations/023_commerce_multitenant.sql',
-  'migrations/024_retail.sql',
-  'migrations/025_media_metadata.sql',
-  'migrations/026_social.sql',
-  'migrations/027_email.sql',
-  'migrations/028_nexus_media.sql',
-];
-// If you add a new migration, add it here so `node db/apply.mjs` picks
-// it up. Order matters — migrations must remain idempotent.
-
 try {
   await client.connect();
-  console.log('[apply] connected');
-  for (const f of files) {
-    const sql = fs.readFileSync(path.join(__dirname, f), 'utf8');
-    console.log(`[apply] running ${f} (${sql.length} chars)`);
-    await client.query(sql);
-    console.log(`[apply] ✓ ${f}`);
+  await client.query(`
+    create table if not exists schema_migrations (
+      filename    text primary key,
+      checksum    text not null,
+      applied_at  timestamptz not null default now()
+    )
+  `);
+
+  const { rows } = await client.query('select filename, checksum from schema_migrations');
+  const applied = new Map(rows.map((r) => [r.filename, r.checksum]));
+
+  const drifted = ALL.filter((f) => applied.has(f) && applied.get(f) !== checksum(read(f)));
+  const pending = FORCE ? ALL : ALL.filter((f) => !applied.has(f));
+
+  if (STATUS_ONLY) {
+    console.log(`applied: ${applied.size}   pending: ${pending.length}   files: ${ALL.length}`);
+    for (const f of ALL) console.log(`  ${applied.has(f) ? '✓' : '·'} ${f}`);
+    if (drifted.length) console.log(`\nedited after apply: ${drifted.join(', ')}`);
+    process.exit(0);
   }
 
-  const { rows } = await client.query(`
-    select table_name from information_schema.tables
-     where table_schema = 'public'
-     order by table_name
-  `);
-  console.log(`[apply] public tables (${rows.length}):`);
-  console.log(rows.map(r => '  - ' + r.table_name).join('\n'));
+  // Editing an already-applied migration is how schemas silently diverge
+  // between environments: this database has the old version, a fresh one gets
+  // the new. Say so loudly rather than skipping in silence.
+  if (drifted.length && !FORCE) {
+    console.warn('[migrate] WARNING — these were edited after being applied:');
+    for (const f of drifted) console.warn(`  ${f}`);
+    console.warn('[migrate] a fresh database would get different SQL. Add a new migration instead.\n');
+  }
+
+  if (pending.length === 0) console.log('[migrate] up to date — nothing to apply.');
+
+  for (const f of pending) {
+    const sql = read(f);
+    process.stdout.write(`[migrate] ${f} … `);
+    try {
+      await client.query('begin');
+      await client.query(sql);
+      await client.query(
+        `insert into schema_migrations (filename, checksum) values ($1, $2)
+         on conflict (filename) do update set checksum = excluded.checksum, applied_at = now()`,
+        [f, checksum(sql)]
+      );
+      await client.query('commit');
+      console.log('ok');
+    } catch (e) {
+      await client.query('rollback');
+      console.log('FAILED');
+      console.error(`[migrate] ${f} rolled back: ${e.message}`);
+      process.exit(1);
+    }
+  }
+
+  const { rows: tables } = await client.query(
+    `select table_name from information_schema.tables where table_schema = 'public' order by table_name`
+  );
+  console.log(`[migrate] done. ${tables.length} public tables.`);
 } catch (e) {
-  console.error('[apply] ERROR:', e.message);
+  console.error('[migrate] ERROR:', e.message);
   process.exit(1);
 } finally {
   await client.end();

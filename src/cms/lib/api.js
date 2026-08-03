@@ -139,6 +139,16 @@ export const saveNexusPages = (pages, globalSettings) =>
   request('/nexus/pages', { method: 'POST', body: JSON.stringify({ pages, globalSettings }) });
 export const getNexusLibrary = () => request('/nexus/library');
 
+// ---- Content collections ----
+export const getCollections = () => request('/collections');
+export const createCollection = (payload) => request('/collections', { method: 'POST', body: JSON.stringify(payload) });
+export const updateCollection = (id, patch) => request(`/collections/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+export const deleteCollection = (id) => request(`/collections/${id}`, { method: 'DELETE' });
+export const getCollectionEntries = (id) => request(`/collections/${id}/entries`);
+export const createEntry = (id, payload) => request(`/collections/${id}/entries`, { method: 'POST', body: JSON.stringify(payload) });
+export const updateEntry = (entryId, patch) => request(`/collections/entries/${entryId}`, { method: 'PATCH', body: JSON.stringify(patch) });
+export const deleteEntry = (entryId) => request(`/collections/entries/${entryId}`, { method: 'DELETE' });
+
 // ---- Block catalog ("Add Block +") -- platform-wide entries plus (for a
 // caller with a workspace) that workspace's own custom entries ----
 export const getBlockCatalog = () => request('/block-catalog');

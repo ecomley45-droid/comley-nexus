@@ -469,6 +469,29 @@ export const BLOCK_FIELDS = {
       limit: { kind: 'number', label: 'Posts to show', min: 1, max: 12, placeholder: '6' },
     },
   },
+  'collection-list': {
+    order: ['headings', 'text', 'collectionSlug', 'layout', 'limit'],
+    headings: { label: 'Heading' },
+    text: BODY_TEXT,
+    extras: {
+      collectionSlug: {
+        kind: 'collection', label: 'Collection',
+        hint: 'Entries stay in sync — edit them once under Content and every block using them updates.',
+      },
+      layout: {
+        kind: 'select', label: 'Layout',
+        options: [
+          { value: 'cards', label: 'Cards' },
+          { value: 'list', label: 'List' },
+          { value: 'posts', label: 'Blog posts' },
+          { value: 'people', label: 'People' },
+          { value: 'gallery', label: 'Gallery' },
+        ],
+      },
+      limit: { kind: 'number', label: 'Entries to show', min: 1, max: 60, placeholder: 'All' },
+    },
+  },
+
   'events-list': {
     order: ['headings', 'text', 'items'],
     headings: { label: 'Heading' },

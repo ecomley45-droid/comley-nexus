@@ -1214,6 +1214,24 @@ export function renderTestimonialMarquee(fields) {
 </div>`;
 }
 
+// The collection-list block is a placeholder until hydration: the editor
+// swaps in live entries as you type (StructuredBlockEditor) and the server
+// does the same at serve time (hydrateCollectionBlocks), both via
+// applyCollectionToBlock in src/shared/collectionsMap.js. What renders here
+// is only what you'd see if neither ran -- an unbound block.
+export function renderCollectionList(fields) {
+  const limit = Number(fields.limit) || 0;
+  return `<div class="nx-collection" data-collection="${esc(fields.collectionSlug || '')}" data-layout="${esc(fields.layout || 'cards')}">
+  ${headingsHtml(fields.headings, 2)}
+  ${textHtml(fields.text)}
+  <p style="text-align:center;color:#64748b;font-size:14px;padding:24px">
+    ${fields.collectionSlug
+      ? `Showing ${limit > 0 ? `up to ${limit} entries` : 'every entry'} from this collection.`
+      : 'Pick a collection in the Content panel.'}
+  </p>
+</div>`;
+}
+
 export const BLOCK_RENDERERS = {
   header: renderHeader,
   navigation: renderNavigation,
@@ -1243,6 +1261,7 @@ export const BLOCK_RENDERERS = {
   'social-links': renderSocialLinks,
   product: renderProduct,
   'social-feed': renderSocialFeed,
+  'collection-list': renderCollectionList,
   script: renderScript,
   layout: renderLayout,
   // Polished block set

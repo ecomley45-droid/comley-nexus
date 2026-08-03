@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { GlassInput, GlassTextarea, GlassSelect } from '../ui/Glass.jsx';
 import { renderBlock, LAYOUT_TEMPLATES } from './blockRenderers.js';
 import BlockCatalogPicker from '../blocks/BlockCatalogPicker.jsx';
-import { getCalendars, getEvents, getMedia } from '../api.js';
+import { getCalendars, getEvents, getMedia, getCollections, getCollectionEntries } from '../api.js';
 import { EVENT_BOUND_TYPES, applyEventsToFields, expandRecurring, accentWrap } from '../../../shared/eventsMap.js';
+import { applyCollectionToBlock } from '../../../shared/collectionsMap.js';
 import { schemaFor } from './blockFields.js';
 
 // The Content panel for a selected block. Only usable on blocks that carry
@@ -304,9 +305,37 @@ function PlansEditor({ spec, plans, onChange }) {
   );
 }
 
+// Picks which collection a Collection List block reads from. Lists what the
+// workspace actually has rather than asking for a slug, and says so plainly
+// when there are none yet.
+function CollectionPicker({ spec, value, onChange }) {
+  const [collections, setCollections] = useState(null);
+  useEffect(() => { getCollections().then((d) => setCollections(d.collections)).catch(() => setCollections([])); }, []);
+
+  return (
+    <FieldShell label={spec.label} hint={spec.hint}>
+      {collections === null && <p className="text-xs text-zinc-600">Loading…</p>}
+      {collections?.length === 0 && (
+        <p className="text-xs text-zinc-500">
+          No collections yet — create one under <strong className="text-zinc-300">Collections</strong>, then come back.
+        </p>
+      )}
+      {collections?.length > 0 && (
+        <GlassSelect value={value || ''} onChange={(e) => onChange(e.target.value)} className="w-full">
+          <option value="">Choose a collection…</option>
+          {collections.map((c) => <option key={c.id} value={c.slug}>{c.name}</option>)}
+        </GlassSelect>
+      )}
+    </FieldShell>
+  );
+}
+
 // One block-specific scalar field (button label, video URL, product ID,
 // countdown date, feed platform…), rendered from its `kind`.
 function ExtraField({ fieldKey, spec, value, onChange }) {
+  if (spec.kind === 'collection') {
+    return <CollectionPicker spec={spec} value={value} onChange={onChange} />;
+  }
   if (spec.kind === 'image') {
     return <MediaUrlField spec={spec} value={value} onChange={onChange} />;
   }
@@ -503,6 +532,33 @@ export default function StructuredBlockEditor({ section, onChange }) {
   const [calendars, setCalendars] = useState([]);
   const [boundEvents, setBoundEvents] = useState([]);
 
+  // Collection binding: the editor renders through the same mapper the server
+  // hydrates with, so the canvas shows the real entries rather than the
+  // "entries appear here" placeholder.
+  const isCollectionBlock = section.blockType === 'collection-list';
+  const collectionSlug = section.fields?.collectionSlug;
+  const [boundCollection, setBoundCollection] = useState(null);
+
+  useEffect(() => {
+    if (!isCollectionBlock || !collectionSlug) { setBoundCollection(null); return; }
+    let cancelled = false;
+    getCollections()
+      .then((d) => {
+        const match = (d.collections || []).find((c) => c.slug === collectionSlug);
+        if (!match) return null;
+        return getCollectionEntries(match.id);
+      })
+      .then((loaded) => {
+        if (cancelled || !loaded) return;
+        setBoundCollection({
+          collection: loaded.collection,
+          entries: (loaded.entries || []).filter((e) => e.status === 'published'),
+        });
+      })
+      .catch(() => { if (!cancelled) setBoundCollection(null); });
+    return () => { cancelled = true; };
+  }, [isCollectionBlock, collectionSlug]);
+
   useEffect(() => { if (isBound) getCalendars().then((d) => setCalendars(d.calendars)).catch(() => {}); }, [isBound]);
   useEffect(() => {
     if (isBound && calId) getEvents(calId === 'all' ? undefined : calId).then((d) => setBoundEvents(d.events)).catch(() => setBoundEvents([]));
@@ -512,6 +568,10 @@ export default function StructuredBlockEditor({ section, onChange }) {
   // Regenerate the block html, applying the bound calendar's events when set
   // (same mapper the server uses at serve time, so preview == published).
   const renderHtml = (f) => {
+    if (isCollectionBlock && boundCollection) {
+      const { blockType, fields: mapped } = applyCollectionToBlock(f, boundCollection.collection, boundCollection.entries);
+      return renderBlock(blockType, mapped) || section.html;
+    }
     if (!(isBound && f.calendarId)) return renderBlock(section.blockType, f) || section.html;
     const mapped = applyEventsToFields(section.blockType, f, expandRecurring(boundEvents));
     let html = renderBlock(section.blockType, mapped) || section.html;
@@ -519,11 +579,15 @@ export default function StructuredBlockEditor({ section, onChange }) {
     return color ? accentWrap(html, color) : html;
   };
 
-  // Refresh the preview html once the bound events have loaded/changed.
+  // Refresh the preview html once bound events / entries have loaded.
   useEffect(() => {
     if (isBound && calId) onChange({ html: renderHtml(section.fields) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boundEvents]);
+  useEffect(() => {
+    if (isCollectionBlock && boundCollection) onChange({ html: renderHtml(section.fields) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boundCollection]);
 
   if (!section.blockType || !section.fields) {
     return (

@@ -49,6 +49,8 @@ const TemplateMarketplacePage = lazy(() => import('./cms/pages/TemplateMarketpla
 const TemplateDetailPage = lazy(() => import('./cms/pages/TemplateDetailPage.jsx'));
 const BackupsPage = lazy(() => import('./cms/pages/settings/BackupsPage.jsx'));
 const EventsPage = lazy(() => import('./cms/pages/EventsPage.jsx'));
+const CollectionsPage = lazy(() => import('./cms/pages/CollectionsPage.jsx'));
+const CollectionDetailPage = lazy(() => import('./cms/pages/CollectionDetailPage.jsx'));
 const ImportExportPage = lazy(() => import('./cms/pages/ImportExportPage.jsx'));
 const FeedbackPage = lazy(() => import('./cms/pages/FeedbackPage.jsx'));
 const OpsDashboardPage = lazy(() => import('./cms/pages/ops/DashboardPage.jsx'));
@@ -130,6 +132,8 @@ export default function App() {
           <Route path="templates" element={<TemplateMarketplacePage />} />
           <Route path="templates/:id" element={<TemplateDetailPage />} />
           <Route path="events" element={<EventsPage />} />
+          <Route path="collections" element={<CollectionsPage />} />
+          <Route path="collections/:id" element={<CollectionDetailPage />} />
           <Route path="library" element={<LibraryPage />} />
           <Route path="media" element={<MediaPage />} />
           <Route path="redirects" element={<RedirectsPage />} />

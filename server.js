@@ -20,6 +20,9 @@ import { mountBlockCatalogApi } from './lib/blockCatalogRoutes.js';
 import { mountMarketplaceApi } from './lib/marketplaceRoutes.js';
 import { mountEventsApi } from './lib/eventsRoutes.js';
 import { hydrateEventBlocks } from './lib/eventsHydrate.js';
+import { registerCollectionRoutes } from './lib/collectionsRoutes.js';
+import { hydrateCollectionBlocks, resolveCollectionDetail, buildDetailPage } from './lib/collectionsHydrate.js';
+import * as collections from './lib/collections.js';
 import { mountSocialApi } from './lib/social/routes.js';
 import { injectSocialFeeds } from './lib/social/feed.js';
 import { mountEmailApi } from './lib/email/routes.js';
@@ -180,6 +183,7 @@ mountSuperAdminApi(app);
 mountBlockCatalogApi(app);
 mountMarketplaceApi(app);
 mountEventsApi(app);
+registerCollectionRoutes(app, { requireOrg, requireRole, auditFor });
 mountSocialApi(app);
 mountEmailApi(app);
 
@@ -304,6 +308,7 @@ app.get('/api/preview/:orgId/:pageId', async (req, res, next) => {
     const page = pages.find((p) => p.id === req.params.pageId);
     if (!page) return res.status(404).send('Page not found.');
     await hydrateEventBlocks(page, orgId, globalSettings?.timezone);
+    await hydrateCollectionBlocks(page, orgId);
     const html = compilePageHtml(page, pages, library, globalSettings, {}, `https://${req.headers.host}`);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('X-Robots-Tag', 'noindex');
@@ -1236,10 +1241,23 @@ app.get('/sitemap.xml', async (req, res, next) => {
     if (site.paused) return res.status(404).end();
     const pages = await site.loadPages();
     const origin = `https://${req.headers.host}`;
-    const urls = pages
+    const pageUrls = pages
       .filter((p) => p.status === 'published')
-      .map((p) => `  <url><loc>${origin}/${getFullPath(p, pages)}</loc></url>`.replace(/\/<\/loc>/, '</loc>'))
-      .join('\n');
+      .map((p) => `  <url><loc>${origin}/${getFullPath(p, pages)}</loc></url>`.replace(/\/<\/loc>/, '</loc>'));
+
+    // Collection detail pages are real, indexable URLs even though no `pages`
+    // row exists for them -- without this the bulk of a content-heavy site
+    // would be invisible to search engines.
+    const entryUrls = [];
+    if (site.orgId) {
+      for (const collection of await collections.list(site.orgId)) {
+        if (!collection.detailEnabled || !collection.detailBase || !collection.detailPageId) continue;
+        for (const entry of await collections.listEntries(site.orgId, collection.id, { includeDrafts: false })) {
+          entryUrls.push(`  <url><loc>${origin}/${collection.detailBase}/${entry.slug}</loc></url>`);
+        }
+      }
+    }
+    const urls = [...pageUrls, ...entryUrls].join('\n');
     res.setHeader('Content-Type', 'application/xml');
     res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
     res.send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`);
@@ -1292,9 +1310,19 @@ app.use(async (req, res, next) => {
       site.loadSettings(),
     ]);
 
-    const page = requestPath === ''
+    let page = requestPath === ''
       ? (pages.find(p => p.slug === 'index') || pages[0])
       : pages.find(p => getFullPath(p, pages) === requestPath);
+
+    // A collection with detail pages turned on owns `<base>/<entry-slug>`.
+    // Checked only when no real page claims the path, so an author who
+    // creates a page at the same URL still wins -- least surprising, and it
+    // means turning detail pages on can never shadow existing content.
+    let detail = null;
+    if (!page && site.orgId) {
+      detail = await resolveCollectionDetail(requestPath, site.orgId, pages);
+      if (detail) page = buildDetailPage(detail.templatePage, detail.collection, detail.entry);
+    }
 
     // On the platform host, an unmatched (or unpublished) path is almost
     // always an SPA app route -- serve the shell and let client routing
@@ -1330,6 +1358,8 @@ app.use(async (req, res, next) => {
 
     // Hydrate any calendar-bound event blocks with live events before compile.
     if (site.orgId) await hydrateEventBlocks(page, site.orgId, globalSettings?.timezone);
+    // …and any collection-bound list blocks with their live entries.
+    if (site.orgId) await hydrateCollectionBlocks(page, site.orgId);
 
     let renderedHtml = compilePageHtml(page, pages, library, globalSettings, abChoices, `https://${req.headers.host}`);
     // Social Feed blocks are placeholders until here: swap each for real,
