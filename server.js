@@ -21,8 +21,10 @@ import { mountMarketplaceApi } from './lib/marketplaceRoutes.js';
 import { mountEventsApi } from './lib/eventsRoutes.js';
 import { hydrateEventBlocks } from './lib/eventsHydrate.js';
 import { registerCollectionRoutes } from './lib/collectionsRoutes.js';
-import { hydrateCollectionBlocks, resolveCollectionDetail, buildDetailPage } from './lib/collectionsHydrate.js';
+import { hydrateCollectionBlocks, resolveCollectionDetail, buildDetailPage, hydrateLanguageBlocks } from './lib/collectionsHydrate.js';
 import { editableView } from './src/shared/pageDrafts.js';
+import { splitLocalePath, localizedPage, localizedPath, localesOf, isMultilingual } from './src/shared/i18n.js';
+import { buildSearchIndex, searchIndex, highlight } from './src/shared/siteSearch.js';
 import * as collections from './lib/collections.js';
 import { mountSocialApi } from './lib/social/routes.js';
 import { injectSocialFeeds } from './lib/social/feed.js';
@@ -313,6 +315,7 @@ app.get('/api/preview/:orgId/:pageId', async (req, res, next) => {
     const page = editableView(stored);
     await hydrateEventBlocks(page, orgId, globalSettings?.timezone);
     await hydrateCollectionBlocks(page, orgId);
+    hydrateLanguageBlocks(page, globalSettings, getFullPath(page, pages), '');
     const html = compilePageHtml(page, pages, library, globalSettings, {}, `https://${req.headers.host}`);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('X-Robots-Tag', 'noindex');
@@ -1237,6 +1240,40 @@ async function resolvePublicSite(host) {
   return nexusSite();
 }
 
+// On-site search for the site being served. Public and unauthenticated, but
+// scoped to one host's own published pages -- there's no way to ask it about
+// another workspace. Rate-limited alongside the other public endpoints.
+app.get('/api/public/search', formsLimit, async (req, res, next) => {
+  try {
+    const query = String(req.query.q || '').slice(0, 120);
+    if (!query.trim()) return res.json({ results: [] });
+
+    const site = await resolvePublicSite(req.headers.host);
+    if (site.paused) return res.json({ results: [] });
+
+    const [pages, globalSettings] = await Promise.all([site.loadPages(), site.loadSettings()]);
+    const locales = localesOf(globalSettings);
+    const requested = String(req.query.locale || '').trim();
+    const locale = locales.find((l) => l.code === requested)?.code || locales[0].code;
+
+    // Index the language being searched, so a Spanish query doesn't return
+    // English pages.
+    const index = buildSearchIndex(pages, {
+      locale,
+      localizedPageFor: (p) => localizedPage(p, locale, globalSettings),
+      pathFor: (p) => localizedPath(getFullPath(p, pages), locale, globalSettings),
+    });
+
+    const results = searchIndex(index, query, { limit: 10 }).map((r) => ({
+      path: r.path,
+      title: highlight(r.title, query),
+      excerpt: highlight(r.excerpt, query),
+    }));
+    res.setHeader('Cache-Control', 'public, s-maxage=60');
+    res.json({ results });
+  } catch (e) { next(e); }
+});
+
 // Search-engine plumbing for every hosted site: sitemap lists published
 // pages only (drafts stay invisible), robots points at it.
 app.get('/sitemap.xml', async (req, res, next) => {
@@ -1245,9 +1282,18 @@ app.get('/sitemap.xml', async (req, res, next) => {
     if (site.paused) return res.status(404).end();
     const pages = await site.loadPages();
     const origin = `https://${req.headers.host}`;
+    const settings = await site.loadSettings();
+    const locales = localesOf(settings);
     const pageUrls = pages
       .filter((p) => p.status === 'published')
-      .map((p) => `  <url><loc>${origin}/${getFullPath(p, pages)}</loc></url>`.replace(/\/<\/loc>/, '</loc>'));
+      .flatMap((p) => {
+        const path = getFullPath(p, pages);
+        // Every language is its own indexable URL; the hreflang tags in the
+        // page head tie them together.
+        return locales
+          .filter((l) => l.code === locales[0].code || isMultilingual(settings))
+          .map((l) => `  <url><loc>${origin}${localizedPath(path, l.code, settings)}</loc></url>`.replace(/\/<\/loc>/, '</loc>'));
+      });
 
     // Collection detail pages are real, indexable URLs even though no `pages`
     // row exists for them -- without this the bulk of a content-heavy site
@@ -1314,9 +1360,14 @@ app.use(async (req, res, next) => {
       site.loadSettings(),
     ]);
 
-    let page = requestPath === ''
+    // A declared non-default locale owns a leading path segment (/es/about).
+    // Only codes the workspace actually declared are recognised, so a page
+    // whose slug happens to be "no" or "it" keeps working.
+    const { locale, path: localePath } = splitLocalePath(requestPath, globalSettings);
+
+    let page = localePath === ''
       ? (pages.find(p => p.slug === 'index') || pages[0])
-      : pages.find(p => getFullPath(p, pages) === requestPath);
+      : pages.find(p => getFullPath(p, pages) === localePath);
 
     // A collection with detail pages turned on owns `<base>/<entry-slug>`.
     // Checked only when no real page claims the path, so an author who
@@ -1324,7 +1375,7 @@ app.use(async (req, res, next) => {
     // means turning detail pages on can never shadow existing content.
     let detail = null;
     if (!page && site.orgId) {
-      detail = await resolveCollectionDetail(requestPath, site.orgId, pages);
+      detail = await resolveCollectionDetail(localePath, site.orgId, pages);
       if (detail) page = buildDetailPage(detail.templatePage, detail.collection, detail.entry);
     }
 
@@ -1360,12 +1411,17 @@ app.use(async (req, res, next) => {
       await site.recordImpression(section.id, variant.id);
     }
 
+    // Lay the locale's translation over the page before anything renders, so
+    // hydration and compilation both see the translated blocks.
+    page = localizedPage(page, locale, globalSettings);
+
     // Hydrate any calendar-bound event blocks with live events before compile.
     if (site.orgId) await hydrateEventBlocks(page, site.orgId, globalSettings?.timezone);
     // …and any collection-bound list blocks with their live entries.
     if (site.orgId) await hydrateCollectionBlocks(page, site.orgId);
+    hydrateLanguageBlocks(page, globalSettings, getFullPath(page, pages), locale);
 
-    let renderedHtml = compilePageHtml(page, pages, library, globalSettings, abChoices, `https://${req.headers.host}`);
+    let renderedHtml = compilePageHtml(page, pages, library, globalSettings, abChoices, `https://${req.headers.host}`, locale);
     // Social Feed blocks are placeholders until here: swap each for real,
     // escaped post HTML built from the workspace's connected account. No-op
     // (and cheap) when the page has no feed block. Runs before the CSP hash

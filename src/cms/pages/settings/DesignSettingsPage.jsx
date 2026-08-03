@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { localesOf } from '../../../shared/i18n.js';
 import { usePagesStore } from '../../lib/usePagesStore.js';
 import { GlassPanel, GlassButton, GlassInput, GlassTextarea, GlassSelect } from '../../lib/ui/Glass.jsx';
 import { FONT_STACKS, FONT_SCALES } from '../../../shared/theme.js';
@@ -71,6 +72,51 @@ export default function DesignSettingsPage() {
             </button>
           ))}
         </div>
+      </GlassPanel>
+
+      <GlassPanel className="p-4 mb-4">
+      </GlassPanel>
+
+      <GlassPanel className="p-4 mb-4">
+        <h2 className="font-medium mb-1">Languages</h2>
+        <p className="text-xs text-zinc-500 mb-3">
+          The first language is the default and serves at your normal addresses. Every other one gets
+          a prefix — <code className="text-zinc-400">/es/about</code>. Pages are translated one at a
+          time in the page editor; anything untranslated falls back to the default language rather
+          than 404ing.
+        </p>
+        {localesOf(globalSettings).map((l, i) => (
+          <div key={i} className="flex gap-2 items-center mb-2">
+            <GlassInput
+              value={l.code}
+              onChange={(e) => update({ locales: localesOf(globalSettings).map((x, j) => (j === i ? { ...x, code: e.target.value } : x)) })}
+              placeholder="es"
+              className="w-24"
+            />
+            <GlassInput
+              value={l.label}
+              onChange={(e) => update({ locales: localesOf(globalSettings).map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })}
+              placeholder="Español"
+              className="flex-1 min-w-0"
+            />
+            {i === 0
+              ? <span className="text-[11px] text-zinc-500 w-16 shrink-0">default</span>
+              : (
+                <button
+                  onClick={() => update({ locales: localesOf(globalSettings).filter((_, j) => j !== i) })}
+                  className="text-red-400 hover:text-red-300 text-xs w-16 shrink-0 text-left"
+                >
+                  Remove
+                </button>
+              )}
+          </div>
+        ))}
+        <button
+          onClick={() => update({ locales: [...localesOf(globalSettings), { code: '', label: '' }] })}
+          className="text-xs text-glass-sky hover:underline"
+        >
+          Add a language
+        </button>
       </GlassPanel>
 
       <GlassPanel className="p-4 mb-4">

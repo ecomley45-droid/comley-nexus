@@ -781,6 +781,8 @@ export default function StructuredBlockEditor({ section, onChange }) {
       return <CollectionPicker key={key} spec={extra} fields={fields} setFields={setFields} />;
     }
     if (extra?.kind === 'collectionMapping') return null;
+    // Filled in at serve time (e.g. the site's locales) — nothing to author.
+    if (extra?.kind === 'serverFilled') return null;
     if (extra) {
       return (
         <ExtraField

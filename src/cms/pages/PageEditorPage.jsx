@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Layers, Plus, ClipboardPaste, Square, Trash2, Copy, ChevronUp, ChevronDown, GripVertical,
-  SlidersHorizontal, Paintbrush, FileCog, Code2, Blocks, ArrowLeftRight, EyeOff, X, ShieldCheck, Link2, Link2Off, Rocket,
+  SlidersHorizontal, Paintbrush, FileCog, Code2, Blocks, ArrowLeftRight, EyeOff, X, ShieldCheck, Link2, Link2Off, Rocket, Languages,
 } from 'lucide-react';
 import { usePagesStore } from '../lib/usePagesStore.js';
 import { useDebouncedValue } from '../lib/useDebouncedValue.js';
@@ -21,6 +21,7 @@ import { readExperiment, formatRate } from '../../shared/abStats.js';
 import { auditPage } from '../../shared/pageAudit.js';
 import { resolveSectionHtml, isOrphanedSync } from '../../shared/syncedBlocks.js';
 import { editableView, applyEdit, publishDraft, discardDraft, hasPendingChanges, describePending } from '../../shared/pageDrafts.js';
+import { localesOf, isMultilingual, localizedPage, setTranslation, seedTranslation, removeTranslation, hasTranslation } from '../../shared/i18n.js';
 import { PAGE_MODES, modeOf, otherMode, conversionSummary } from '../lib/pageModes.js';
 import { convertPage } from '../lib/pageActions.js';
 
@@ -480,6 +481,7 @@ export default function PageEditorPage({ nexus = false }) {
   const [selectedId, setSelectedId] = useState(null);
   const [tab, setTab] = useState('page');
   const [device, setDevice] = useState('desktop');
+  const [locale, setLocale] = useState('');
   const [dragIndex, setDragIndex] = useState(null);
   // Structured is the default -- the target user is the no-HTML crowd;
   // devs will find the HTML toggle.
@@ -568,7 +570,14 @@ export default function PageEditorPage({ nexus = false }) {
   // Everything below edits and previews the DRAFT of a published page; the
   // live version stays untouched until Publish. On a draft page these are
   // the same object.
-  const page = useMemo(() => (storedPage ? editableView(storedPage) : storedPage), [storedPage]);
+  const draftView = useMemo(() => (storedPage ? editableView(storedPage) : storedPage), [storedPage]);
+  // …and then the chosen language laid over that. Editing a non-default
+  // locale writes into `translations`; the default language is the page
+  // itself. Drafts apply to the default language only (see pageDrafts.js).
+  const page = useMemo(
+    () => (draftView && locale ? localizedPage(draftView, locale, globalSettings) : draftView),
+    [draftView, locale, globalSettings]
+  );
   const debouncedPage = useDebouncedValue(page, 250);
   const previewHtml = useMemo(() => {
     if (!debouncedPage || !pages || !globalSettings) return '';
@@ -589,7 +598,14 @@ export default function PageEditorPage({ nexus = false }) {
   };
   // Content edits on a published page land in its draft rather than going
   // live the moment autosave fires.
-  const updatePage = (patch) => writePage(applyEdit(storedPage, patch));
+  const updatePage = (patch) => {
+    if (locale) {
+      // A translation is edited in place; it is not part of the draft cycle.
+      writePage(setTranslation(storedPage, locale, patch, globalSettings));
+      return;
+    }
+    writePage(applyEdit(storedPage, patch));
+  };
 
   const pending = hasPendingChanges(storedPage);
   const publishChanges = async () => {
@@ -848,6 +864,26 @@ export default function PageEditorPage({ nexus = false }) {
               );
             })}
           </div>
+          {isMultilingual(globalSettings) && (
+            <GlassSelect
+              value={locale}
+              onChange={(e) => {
+                const next = e.target.value;
+                if (next && !hasTranslation(storedPage, next, globalSettings)) {
+                  // Nothing to edit yet — seed from the default language so
+                  // the translator starts from the real page, not a blank one.
+                  writePage(seedTranslation(storedPage, next, globalSettings));
+                }
+                setLocale(next);
+              }}
+              className="py-1.5 text-xs"
+              title="Language being edited"
+            >
+              {localesOf(globalSettings).map((l, i) => (
+                <option key={l.code} value={i === 0 ? '' : l.code}>{l.label}</option>
+              ))}
+            </GlassSelect>
+          )}
           {saveMessage && <span className="text-sm text-zinc-400">{saveMessage}</span>}
           <GlassButton variant="secondary" onClick={openPreview}>Open preview</GlassButton>
           <GlassButton onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</GlassButton>
@@ -1071,6 +1107,28 @@ export default function PageEditorPage({ nexus = false }) {
                   globals={globalSettings?.globals || {}}
                   onChange={updateLayout}
                 />
+              )}
+
+              {locale && (
+                <div className="rounded-xl border border-glass-fuchsia/30 bg-glass-fuchsia/[0.07] mb-2 px-3 py-2.5">
+                  <div className="flex items-center gap-1.5 text-[11px] text-fuchsia-200">
+                    <Languages size={11} /> Editing the {localesOf(globalSettings).find((l) => l.code === locale)?.label} version
+                  </div>
+                  <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                    Blocks, name and SEO are translated per language. The address, parent and
+                    published state are shared across all languages.
+                  </p>
+                  <button
+                    onClick={() => {
+                      if (!confirm('Delete this translation? The page will fall back to the default language.')) return;
+                      writePage(removeTranslation(storedPage, locale));
+                      setLocale('');
+                    }}
+                    className="text-[11px] text-glass-sky hover:underline mt-1"
+                  >
+                    Delete this translation
+                  </button>
+                </div>
               )}
 
               <AuditPanel page={page} globalSettings={globalSettings} onSelectSection={selectSection} />

@@ -473,6 +473,26 @@ export const BLOCK_FIELDS = {
       limit: { kind: 'number', label: 'Posts to show', min: 1, max: 12, placeholder: '6' },
     },
   },
+  search: {
+    order: ['headings', 'placeholder', 'buttonLabel'],
+    headings: { label: 'Heading' },
+    extras: {
+      placeholder: { kind: 'text', label: 'Placeholder', placeholder: 'Search this site…' },
+      buttonLabel: { ...BUTTON_LABEL, placeholder: 'Search' },
+    },
+  },
+  'language-switcher': {
+    order: ['style'],
+    extras: {
+      style: {
+        kind: 'select', label: 'Style',
+        options: [{ value: 'inline', label: 'Centred row' }, { value: 'dropdown', label: 'Right-aligned' }],
+        hint: 'The languages themselves come from Design settings, so every switcher on the site stays in step.',
+      },
+      // Filled in at serve time from the site's locales, not authored here.
+      locales: { kind: 'serverFilled', label: 'Languages' },
+    },
+  },
   'collection-list': {
     order: ['headings', 'text', 'collectionSlug', 'layout', 'limit'],
     headings: { label: 'Heading' },

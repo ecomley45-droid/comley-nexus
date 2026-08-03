@@ -6,6 +6,7 @@ import { buildThemeStyleBlock } from './theme.js';
 import { buildPageStyleCss } from './blockStyle.js';
 import { extractSharedStyles } from './dedupeStyles.js';
 import { resolveSectionHtml } from './syncedBlocks.js';
+import { alternateLinks, localesOf, defaultLocaleOf } from './i18n.js';
 
 // Walks a page's parentId chain to build its full nested slug path, e.g.
 // a page "contact" whose parent is "about" (whose parent is root) becomes
@@ -77,7 +78,7 @@ export function resolveGlobalContent(page, globalSettings) {
 // time -- when present, canonical/og:url tags are emitted; the editor's
 // live preview omits it and gets no canonical, which is correct (preview
 // HTML should never declare itself the canonical copy of anything).
-export function compilePageHtml(page, pages, library, globalSettings, abChoices = {}, origin = '') {
+export function compilePageHtml(page, pages, library, globalSettings, abChoices = {}, origin = '', locale = '') {
   // Full HTML mode bypasses everything below -- header/footer inheritance,
   // theme variables, analytics injection -- by design ("full document
   // control", see PageEditorPage.jsx's Blocks/Full HTML toggle). The page
@@ -120,9 +121,13 @@ export function compilePageHtml(page, pages, library, globalSettings, abChoices 
   const ogImage = seo.ogImage || globalSettings?.defaultOgImage || '';
   const favicon = globalSettings?.favicon || '';
   const canonicalUrl = origin ? `${origin}/${getFullPath(page, pages)}`.replace(/\/$/, '') || origin : '';
+  // hreflang alternates tell search engines these URLs are the same page in
+  // different languages rather than duplicates competing with each other.
+  const alternates = alternateLinks(getFullPath(page, pages), globalSettings, origin);
+  const htmlLang = locale || defaultLocaleOf(globalSettings).code;
 
   return `<!doctype html>
-<html lang="en">
+<html lang="${escapeHtml(htmlLang)}">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -130,6 +135,7 @@ export function compilePageHtml(page, pages, library, globalSettings, abChoices 
 ${favicon ? `<link rel="icon" href="${escapeHtml(favicon)}" />` : ''}
 ${description ? `<meta name="description" content="${escapeHtml(description)}" />` : ''}
 ${canonicalUrl ? `<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />` : ''}
+${alternates}
 <meta property="og:title" content="${escapeHtml(title)}" />
 ${description ? `<meta property="og:description" content="${escapeHtml(description)}" />` : ''}
 <meta property="og:type" content="website" />

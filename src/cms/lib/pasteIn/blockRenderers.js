@@ -1261,6 +1261,81 @@ export function renderCollectionList(fields) {
 </div>`;
 }
 
+// Language switcher. Rendered with the site's locales at serve time (the
+// block itself stores nothing but styling choices), so adding a language in
+// Design settings updates every switcher on the site at once.
+export function renderLanguageSwitcher(fields) {
+  const locales = Array.isArray(fields.locales) ? fields.locales : [];
+  if (locales.length === 0) {
+    return `<div class="nx-langs"><p style="text-align:center;color:#64748b;font-size:14px;padding:16px">Add a second language in Design settings to use this block.</p></div>`;
+  }
+  const style = fields.style === 'dropdown' ? 'dropdown' : 'inline';
+  const items = locales.map((l) => (l.current
+    ? `<span class="nx-lang nx-lang-current" aria-current="true">${esc(l.label)}</span>`
+    : `<a class="nx-lang" href="${esc(l.href)}" hreflang="${esc(l.code)}">${esc(l.label)}</a>`)).join('');
+  return `<style>${BASE_STYLE}
+.nx-langs { display:flex; gap:12px; align-items:center; justify-content:${style === 'dropdown' ? 'flex-end' : 'center'}; padding:12px 24px; flex-wrap:wrap; }
+.nx-lang { font-size:14px; color: var(--color-muted); text-decoration:none; }
+.nx-lang:hover { color: var(--color-text); }
+.nx-lang-current { color: var(--color-text); font-weight:600; }
+</style>
+<nav class="nx-langs" aria-label="Language">${items}</nav>`;
+}
+
+// Site search. Renders a real form that works without JavaScript (it falls
+// back to a normal GET, which the public router answers) and progressively
+// enhances into inline results when JS is available. The inline script is
+// hashed into the page's CSP by inlineScriptHashes in server.js, so this
+// stays on the strict policy rather than needing 'unsafe-inline'.
+export function renderSearch(fields) {
+  const placeholder = esc(fields.placeholder || 'Search this site…');
+  const buttonLabel = esc(fields.buttonLabel || 'Search');
+  return `<style>${BASE_STYLE}
+.nx-search { max-width: 640px; margin: 0 auto; padding: 32px 24px; }
+.nx-search form { display: flex; gap: 8px; }
+.nx-search input { flex: 1; min-width: 0; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border,rgba(255,255,255,0.15)); background: var(--surface,rgba(255,255,255,0.05)); color: var(--color-text); font-size: 15px; }
+.nx-search button { padding: 12px 20px; border-radius: 10px; border: 0; background: var(--color-accent); color: var(--on-accent,#fff); font-weight: 600; cursor: pointer; }
+.nx-search-results { margin-top: 20px; display: flex; flex-direction: column; gap: 14px; }
+.nx-search-hit a { font-size: 17px; color: var(--color-link); text-decoration: none; font-weight: 600; }
+.nx-search-hit p { margin: 4px 0 0; font-size: 14px; color: var(--color-muted); }
+.nx-search-hit mark { background: var(--accent-soft,rgba(99,102,241,0.25)); color: inherit; padding: 0 2px; border-radius: 3px; }
+.nx-search-empty { font-size: 14px; color: var(--color-muted); }
+</style>
+<div class="nx-search">
+  ${headingsHtml(fields.headings, 2)}
+  <form role="search" action="" method="GET">
+    <input type="search" name="q" placeholder="${placeholder}" aria-label="${placeholder}" />
+    <button type="submit">${buttonLabel}</button>
+  </form>
+  <div class="nx-search-results" aria-live="polite"></div>
+</div>
+<script>
+(function(){
+  var root = document.currentScript.previousElementSibling;
+  var form = root.querySelector('form');
+  var input = root.querySelector('input[name=q]');
+  var out = root.querySelector('.nx-search-results');
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function render(data, q){
+    if (!data.results.length) { out.innerHTML = '<p class="nx-search-empty">Nothing found for &ldquo;' + esc(q) + '&rdquo;.</p>'; return; }
+    out.innerHTML = data.results.map(function(r){
+      return '<div class="nx-search-hit"><a href="' + esc(r.path) + '">' + r.title + '</a><p>' + r.excerpt + '</p></div>';
+    }).join('');
+  }
+  function run(q){
+    if (!q) { out.innerHTML = ''; return; }
+    fetch('/api/public/search?q=' + encodeURIComponent(q) + '&locale=' + encodeURIComponent(document.documentElement.lang || ''))
+      .then(function(r){ return r.json(); })
+      .then(function(d){ render(d, q); })
+      .catch(function(){ out.innerHTML = '<p class="nx-search-empty">Search is unavailable right now.</p>'; });
+  }
+  form.addEventListener('submit', function(e){ e.preventDefault(); run(input.value.trim()); });
+  var initial = new URLSearchParams(location.search).get('q');
+  if (initial) { input.value = initial; run(initial); }
+})();
+</script>`;
+}
+
 export const BLOCK_RENDERERS = {
   header: renderHeader,
   navigation: renderNavigation,
@@ -1291,6 +1366,8 @@ export const BLOCK_RENDERERS = {
   product: renderProduct,
   'social-feed': renderSocialFeed,
   'collection-list': renderCollectionList,
+  'language-switcher': renderLanguageSwitcher,
+  search: renderSearch,
   script: renderScript,
   layout: renderLayout,
   // Polished block set
