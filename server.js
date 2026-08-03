@@ -21,6 +21,13 @@ import { mountMarketplaceApi } from './lib/marketplaceRoutes.js';
 import { mountEventsApi } from './lib/eventsRoutes.js';
 import { hydrateEventBlocks } from './lib/eventsHydrate.js';
 import { registerCollectionRoutes } from './lib/collectionsRoutes.js';
+import { registerVersionRoutes } from './lib/routes/versions.js';
+import { registerLibraryAuditRoutes } from './lib/routes/libraryAudit.js';
+import { registerRedirectRoutes } from './lib/routes/redirects.js';
+import { registerCommentRoutes } from './lib/routes/comments.js';
+import { registerAbRoutes } from './lib/routes/abTesting.js';
+import { registerTeamRoutes } from './lib/routes/team.js';
+import { registerMediaRoutes } from './lib/routes/media.js';
 import { hydrateCollectionBlocks, resolveCollectionDetail, buildDetailPage, hydrateLanguageBlocks } from './lib/collectionsHydrate.js';
 import { editableView } from './src/shared/pageDrafts.js';
 import { splitLocalePath, localizedPage, localizedPath, localesOf, isMultilingual } from './src/shared/i18n.js';
@@ -42,7 +49,6 @@ import { sendFormNotification } from './lib/email.js';
 import { SITE_TEMPLATES, buildTemplateSite } from './src/shared/siteTemplates.js';
 import { PLANS, createCheckoutSession, createPortalSession } from './lib/billing.js';
 import { generateSite } from './lib/aiSiteGen.js';
-import { db } from './lib/db.js';
 import crypto from 'crypto';
 
 assertProductionAuth();
@@ -116,6 +122,12 @@ const auditFor = (orgId, viewer) => (action, details) =>
   storage.audit.append(orgId, action, details, viewer?.email || null)
     .catch((e) => console.error('[audit]', e.message));
 
+// Everything the extracted route modules in lib/routes/ need. Passed in
+// rather than imported by each module so there is exactly one definition of
+// each guard, and so a module can't quietly reach for something it wasn't
+// given.
+let routeContext;
+
 const applyDueSchedules = async (orgId) => {
   try {
     const flipped = await storage.pages.applyScheduledPublishes(orgId);
@@ -186,6 +198,10 @@ mountSuperAdminApi(app);
 mountBlockCatalogApi(app);
 mountMarketplaceApi(app);
 mountEventsApi(app);
+routeContext = {
+  storage, express, requireOrg, requireRole, requireSuperAdmin, auditFor,
+  abTrackLimit, sanitizeContentHtml, sanitizeGlobalSettings,
+};
 registerCollectionRoutes(app, { requireOrg, requireRole, auditFor });
 mountSocialApi(app);
 mountEmailApi(app);
@@ -323,28 +339,7 @@ app.get('/api/preview/:orgId/:pageId', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// ================= VERSIONS =================
-
-app.get('/api/versions/:pageId', requireOrg, async (req, res, next) => {
-  try { res.json(await storage.versions.listForPage(req.org.id, req.params.pageId)); }
-  catch (e) { next(e); }
-});
-
-app.post('/api/versions/:pageId/:versionId/restore', requireOrg, requireRole('editor'), async (req, res, next) => {
-  try {
-    const version = await storage.versions.get(req.org.id, req.params.pageId, req.params.versionId);
-    if (!version) return res.status(404).json({ error: 'Version not found' });
-    const pages = await storage.pages.list(req.org.id);
-    const targetIndex = pages.findIndex(p => p.id === req.params.pageId);
-    if (targetIndex === -1) return res.status(404).json({ error: 'Page no longer exists' });
-    const next = pages.map((p, i) => i === targetIndex ? version.snapshot : p);
-    await storage.versions.snapshot(req.org.id, pages, next);
-    const written = await storage.pages.bulkReplace(req.org.id, next);
-    await auditFor(req.org.id, req.viewer)('Restored version', `Page "${version.snapshot.name}" restored from ${new Date(version.timestamp).toLocaleString()}`);
-    res.json({ success: true, pages: written });
-  } catch (e) { next(e); }
-});
-
+registerVersionRoutes(app, routeContext);
 // ================= AI (paste-in block classification) =================
 
 // Classifies one pasted HTML block for the page editor's "Paste in" import
@@ -367,350 +362,12 @@ app.post('/api/ai/classify-block', requireOrg, requireRole('editor'), aiClassify
   } catch (e) { next(e); }
 });
 
-// ================= AUDIT + LIBRARY =================
-
-app.get('/api/audit', requireOrg, async (req, res, next) => {
-  try { res.json(await storage.audit.list(req.org.id)); } catch (e) { next(e); }
-});
-
-app.get('/api/library', requireOrg, async (req, res, next) => {
-  try { res.json(await storage.library.list(req.org.id)); } catch (e) { next(e); }
-});
-
-app.post('/api/library', requireOrg, requireRole('editor'), async (req, res, next) => {
-  try {
-    const entries = req.body;
-    if (!Array.isArray(entries)) return res.status(400).json({ error: 'Invalid library data structure' });
-    const clean = entries.map(e => ({ ...e, html: sanitizeContentHtml(e?.html || '') }));
-    const written = await storage.library.bulkReplace(req.org.id, clean);
-    res.json({ success: true, library: written });
-  } catch (e) { next(e); }
-});
-
-// ================= REDIRECTS =================
-
-app.get('/api/redirects', requireOrg, async (req, res, next) => {
-  try { res.json(await storage.redirects.list(req.org.id)); } catch (e) { next(e); }
-});
-
-app.post('/api/redirects', requireOrg, requireRole('admin'), async (req, res, next) => {
-  try {
-    const { from, to, type } = req.body;
-    const cleanFrom = String(from ?? '').trim().replace(/^\/+/, '').replace(/\/+$/, '');
-    const cleanTo = (to || '').trim();
-    if (!cleanFrom || !cleanTo) return res.status(400).json({ error: 'from and to are required' });
-    const existing = await storage.redirects.getByFrom(req.org.id, cleanFrom);
-    if (existing) return res.status(400).json({ error: `A redirect from "/${cleanFrom}" already exists.` });
-    const entry = { id: 'redir-' + Date.now(), from: cleanFrom, to: cleanTo, type: Number(type) === 301 ? 301 : 302 };
-    await storage.redirects.add(req.org.id, entry);
-    await auditFor(req.org.id, req.viewer)('Added redirect', `/${cleanFrom} -> ${cleanTo}`);
-    res.json({ success: true, entry });
-  } catch (e) { next(e); }
-});
-
-app.delete('/api/redirects/:id', requireOrg, requireRole('admin'), async (req, res, next) => {
-  try {
-    const removed = await storage.redirects.remove(req.org.id, req.params.id);
-    if (!removed) return res.status(404).json({ error: 'Redirect not found' });
-    await auditFor(req.org.id, req.viewer)('Deleted redirect', `/${removed.from} -> ${removed.to}`);
-    res.json({ success: true });
-  } catch (e) { next(e); }
-});
-
-// ================= SECTION COMMENTS =================
-
-app.get('/api/comments', requireOrg, async (req, res, next) => {
-  try { res.json(await storage.comments.list(req.org.id, req.query.pageId)); } catch (e) { next(e); }
-});
-
-app.post('/api/comments', requireOrg, requireRole('editor'), async (req, res, next) => {
-  try {
-    const { pageId, sectionId, text, author } = req.body;
-    if (!pageId || !sectionId || !text?.trim()) return res.status(400).json({ error: 'pageId, sectionId, and text are required' });
-    const entry = await storage.comments.add(req.org.id, {
-      id: 'comment-' + Date.now() + '-' + Math.floor(Math.random() * 1e6),
-      pageId, sectionId, text: text.trim(),
-      author: author || req.viewer?.email || 'anonymous',
-    });
-    res.json({ success: true, entry });
-  } catch (e) { next(e); }
-});
-
-app.patch('/api/comments/:id', requireOrg, requireRole('editor'), async (req, res, next) => {
-  try {
-    const entry = await storage.comments.setResolved(req.org.id, req.params.id, !!req.body.resolved);
-    if (!entry) return res.status(404).json({ error: 'Comment not found' });
-    res.json({ success: true, entry });
-  } catch (e) { next(e); }
-});
-
-app.delete('/api/comments/:id', requireOrg, requireRole('editor'), async (req, res, next) => {
-  try { await storage.comments.remove(req.org.id, req.params.id); res.json({ success: true }); }
-  catch (e) { next(e); }
-});
-
-// ================= A/B TESTING =================
-
-app.post('/api/ab-track', abTrackLimit, requireOrg, async (req, res, next) => {
-  try {
-    const { sectionId, variantId, event } = req.body;
-    if (!sectionId || !variantId || event !== 'click') {
-      return res.status(400).json({ error: 'sectionId, variantId, and event="click" are required' });
-    }
-    await storage.abStats.record(req.org.id, sectionId, variantId, 'clicks');
-    res.json({ success: true });
-  } catch (e) { next(e); }
-});
-
-app.get('/api/ab-stats/:sectionId', requireOrg, async (req, res, next) => {
-  try { res.json(await storage.abStats.forSection(req.org.id, req.params.sectionId)); } catch (e) { next(e); }
-});
-
-// ================= TEAM ROSTER =================
-
-app.get('/api/team', requireOrg, async (req, res, next) => {
-  try { res.json(await storage.team.list(req.org.id)); } catch (e) { next(e); }
-});
-
-app.post('/api/team', requireOrg, requireRole('admin'), async (req, res, next) => {
-  try {
-    const { name, email, role } = req.body;
-    if (!name?.trim() || !email?.trim() || !['viewer', 'editor', 'admin'].includes(role)) {
-      return res.status(400).json({ error: 'name, email, and a valid role are required' });
-    }
-    const cleanEmail = email.trim().toLowerCase();
-    const entry = await storage.team.add(req.org.id, {
-      id: 'team-' + Date.now(), name: name.trim(), email: cleanEmail, role,
-    });
-    // Real membership row (what resolveViewer actually checks) + a real
-    // Clerk invitation email. Previously this route only wrote the roster
-    // row while the UI implied an invite email had been sent -- the invite
-    // was actually a manual Clerk-dashboard step.
-    await storage.orgMembers.add(req.org.id, cleanEmail, role).catch(() => {});
-    let invited = false;
-    let inviteError = null;
-    try {
-      await clerkClient.invitations.createInvitation({
-        emailAddress: cleanEmail,
-        redirectUrl: `https://${req.headers.host}/${req.org.id}`,
-        notify: true,
-        ignoreExisting: true,
-      });
-      invited = true;
-    } catch (e) {
-      // Surface WHY instead of swallowing it: most often the address already
-      // has a Clerk account (no invite email needed -- they can just sign in),
-      // an existing pending invite (Clerk won't re-send), or the redirect URL
-      // isn't allowlisted in Clerk. The membership row above still lets them
-      // in once they sign in with this email.
-      inviteError = e?.errors?.[0]?.longMessage || e?.errors?.[0]?.message || e?.message || 'Invitation could not be sent.';
-      console.error('[team invite]', cleanEmail, inviteError);
-    }
-    await auditFor(req.org.id, req.viewer)('Added team member', `${entry.name} <${entry.email}> as ${entry.role}${invited ? '' : ' (invite email not sent)'}`);
-    res.json({ success: true, entry, invited, inviteError });
-  } catch (e) { next(e); }
-});
-
-app.delete('/api/team/:id', requireOrg, requireRole('admin'), async (req, res, next) => {
-  try {
-    const removed = await storage.team.remove(req.org.id, req.params.id);
-    if (!removed) return res.status(404).json({ error: 'Team member not found' });
-    await auditFor(req.org.id, req.viewer)('Removed team member', `${removed.name} <${removed.email}>`);
-    res.json({ success: true });
-  } catch (e) { next(e); }
-});
-
-// ================= MEDIA =================
-
-// Media files live in a public Supabase Storage bucket, one folder per
-// org, with metadata rows in the existing `media` table. The bucket is
-// created lazily on first upload (service-role client can manage
-// buckets), so no manual Supabase setup step is needed.
-const MEDIA_BUCKET = 'media';
-const MEDIA_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
-const MEDIA_MIME_ALLOWLIST = new Set([
-  'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif', 'image/svg+xml',
-  'application/pdf', 'video/mp4', 'video/webm', 'audio/mpeg',
-]);
-
-// Raster formats we transcode to WebP on upload for smaller, faster-loading
-// files. SVG (vector) and non-image types pass through untouched. GIFs are
-// converted with `animated: true` so multi-frame GIFs become animated WebP
-// rather than a single flattened frame. Conversion is best-effort: if sharp
-// is unavailable or a buffer won't decode, we fall back to the original
-// bytes so an upload never hard-fails on the optimization step.
-const WEBP_SOURCE_MIME = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/avif']);
-
-async function toWebp(buffer, mimeType, name) {
-  if (!WEBP_SOURCE_MIME.has(mimeType)) return null;
-  try {
-    const { default: sharp } = await import('sharp');
-    const out = await sharp(buffer, { animated: mimeType === 'image/gif' })
-      .webp({ quality: 82 })
-      .toBuffer();
-    const base = String(name).replace(/\.[^.]+$/, '');
-    return { buffer: out, mimeType: 'image/webp', name: `${base}.webp` };
-  } catch {
-    return null;
-  }
-}
-
-let mediaBucketReady = false;
-async function ensureMediaBucket() {
-  if (mediaBucketReady) return;
-  // createBucket errors if it already exists -- that's fine, both paths
-  // leave the bucket present.
-  await db().storage.createBucket(MEDIA_BUCKET, { public: true }).catch(() => {});
-  mediaBucketReady = true;
-}
-
-app.get('/api/media', requireOrg, async (req, res, next) => {
-  try { res.json(await storage.media.list(req.org.id)); } catch (e) { next(e); }
-});
-
-app.post('/api/media', express.json({ limit: '15mb' }), requireOrg, requireRole('editor'), async (req, res, next) => {
-  try {
-    const { name, mimeType, dataBase64, altText, description } = req.body || {};
-    if (!name || !mimeType || !dataBase64) return res.status(400).json({ error: 'name, mimeType, and dataBase64 are required' });
-    if (!MEDIA_MIME_ALLOWLIST.has(mimeType)) return res.status(400).json({ error: `File type ${mimeType} isn't supported.` });
-    const buffer = Buffer.from(dataBase64, 'base64');
-    if (buffer.length === 0) return res.status(400).json({ error: 'Empty file' });
-    if (buffer.length > MEDIA_MAX_BYTES) return res.status(400).json({ error: 'Files must be 10 MB or smaller.' });
-
-    // Auto-optimize raster images to WebP before storage. Non-convertible
-    // types (SVG, PDF, video, audio) keep their original bytes/name/mime.
-    let outName = String(name).slice(0, 200);
-    let outMime = mimeType;
-    let outBuffer = buffer;
-    const converted = await toWebp(buffer, mimeType, name);
-    if (converted) {
-      outBuffer = converted.buffer;
-      outMime = converted.mimeType;
-      outName = String(converted.name).slice(0, 200);
-    }
-
-    await ensureMediaBucket();
-    const id = 'media-' + Date.now() + '-' + Math.floor(Math.random() * 1e6);
-    const safeName = outName.replace(/[^\w.\-]+/g, '_').slice(0, 120);
-    const storagePath = `${req.org.id}/${id}-${safeName}`;
-
-    const { error: uploadError } = await db().storage.from(MEDIA_BUCKET)
-      .upload(storagePath, outBuffer, { contentType: outMime, cacheControl: '31536000' });
-    if (uploadError) return res.status(500).json({ error: 'Upload failed. Please try again or contact support.' });
-
-    const { data: pub } = db().storage.from(MEDIA_BUCKET).getPublicUrl(storagePath);
-    const entry = await storage.media.add(req.org.id, {
-      id, name: outName, filename: storagePath,
-      mimeType: outMime, size: outBuffer.length, url: pub.publicUrl,
-      altText: typeof altText === 'string' ? altText.slice(0, 500) : '',
-      description: typeof description === 'string' ? description.slice(0, 2000) : '',
-    });
-    await auditFor(req.org.id, req.viewer)('Uploaded media', `${entry.name} (${(outBuffer.length / 1024).toFixed(0)} KB)`);
-    res.json({ success: true, entry });
-  } catch (e) { next(e); }
-});
-
-// Rename / edit metadata (alt text, description). Storage-managed fields
-// (the actual bytes, url, mime, size) are never touched here.
-app.patch('/api/media/:id', express.json({ limit: '64kb' }), requireOrg, requireRole('editor'), async (req, res, next) => {
-  try {
-    const { name, altText, description } = req.body || {};
-    const patch = {};
-    if (name !== undefined) patch.name = name;
-    if (altText !== undefined) patch.altText = altText;
-    if (description !== undefined) patch.description = description;
-    if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'Nothing to update' });
-    const entry = await storage.media.update(req.org.id, req.params.id, patch);
-    if (!entry) return res.status(404).json({ error: 'File not found' });
-    await auditFor(req.org.id, req.viewer)('Edited media', entry.name);
-    res.json({ success: true, entry });
-  } catch (e) { next(e); }
-});
-
-app.delete('/api/media/:id', requireOrg, requireRole('editor'), async (req, res, next) => {
-  try {
-    const removed = await storage.media.remove(req.org.id, req.params.id);
-    if (!removed) return res.status(404).json({ error: 'File not found' });
-    if (removed.filename) {
-      await db().storage.from(MEDIA_BUCKET).remove([removed.filename]).catch(() => {});
-    }
-    await auditFor(req.org.id, req.viewer)('Deleted media', removed.name || req.params.id);
-    res.json({ success: true });
-  } catch (e) { next(e); }
-});
-
-// ---- Nexus's own media library (super-admin only) ----
-// Same bucket, WebP conversion, and limits as the per-org routes above, but
-// gated by requireSuperAdmin and stored under a `nexus/` folder with rows in
-// the standalone `nexus_media` table (see lib/nexus.js). No org context.
-app.get('/api/nexus/media', requireSuperAdmin, async (req, res, next) => {
-  try { res.json(await nexus.media.list()); } catch (e) { next(e); }
-});
-
-app.post('/api/nexus/media', express.json({ limit: '15mb' }), requireSuperAdmin, async (req, res, next) => {
-  try {
-    const { name, mimeType, dataBase64, altText, description } = req.body || {};
-    if (!name || !mimeType || !dataBase64) return res.status(400).json({ error: 'name, mimeType, and dataBase64 are required' });
-    if (!MEDIA_MIME_ALLOWLIST.has(mimeType)) return res.status(400).json({ error: `File type ${mimeType} isn't supported.` });
-    const buffer = Buffer.from(dataBase64, 'base64');
-    if (buffer.length === 0) return res.status(400).json({ error: 'Empty file' });
-    if (buffer.length > MEDIA_MAX_BYTES) return res.status(400).json({ error: 'Files must be 10 MB or smaller.' });
-
-    let outName = String(name).slice(0, 200);
-    let outMime = mimeType;
-    let outBuffer = buffer;
-    const converted = await toWebp(buffer, mimeType, name);
-    if (converted) {
-      outBuffer = converted.buffer;
-      outMime = converted.mimeType;
-      outName = String(converted.name).slice(0, 200);
-    }
-
-    await ensureMediaBucket();
-    const id = 'nmedia-' + Date.now() + '-' + Math.floor(Math.random() * 1e6);
-    const safeName = outName.replace(/[^\w.\-]+/g, '_').slice(0, 120);
-    const storagePath = `nexus/${id}-${safeName}`;
-
-    const { error: uploadError } = await db().storage.from(MEDIA_BUCKET)
-      .upload(storagePath, outBuffer, { contentType: outMime, cacheControl: '31536000' });
-    if (uploadError) return res.status(500).json({ error: 'Upload failed. Please try again or contact support.' });
-
-    const { data: pub } = db().storage.from(MEDIA_BUCKET).getPublicUrl(storagePath);
-    const entry = await nexus.media.add({
-      id, name: outName, filename: storagePath,
-      mimeType: outMime, size: outBuffer.length, url: pub.publicUrl,
-      altText: typeof altText === 'string' ? altText.slice(0, 500) : '',
-      description: typeof description === 'string' ? description.slice(0, 2000) : '',
-    });
-    res.json({ success: true, entry });
-  } catch (e) { next(e); }
-});
-
-app.patch('/api/nexus/media/:id', express.json({ limit: '64kb' }), requireSuperAdmin, async (req, res, next) => {
-  try {
-    const { name, altText, description } = req.body || {};
-    const patch = {};
-    if (name !== undefined) patch.name = name;
-    if (altText !== undefined) patch.altText = altText;
-    if (description !== undefined) patch.description = description;
-    if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'Nothing to update' });
-    const entry = await nexus.media.update(req.params.id, patch);
-    if (!entry) return res.status(404).json({ error: 'File not found' });
-    res.json({ success: true, entry });
-  } catch (e) { next(e); }
-});
-
-app.delete('/api/nexus/media/:id', requireSuperAdmin, async (req, res, next) => {
-  try {
-    const removed = await nexus.media.remove(req.params.id);
-    if (!removed) return res.status(404).json({ error: 'File not found' });
-    if (removed.filename) {
-      await db().storage.from(MEDIA_BUCKET).remove([removed.filename]).catch(() => {});
-    }
-    res.json({ success: true });
-  } catch (e) { next(e); }
-});
-
+registerLibraryAuditRoutes(app, routeContext);
+registerRedirectRoutes(app, routeContext);
+registerCommentRoutes(app, routeContext);
+registerAbRoutes(app, routeContext);
+registerTeamRoutes(app, routeContext);
+registerMediaRoutes(app, routeContext);
 // ================= FORMS =================
 
 // Public submission endpoint for the Contact Form / Newsletter blocks.
