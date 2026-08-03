@@ -59,7 +59,7 @@ export default function BlockCatalogPicker({ onClose, onInsert, excludeTypes = [
                     onClick={() => onInsert(buildSectionFromCatalog(entry))}
                     className="text-left rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.07] hover:border-glass-indigo/40 transition overflow-hidden"
                   >
-                    <BlockPreviewFrame html={entry.html} height={110} />
+                    <BlockPreviewFrame html={entry.previewHtml ?? entry.html} height={110} />
                     <div className="p-3">
                       <div className="flex items-center gap-1.5">
                         <div className="text-sm font-medium text-zinc-100">{entry.name}</div>

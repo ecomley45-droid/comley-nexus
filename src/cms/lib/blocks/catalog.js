@@ -7,6 +7,7 @@
 
 import { getBlockCatalog } from '../api.js';
 import { renderBlock } from '../pasteIn/blockRenderers.js';
+import { renderLayoutExample } from './layoutPreview.js';
 
 // Fixed display order for the categories we shipped with; any category a
 // custom block introduces (workspace or platform) still shows, just after
@@ -15,9 +16,23 @@ import { renderBlock } from '../pasteIn/blockRenderers.js';
 // tab in the "Add Layout/Block +" picker.
 export const BASE_CATEGORIES = ['Layout', 'Structure', 'Content', 'Social Proof', 'Conversion', 'Media', 'Interactive'];
 
+// `html` is what gets inserted when you pick an entry; `previewHtml` is what
+// the catalog card shows. They're the same for every block except Layout,
+// whose catalog entry is an empty container -- rendering it live gives a
+// blank card, so the thumbnail uses a generated wireframe of that layout
+// instead while insertion still produces the real (empty) columns.
 export async function fetchBlockCatalog() {
   const entries = await getBlockCatalog();
-  return entries.map((entry) => ({ ...entry, html: renderBlock(entry.blockType, entry.defaultFields) }));
+  return entries.map((entry) => {
+    const html = renderBlock(entry.blockType, entry.defaultFields);
+    return {
+      ...entry,
+      html,
+      previewHtml: entry.blockType === 'layout'
+        ? renderLayoutExample(entry.defaultFields?.template)
+        : html,
+    };
+  });
 }
 
 export function categoriesFor(entries) {

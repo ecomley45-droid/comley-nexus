@@ -66,7 +66,7 @@ export default function BlocksCatalogPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {catEntries.map((entry) => (
                 <GlassPanel key={entry.id} className="overflow-hidden">
-                  <BlockPreviewFrame html={entry.html} height={150} />
+                  <BlockPreviewFrame html={entry.previewHtml ?? entry.html} height={150} />
                   <div className="p-3">
                     <div className="flex items-center gap-1.5">
                       <div className="text-sm font-medium text-zinc-100">{entry.name}</div>
