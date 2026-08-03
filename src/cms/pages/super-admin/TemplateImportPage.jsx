@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { segmentHtml } from '../../lib/pasteIn/segmentHtml.js';
-import { splitHtmlIntoSections } from '../../../shared/htmlSections.js';
+import { htmlToTypedBlocks } from '../../../shared/htmlToBlocks.js';
 import { createTemplate } from '../../lib/api.js';
 import TemplatePreviewFrame from '../../lib/templates/TemplatePreviewFrame.jsx';
 import { labelForBlock } from '../../lib/templates/blockLabels.js';
@@ -9,11 +9,16 @@ import { THEME_PRESETS } from '../../../shared/themePresets.js';
 import { GlassPanel, GlassButton, GlassInput, GlassSelect, Badge } from '../../lib/ui/Glass.jsx';
 
 // Bulk-import a folder of .html files into the marketplace, one template per
-// file. Two modes:
-//   - design (default): keep each file's original HTML+CSS verbatim as a
-//     Full-HTML template page -- installs pixel-for-pixel, edited as raw HTML.
-//   - blocks: segment each file into editable Nexus blocks (segment.js);
-//     original CSS is dropped and content is re-skinned to a theme.
+// file. Both modes install as typed, no-code-editable blocks -- they differ
+// in when the classification happens and whether the source document is kept:
+//   - keep-source (default): stores each file verbatim. Classified into typed
+//     blocks at INSTALL time (htmlToBlocks.js, runs server-side), and the
+//     original document rides along on the installed page, so Convert can
+//     hand back a pixel-perfect coded copy whenever the original design
+//     matters more than field-by-field editing.
+//   - blocks: classified now, in the browser, via segment.js -- richer
+//     heuristics (it can read computed styles) but the source document is
+//     not kept, so there is no going back to the original design.
 const CATEGORIES = ['Business', 'Portfolio', 'Food', 'Services', 'Blog', 'Events', 'Nonprofit'];
 const BLOCKS_THEME = THEME_PRESETS[0].theme; // Modern Minimal -- only used in blocks mode
 
@@ -49,9 +54,11 @@ export default function TemplateImportPage() {
         try { title = new DOMParser().parseFromString(text, 'text/html').title?.trim() || ''; } catch { /* ignore */ }
         const base = { id: `${f.name}-${Math.random().toString(36).slice(2)}`, fileName: f.name, name: title || prettyName(f.name), category: 'Business' };
         if (mode === 'design') {
-          // Stored verbatim, but installed as blocks (materializeInstall runs
-          // the same splitter), so show how many modules it will become.
-          const moduleCount = splitHtmlIntoSections(text).length;
+          // Stored verbatim, but installed as typed blocks
+          // (materializeInstall runs the same classifier), so show what it
+          // will become.
+          const typed = htmlToTypedBlocks(text);
+          const moduleCount = typed.length;
           acc.push({ ...base, fullHtml: text, moduleCount, sections: null, warnings: [], include: true, error: '' });
         } else {
           try {
@@ -108,15 +115,15 @@ export default function TemplateImportPage() {
           onClick={() => setMode('design')}
           className={`flex-1 min-w-[240px] text-left rounded-xl border p-3 transition ${mode === 'design' ? 'border-glass-indigo bg-white/10' : 'border-white/10 hover:border-white/25'}`}
         >
-          <div className="text-sm font-medium text-zinc-100">Keep original design <Badge>recommended</Badge></div>
-          <div className="text-xs text-zinc-400 mt-1">Preserves each file’s exact HTML &amp; CSS. Installs pixel-for-pixel, split into one block per section so it can be reordered and restyled — the markup itself is edited under the HTML view.</div>
+          <div className="text-sm font-medium text-zinc-100">Keep the source file <Badge>recommended</Badge></div>
+          <div className="text-xs text-zinc-400 mt-1">Installs as editable blocks, and keeps each file’s original HTML &amp; CSS on the page — so you can convert back to a pixel-perfect coded copy at any time.</div>
         </button>
         <button
           onClick={() => setMode('blocks')}
           className={`flex-1 min-w-[240px] text-left rounded-xl border p-3 transition ${mode === 'blocks' ? 'border-glass-indigo bg-white/10' : 'border-white/10 hover:border-white/25'}`}
         >
-          <div className="text-sm font-medium text-zinc-100">Convert to editable blocks</div>
-          <div className="text-xs text-zinc-400 mt-1">Segments each page into Nexus blocks. Fully editable, but original styling is dropped and re-skinned to a theme.</div>
+          <div className="text-sm font-medium text-zinc-100">Convert now, in the browser</div>
+          <div className="text-xs text-zinc-400 mt-1">Classifies each page up front with the richer browser-side segmenter. Same editable result, but the source file isn’t kept — there’s no going back to the original design.</div>
         </button>
       </div>
 
@@ -166,7 +173,7 @@ export default function TemplateImportPage() {
                       {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                     </GlassSelect>
                     <span className="text-[11px] text-zinc-500">
-                      {it.fullHtml ? `${it.moduleCount} blocks · design kept` : `${it.sections?.length || 0} blocks`}
+                      {it.fullHtml ? `${it.moduleCount} blocks` : `${it.sections?.length || 0} blocks`}
                     </span>
                   </div>
                   {it.sections && it.sections.length > 0 && (

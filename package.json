@@ -9,6 +9,7 @@
     "build": "vite build",
     "lint": "oxlint",
     "audit:blocks": "node scripts/auditBlockFields.mjs",
+    "audit:templates": "node scripts/auditTemplates.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
