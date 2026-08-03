@@ -22,6 +22,7 @@ import { mountEventsApi } from './lib/eventsRoutes.js';
 import { hydrateEventBlocks } from './lib/eventsHydrate.js';
 import { registerCollectionRoutes } from './lib/collectionsRoutes.js';
 import { hydrateCollectionBlocks, resolveCollectionDetail, buildDetailPage } from './lib/collectionsHydrate.js';
+import { editableView } from './src/shared/pageDrafts.js';
 import * as collections from './lib/collections.js';
 import { mountSocialApi } from './lib/social/routes.js';
 import { injectSocialFeeds } from './lib/social/feed.js';
@@ -305,8 +306,11 @@ app.get('/api/preview/:orgId/:pageId', async (req, res, next) => {
       storage.library.list(orgId),
       storage.settings.get(orgId),
     ]);
-    const page = pages.find((p) => p.id === req.params.pageId);
-    if (!page) return res.status(404).send('Page not found.');
+    const stored = pages.find((p) => p.id === req.params.pageId);
+    if (!stored) return res.status(404).send('Page not found.');
+    // A preview is for checking work before it goes live, so it shows the
+    // draft when there is one. The public route below deliberately does not.
+    const page = editableView(stored);
     await hydrateEventBlocks(page, orgId, globalSettings?.timezone);
     await hydrateCollectionBlocks(page, orgId);
     const html = compilePageHtml(page, pages, library, globalSettings, {}, `https://${req.headers.host}`);

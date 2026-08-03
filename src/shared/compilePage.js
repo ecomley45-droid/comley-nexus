@@ -5,6 +5,7 @@
 import { buildThemeStyleBlock } from './theme.js';
 import { buildPageStyleCss } from './blockStyle.js';
 import { extractSharedStyles } from './dedupeStyles.js';
+import { resolveSectionHtml } from './syncedBlocks.js';
 
 // Walks a page's parentId chain to build its full nested slug path, e.g.
 // a page "contact" whose parent is "about" (whose parent is root) becomes
@@ -93,7 +94,9 @@ export function compilePageHtml(page, pages, library, globalSettings, abChoices 
         const variant = section.abVariants.find(v => v.id === chosenId) || section.abVariants[0];
         return `<section data-section-id="${section.id}" data-variant-id="${variant.id}">${variant.html || ''}</section>`;
       }
-      return `<section data-section-id="${section.id}">${section.html || ''}</section>`;
+      // A synced section renders its library entry, not its own copy — see
+      // src/shared/syncedBlocks.js. This is what `library` was always for.
+      return `<section data-section-id="${section.id}">${resolveSectionHtml(section, library)}</section>`;
     })
     .join('\n');
 

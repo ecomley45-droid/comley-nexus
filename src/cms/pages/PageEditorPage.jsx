@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Layers, Plus, ClipboardPaste, Square, Trash2, Copy, ChevronUp, ChevronDown, GripVertical,
-  SlidersHorizontal, Paintbrush, FileCog, Code2, Blocks, ArrowLeftRight, EyeOff, X, ShieldCheck,
+  SlidersHorizontal, Paintbrush, FileCog, Code2, Blocks, ArrowLeftRight, EyeOff, X, ShieldCheck, Link2, Link2Off, Rocket,
 } from 'lucide-react';
 import { usePagesStore } from '../lib/usePagesStore.js';
 import { useDebouncedValue } from '../lib/useDebouncedValue.js';
@@ -19,6 +19,8 @@ import DesignInspector, { DEVICES } from '../lib/design/DesignInspector.jsx';
 import { describeSectionStyle, hasSectionStyle, normalizeSectionStyle } from '../../shared/blockStyle.js';
 import { readExperiment, formatRate } from '../../shared/abStats.js';
 import { auditPage } from '../../shared/pageAudit.js';
+import { resolveSectionHtml, isOrphanedSync } from '../../shared/syncedBlocks.js';
+import { editableView, applyEdit, publishDraft, discardDraft, hasPendingChanges, describePending } from '../../shared/pageDrafts.js';
 import { PAGE_MODES, modeOf, otherMode, conversionSummary } from '../lib/pageModes.js';
 import { convertPage } from '../lib/pageActions.js';
 
@@ -231,6 +233,7 @@ function LayerRow({ section, index, total, selected, onSelect, onDragStart, onDr
           <div className="flex items-center gap-1.5 min-w-0">
             <span className={`text-sm truncate ${selected ? 'text-zinc-100 font-medium' : 'text-zinc-200'}`}>{section.name}</span>
             {hiddenSomewhere && <EyeOff size={11} className="text-amber-400/70 shrink-0" />}
+            {section.libraryId && <Link2 size={11} className="text-glass-sky/80 shrink-0" title="Synced with the library" />}
           </div>
           <div className="text-[10px] text-zinc-500 truncate">
             {origin}{design ? ` · ${design}` : ''}
@@ -394,10 +397,29 @@ function ModeCard({ page, canUseFullCode, converting, onConvert }) {
 
 // The Content tab: the selected block's own fields (or its raw HTML), plus
 // the experiment/comment tooling that belongs to that block.
-function ContentInspector({ section, onChange, editViews, editView, setEditView, pageId, nexus }) {
+function ContentInspector({ section, onChange, editViews, editView, setEditView, pageId, nexus, library, base, onUnlink }) {
   const structuredAvailable = !!(section.blockType && section.fields);
+  const orphaned = isOrphanedSync(section, library);
   return (
     <div>
+      {section.libraryId && (
+        <div className={`rounded-lg border px-2.5 py-2 mb-3 ${orphaned ? 'border-amber-400/30 bg-amber-400/[0.07]' : 'border-glass-sky/25 bg-glass-sky/[0.07]'}`}>
+          <div className="flex items-center gap-1.5 text-[11px] text-sky-200">
+            <Link2 size={11} /> {orphaned ? 'Linked to a library block that no longer exists' : 'Synced with the section library'}
+          </div>
+          <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+            {orphaned
+              ? 'It is still showing the last version it had. Detach it to keep that copy for good.'
+              : 'This block renders the library version, so editing it there updates every page using it. Edits made here would be ignored.'}
+          </p>
+          <div className="flex gap-3 mt-1.5">
+            {!orphaned && <Link to={`${base}/library`} className="text-[11px] text-glass-sky hover:underline">Edit in the library</Link>}
+            <button onClick={onUnlink} className="text-[11px] text-glass-sky hover:underline inline-flex items-center gap-1">
+              <Link2Off size={10} /> Detach and edit here
+            </button>
+          </div>
+        </div>
+      )}
       {editViews.length > 1 && (
         <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-black/25 border border-white/10 mb-3">
           {editViews.map((v) => (
@@ -542,7 +564,11 @@ export default function PageEditorPage({ nexus = false }) {
   const editViews = editViewsFor(globalSettings?.editor?.lockBlockView);
   const effectiveEditView = editViews.includes(editView) ? editView : editViews[0];
 
-  const page = useMemo(() => pages?.find((p) => p.id === id), [pages, id]);
+  const storedPage = useMemo(() => pages?.find((p) => p.id === id), [pages, id]);
+  // Everything below edits and previews the DRAFT of a published page; the
+  // live version stays untouched until Publish. On a draft page these are
+  // the same object.
+  const page = useMemo(() => (storedPage ? editableView(storedPage) : storedPage), [storedPage]);
   const debouncedPage = useDebouncedValue(page, 250);
   const previewHtml = useMemo(() => {
     if (!debouncedPage || !pages || !globalSettings) return '';
@@ -557,9 +583,25 @@ export default function PageEditorPage({ nexus = false }) {
   const isFullCode = mode === 'full-html';
   const selected = isFullCode ? null : (page.content || []).find((s) => s.id === selectedId) || null;
 
-  const updatePage = (patch) => {
+  const writePage = (patch) => {
     markDirty();
     setPages(pages.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  };
+  // Content edits on a published page land in its draft rather than going
+  // live the moment autosave fires.
+  const updatePage = (patch) => writePage(applyEdit(storedPage, patch));
+
+  const pending = hasPendingChanges(storedPage);
+  const publishChanges = async () => {
+    writePage(publishDraft(storedPage));
+    // Save on the next tick so the publish lands in the same request as the
+    // edits it promotes.
+    setTimeout(() => saveRef.current?.(), 0);
+  };
+  const discardChanges = () => {
+    if (!confirm('Throw away the unpublished changes and go back to the live version?')) return;
+    writePage(discardDraft());
+    setTimeout(() => saveRef.current?.(), 0);
   };
 
   // Every content mutation flows through updateSections, so pushing the
@@ -617,12 +659,27 @@ export default function PageEditorPage({ nexus = false }) {
     updateSections([...page.content, section]);
     selectSection(section.id);
   };
-  const addFromLibrary = (libId) => {
+  // Two ways to use a library entry. A linked block keeps rendering the
+  // entry, so editing it once updates every page using it; a copy is a
+  // one-time snapshot that then belongs to this page.
+  const addFromLibrary = (libId, { linked = true } = {}) => {
     const entry = library.find((l) => l.id === libId);
     if (!entry) return;
-    const section = { id: 'sec-' + Date.now(), name: entry.name, html: entry.html };
+    const section = {
+      id: 'sec-' + Date.now(),
+      name: entry.name,
+      html: entry.html,
+      ...(linked ? { libraryId: entry.id } : {}),
+    };
     updateSections([...page.content, section]);
     selectSection(section.id);
+  };
+
+  // Detaching keeps exactly what's on screen and stops following the entry.
+  const unlinkSection = (secId) => {
+    const section = page.content.find((s) => s.id === secId);
+    if (!section) return;
+    updateSection(secId, { libraryId: undefined, html: resolveSectionHtml(section, library) });
   };
   const importPastedBlocks = (sections) => {
     updateSections([...page.content, ...sections]);
@@ -725,6 +782,23 @@ export default function PageEditorPage({ nexus = false }) {
 
   return (
     <div>
+      {pending && (
+        <div className="mb-3 rounded-xl border border-glass-sky/30 bg-glass-sky/[0.08] px-4 py-3 flex flex-wrap items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm text-sky-100">This page has unpublished changes.</p>
+            <p className="text-[11px] text-sky-200/70 mt-0.5">
+              Visitors still see the live version{describePending(storedPage) ? ` — pending: ${describePending(storedPage)}` : ''}.
+            </p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <button onClick={discardChanges} className="text-xs text-zinc-400 hover:text-zinc-200 px-2">Discard</button>
+            <GlassButton onClick={publishChanges} disabled={saving} className="py-1.5 text-xs">
+              <Rocket size={12} /> Publish changes
+            </GlassButton>
+          </div>
+        </div>
+      )}
+
       {conflict && (
         <div className="mb-3 rounded-xl border border-amber-400/40 bg-amber-400/[0.08] px-4 py-3">
           <p className="text-sm text-amber-200">{conflict.message}</p>
@@ -824,9 +898,23 @@ export default function PageEditorPage({ nexus = false }) {
                 </button>
               </div>
               {library.length > 0 && (
-                <GlassSelect onChange={(e) => { if (e.target.value) { addFromLibrary(e.target.value); e.target.value = ''; } }} defaultValue="" className="w-full text-xs py-1.5 mb-3">
+                <GlassSelect
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    const [mode, libId] = e.target.value.split(':');
+                    addFromLibrary(libId, { linked: mode === 'linked' });
+                    e.target.value = '';
+                  }}
+                  defaultValue=""
+                  className="w-full text-xs py-1.5 mb-3"
+                >
                   <option value="">Insert from library…</option>
-                  {library.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                  <optgroup label="Linked — edits to the library update every page">
+                    {library.map((l) => <option key={`linked-${l.id}`} value={`linked:${l.id}`}>{l.name}</option>)}
+                  </optgroup>
+                  <optgroup label="A copy — independent from here on">
+                    {library.map((l) => <option key={`copy-${l.id}`} value={`copy:${l.id}`}>{l.name}</option>)}
+                  </optgroup>
                 </GlassSelect>
               )}
 
@@ -913,6 +1001,9 @@ export default function PageEditorPage({ nexus = false }) {
               setEditView={setEditView}
               pageId={page.id}
               nexus={nexus}
+              library={library}
+              base={base}
+              onUnlink={() => unlinkSection(selected.id)}
             />
           )}
 
@@ -960,7 +1051,7 @@ export default function PageEditorPage({ nexus = false }) {
                 </GlassSelect>
 
                 <label className="text-xs text-zinc-400">Status</label>
-                <GlassSelect value={page.status} onChange={(e) => updatePage({ status: e.target.value })} className="w-full mb-2 mt-1">
+                <GlassSelect value={page.status} onChange={(e) => writePage({ status: e.target.value })} className="w-full mb-2 mt-1">
                   <option value="draft">Draft</option>
                   <option value="published">Published</option>
                 </GlassSelect>
