@@ -38,16 +38,29 @@ for (const m of src.matchAll(/^import\s+[^'"]*from\s+'(\.\/[^']+)'/gm)) {
 // Slice the sources into function bodies, keyed by function name.
 // Null-prototype so a callee named `constructor`/`toString` can't resolve to
 // Object.prototype.
+//
+// Bodies are kept per file as well as globally. A callee is resolved against
+// the file it was called from first, because helper names are short and
+// collide: a nav renderer's `toggle()` helper and `classList.toggle(...)` in
+// an unrelated block are the same token to a regex, and resolving across
+// files made one block report fields that only the other reads.
 const bodies = Object.create(null);
-for (const text of sources) {
+const fileOf = Object.create(null);
+const byFile = [];
+sources.forEach((text, fileIndex) => {
+  const local = Object.create(null);
   const re = /(?:export )?function ([A-Za-z_$][\w$]*)\s*\(/g;
   const starts = [];
   let m;
   while ((m = re.exec(text))) starts.push({ name: m[1], idx: m.index });
   starts.forEach((s, i) => {
-    bodies[s.name] = text.slice(s.idx, i + 1 < starts.length ? starts[i + 1].idx : text.length);
+    const body = text.slice(s.idx, i + 1 < starts.length ? starts[i + 1].idx : text.length);
+    local[s.name] = body;
+    bodies[s.name] = body;
+    fileOf[s.name] = fileOf[s.name] ?? fileIndex;
   });
-}
+  byFile[fileIndex] = local;
+});
 
 // blockType -> renderer function name.
 const mapSrc = src.slice(src.indexOf('export const BLOCK_RENDERERS'), src.indexOf('export function renderBlock'));
@@ -59,11 +72,14 @@ function fieldsRead(fnName, seen = new Set()) {
   if (!fnName || seen.has(fnName) || !bodies[fnName]) return new Set();
   seen.add(fnName);
   const body = bodies[fnName];
+  const home = fileOf[fnName];
   const keys = new Set();
   for (const m of body.matchAll(/fields\??\.([A-Za-z_$][\w$]*)/g)) keys.add(m[1]);
   for (const m of body.matchAll(/\b([A-Za-z_$][\w$]*)\s*(?:\(|\))/g)) {
     const callee = m[1];
-    if (callee === fnName || !bodies[callee]) continue;
+    // Same file only: a helper is never called across module boundaries here,
+    // and a same-named token in another file is a coincidence, not a call.
+    if (callee === fnName || !byFile[home]?.[callee]) continue;
     for (const k of fieldsRead(callee, seen)) keys.add(k);
   }
   return keys;

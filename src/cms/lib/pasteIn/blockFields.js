@@ -82,6 +82,72 @@ export const BLOCK_FIELDS = {
     order: ['links'],
     links: { ...NAV_LINKS, label: 'Navigation links' },
   },
+
+  // --- Navigation bars ------------------------------------------------------
+  //
+  // All five share a brand mark, a link row and an optional call to action.
+  // The logo is `images[0]`; with none set the site name renders as a
+  // wordmark, so a bar is never empty while someone is still choosing one.
+  ...(() => {
+    const BRAND = {
+      headings: { label: 'Site name', max: 1, hint: 'Used as the wordmark when there’s no logo, and as the logo’s alt text.' },
+      images: { label: 'Logo', max: 1, hint: 'Optional. Falls back to the site name.' },
+      links: { ...NAV_LINKS, label: 'Navigation links' },
+    };
+    const BRAND_EXTRAS = {
+      logoHeight: { kind: 'number', label: 'Logo height (px)', min: 16, max: 72, placeholder: '32' },
+      ctaLabel: { kind: 'text', label: 'Button label', placeholder: 'Get in touch', hint: 'Leave empty for no button.' },
+      ctaHref: { kind: 'text', label: 'Button link', placeholder: '/contact' },
+      homeHref: { kind: 'text', label: 'Logo links to', placeholder: '/' },
+    };
+    const STICKY = {
+      sticky: { kind: 'boolean', label: 'Stick to the top when scrolling' },
+    };
+    return {
+      'nav-logo': {
+        order: ['headings', 'images', 'links', 'logoHeight', 'ctaLabel', 'ctaHref', 'sticky', 'homeHref'],
+        ...BRAND,
+        extras: { ...BRAND_EXTRAS, ...STICKY },
+      },
+      'nav-center': {
+        order: ['headings', 'images', 'links', 'logoHeight', 'sticky', 'homeHref'],
+        ...BRAND,
+        links: { ...NAV_LINKS, label: 'Navigation links', hint: 'Split either side of the logo — the first half left, the rest right.' },
+        extras: { ...BRAND_EXTRAS, ...STICKY },
+      },
+      'nav-utility': {
+        order: ['headings', 'images', 'links', 'text', 'items', 'logoHeight', 'ctaLabel', 'ctaHref', 'sticky', 'homeHref'],
+        ...BRAND,
+        text: { label: 'Top strip text', singular: 'line', max: 2, placeholder: 'Serving the Upstate since 2009' },
+        items: {
+          label: 'Top strip links', singular: 'link', max: 4,
+          use: ['heading', 'link'],
+          labels: { heading: 'Label', link: 'Link' },
+          placeholders: { heading: '(864) 380-9582', link: 'tel:8643809582' },
+        },
+        extras: { ...BRAND_EXTRAS, ...STICKY },
+      },
+      'nav-overlay': {
+        order: ['headings', 'images', 'links', 'logoHeight', 'ctaLabel', 'ctaHref', 'solidAfter', 'homeHref'],
+        ...BRAND,
+        images: {
+          label: 'Logo', max: 2,
+          hint: 'First is the normal logo. Add a second, light version and it’s used while the bar is transparent over the hero.',
+        },
+        extras: {
+          ...BRAND_EXTRAS,
+          solidAfter: {
+            kind: 'number', label: 'Turn solid after (px scrolled)', min: 0, max: 2000, placeholder: '80',
+          },
+        },
+      },
+      'nav-drawer': {
+        order: ['headings', 'images', 'links', 'logoHeight', 'ctaLabel', 'ctaHref', 'sticky', 'homeHref'],
+        ...BRAND,
+        extras: { ...BRAND_EXTRAS, ...STICKY },
+      },
+    };
+  })(),
   footer: {
     order: ['text', 'links'],
     text: { label: 'Footer text', singular: 'line', placeholder: '© 2026 Your company' },

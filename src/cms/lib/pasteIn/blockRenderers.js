@@ -34,6 +34,9 @@ import {
   renderListingFacts, renderListingFeatures, renderMortgageCalc,
   renderPriceHistory, renderNearbySchools,
 } from './listingRenderers.js';
+import {
+  renderNavLogo, renderNavCenter, renderNavUtility, renderNavOverlay, renderNavDrawer,
+} from './navRenderers.js';
 
 const headingsHtml = (headings = [], startAt = 1) =>
   headings.map((h, i) => `<h${Math.min(startAt + i, 4)}>${esc(h)}</h${Math.min(startAt + i, 4)}>`).join('\n');
@@ -1718,6 +1721,11 @@ export function renderScrollProgress(fields) {
 export const BLOCK_RENDERERS = {
   header: renderHeader,
   navigation: renderNavigation,
+  'nav-logo': renderNavLogo,
+  'nav-center': renderNavCenter,
+  'nav-utility': renderNavUtility,
+  'nav-overlay': renderNavOverlay,
+  'nav-drawer': renderNavDrawer,
   footer: renderFooter,
   hero: renderHero,
   cta: renderCta,
