@@ -92,9 +92,11 @@ const PORTAL_FIELDS = {
   headings: ['Everything about your house, in one place.'],
   text: ['You close, the folder goes in a drawer, and three years later nobody remembers what colour the guest room was. I\'m building the fix.'],
   items: [
-    { heading: 'Every document, filed', link: 'Warranties', body: 'Appliance warranties, roof coverage, permits and manuals — searchable instead of shoved in a drawer.', meta: '#4E6E62' },
-    { heading: 'Room by room', link: 'Paint colours', body: 'The exact colour and finish in each room, so a touch-up takes five minutes instead of a trip to the store with a chipped-off flake.', meta: '#C08A2E' },
-    { heading: 'A calendar that nudges you', link: 'Maintenance', body: 'Filter changes, gutter clearing, HVAC service — seasonal reminders tuned to Upstate weather.', meta: '#12201F' },
+    // The swatch bars run brand red into the purple KW pairs it with in
+    // gradients, then land on slate — decorative, so they carry no text.
+    { heading: 'Every document, filed', link: 'Warranties', body: 'Appliance warranties, roof coverage, permits and manuals — searchable instead of shoved in a drawer.', meta: '#CE011F' },
+    { heading: 'Room by room', link: 'Paint colours', body: 'The exact colour and finish in each room, so a touch-up takes five minutes instead of a trip to the store with a chipped-off flake.', meta: '#64018F' },
+    { heading: 'A calendar that nudges you', link: 'Maintenance', body: 'Filter changes, gutter clearing, HVAC service — seasonal reminders tuned to Upstate weather.', meta: '#3A3D50' },
   ],
   buttonLabel: 'In development — my clients get first access',
 };
@@ -293,12 +295,18 @@ export const SITE_TEMPLATES = [
     id: 'realtor',
     name: 'Realtor / Agent',
     description: 'A local real-estate agent: a short qualifying form instead of a contact box, plus the pages that make an agent worth calling twice.',
-    // Paper-and-ink editorial palette. Brass is the accent because it reads as
-    // a considered choice against the deep green rather than a default blue,
-    // and it clears 4.5:1 on both the paper and slate backgrounds.
+    // Keller Williams' own palette, read off kw.com rather than eyeballed: a
+    // slate-neutral system (#1A1B24 / #3A3D50 / #F2F3F7) carrying one red,
+    // #CE011F, which is the brand mark. Links stay blue because KW keeps them
+    // blue -- red is reserved for actions, so making links red too would blur
+    // the one signal the palette is built around.
+    //
+    // The red is only legible on light ground (5.19:1 on the page, 5.76:1
+    // reversed out of white). On dark sections it goes to --accent-on-dark,
+    // which is the same fix KW ships as its own dim-red token.
     theme: {
-      primary: '#12201F', secondary: '#4E6E62', bg: '#EDEEE9', text: '#0B1211',
-      accent: '#C08A2E', link: '#4E6E62', muted: '#5C6A68',
+      primary: '#1A1B24', secondary: '#3A3D50', bg: '#F2F3F7', text: '#1A1B24',
+      accent: '#CE011F', link: '#1652C3', muted: '#535872',
       fontFamily: 'sourceserif', fontDisplay: 'grotesk', fontMono: 'plexmono',
       fontScale: 'comfortable',
     },

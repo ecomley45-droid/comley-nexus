@@ -211,6 +211,35 @@ test('on-accent text is chosen by contrast, not brightness', () => {
   assert.ok(contrastRatio(brass, '#C08A2E') > 4.5);
 });
 
+test('a dark accent is lightened for dark sections, a light one is left alone', () => {
+  const onDark = (t) => /--accent-on-dark: (\S+);/.exec(buildThemeStyleBlock(t))[1];
+
+  // The case that prompted this: KW red is legible on paper and not on slate.
+  const kw = { primary: '#1A1B24', bg: '#F2F3F7', accent: '#CE011F' };
+  assert.ok(contrastRatio('#CE011F', kw.primary) < 3, 'the raw accent really is unreadable there');
+  assert.ok(contrastRatio(onDark(kw), kw.primary) >= 4.5, 'the derived one has to clear small-text contrast');
+
+  // It measures against the theme's own dark surface, not a fixed near-black —
+  // a value can clear 4.5 on #111 and still fail on #1A1B24.
+  for (const primary of ['#1A1B24', '#12201F', '#0B1533', '#262836']) {
+    const v = onDark({ primary, bg: '#ffffff', accent: '#CE011F' });
+    assert.ok(contrastRatio(v, primary) >= 4.5, `${primary} got ${v}`);
+  }
+
+  // An accent that already reads on dark is returned untouched, so themes
+  // that predate this variable render exactly as they did.
+  assert.equal(onDark({ primary: '#12201F', bg: '#EDEEE9', accent: '#C08A2E' }), '#c08a2e');
+
+  // A light primary is not a dark surface, so it falls back to near-black.
+  assert.ok(contrastRatio(onDark({ primary: '#F2F3F7', bg: '#fff', accent: '#CE011F' }), '#111111') >= 4.5);
+});
+
+test('the video hero takes its kicker from the dark-safe accent', () => {
+  const html = renderBlock('hero-video', { eyebrow: 'Greenville', headings: ['X'] });
+  assert.ok(html.includes('color:var(--accent-on-dark, var(--color-accent))'),
+    'the hero is always dark, so the raw accent is the wrong variable there');
+});
+
 test('a theme with web fonts asks for them once, device fonts ask for nothing', () => {
   const href = webfontHref({ fontFamily: 'sourceserif', fontDisplay: 'grotesk', fontMono: 'plexmono' });
   assert.equal(href.split('family=').length - 1, 3, 'one request covering all three roles');
@@ -294,6 +323,21 @@ test('the realtor template installs with every link resolving to a real page', (
 
   assert.deepEqual(pages.map((p) => p.slug), ['index', 'start', 'black-book', 'portal', 'about', 'notes']);
   assert.equal(theme.fontDisplay, 'grotesk', 'font roles must survive payload validation');
+
+  // The Keller Williams palette, read off kw.com. Every text pair the theme
+  // itself controls has to clear 4.5:1 — the red is the one that needs
+  // watching, since it only works on light ground.
+  assert.equal(theme.accent, '#CE011F');
+  for (const [name, fg, bg] of [
+    ['text on page', theme.text, theme.bg],
+    ['muted on page', theme.muted, theme.bg],
+    ['link on page', theme.link, theme.bg],
+    ['accent on page', theme.accent, theme.bg],
+    ['white on primary', '#ffffff', theme.primary],
+    ['white on accent', '#ffffff', theme.accent],
+  ]) {
+    assert.ok(contrastRatio(fg, bg) >= 4.5, `${name}: ${fg} on ${bg} is ${contrastRatio(fg, bg).toFixed(2)}`);
+  }
 
   const known = new Set(pages.map((p) => (p.slug === 'index' ? '/' : `/${p.slug}`)));
   const broken = [];

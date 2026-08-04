@@ -87,6 +87,44 @@ const contrast = (a, b) => {
   return (hi + 0.05) / (lo + 0.05);
 };
 
+const toHex = ({ r, g, b }) => `#${[r, g, b].map((c) => Math.round(c).toString(16).padStart(2, '0')).join('')}`;
+const mix = (a, b, amt) => ({
+  r: a.r + (b.r - a.r) * amt, g: a.g + (b.g - a.g) * amt, b: a.b + (b.b - a.b) * amt,
+});
+
+// The accent, lightened just enough to be legible on a dark surface.
+//
+// Blocks that are always dark regardless of theme -- the video hero is the
+// one that matters -- were printing their kicker in the raw accent. That is
+// fine for a light accent and unreadable for a dark one: Keller Williams red
+// (#CE011F) lands at 2.98:1 on near-black, under even the 3:1 large-text
+// floor. Brands solve this with a second, lighter tint for dark backgrounds
+// (KW ships #FC8085 for exactly this), so the theme derives one instead of
+// making every author notice and hand-pick it.
+//
+// Mixing toward white rather than raising HSL lightness keeps the hue where
+// it started. The 70% ceiling stops a very dark accent from washing out to
+// near-white and losing the brand entirely -- past that point it returns the
+// best it managed, which still beats the raw accent.
+//
+// The target it has to clear is the theme's own dark surface, not a fixed
+// near-black. Measuring against #111 is too easy a test: it let KW red
+// through at a mix that scored 4.78 on black but only 4.33 on the #1A1B24
+// the sections are actually painted, which is a fail at kicker size. Any
+// surface darker than the reference clears by more, so this is the strict
+// end of the range.
+const NEAR_BLACK = { r: 17, g: 17, b: 17 };
+function accentOnDark(accent, primary) {
+  const reference = primary && luminance(primary) <= 0.5 ? primary : NEAR_BLACK;
+  const white = { r: 255, g: 255, b: 255 };
+  if (contrast(accent, reference) >= 4.5) return toHex(accent);
+  for (let amt = 0.05; amt <= 0.7; amt += 0.05) {
+    const candidate = mix(accent, white, amt);
+    if (contrast(candidate, reference) >= 4.5) return toHex(candidate);
+  }
+  return toHex(mix(accent, white, 0.7));
+}
+
 // Is this theme's background light? Used by the theme wizard to filter
 // presets and label the light/dark toggle. Defaults to dark for an
 // unparseable/missing bg (the platform default).
@@ -120,6 +158,7 @@ function deriveSurfaceVars(t) {
       ? '#111111' : '#ffffff',
     // A soft tint of the accent, for banners/pills -- adapts to the theme.
     accentSoft: `rgba(${accent.r},${accent.g},${accent.b},0.12)`,
+    accentOnDark: accentOnDark(accent, hexToRgb(t.primary)),
   };
 }
 
@@ -154,6 +193,7 @@ export function buildThemeStyleBlock(theme = {}) {
   --border: ${s.border};
   --on-accent: ${s.onAccent};
   --accent-soft: ${s.accentSoft};
+  --accent-on-dark: ${s.accentOnDark};
   --font-body: ${bodyStack};
   --font-display: ${displayStack};
   --font-mono: ${monoStack};

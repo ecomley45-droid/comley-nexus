@@ -1600,14 +1600,14 @@ export function renderHeroVideo(fields) {
 .hv-grain { position:absolute; inset:0; z-index:1; opacity:.35; pointer-events:none;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E"); }
 .hv-wrap { position:relative; z-index:2; max-width:1240px; margin:0 auto; padding:0 24px; width:100%; }
-.hv-eyebrow { font-family:var(--font-mono, monospace); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--color-accent); display:block; margin-bottom:18px; }
+.hv-eyebrow { font-family:var(--font-mono, monospace); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent-on-dark, var(--color-accent)); display:block; margin-bottom:18px; }
 .hv h1 { font-family:var(--font-display); font-size:clamp(38px,9vw,74px); letter-spacing:-.025em; line-height:1.05; margin:0; text-wrap:balance; }
 .hv-sub { font-size:17px; margin-top:20px; max-width:36ch; color:rgba(255,255,255,.82); }
 .hv-cta { display:flex; flex-wrap:wrap; gap:10px; margin-top:28px; }
 .hv-cta a { font-family:var(--font-display); font-size:16px; font-weight:600; padding:15px 22px; border-radius:3px; text-decoration:none; background:var(--color-accent); color:var(--on-accent,#fff); }
 .hv-cta a + a { background:transparent; color:#fff; border:1px solid rgba(255,255,255,.28); }
 .hv-hint { display:none; align-items:center; gap:10px; margin-top:40px; color:rgba(255,255,255,.6); font-family:var(--font-mono, monospace); font-size:10px; letter-spacing:.16em; text-transform:uppercase; }
-.hv-hint i { width:34px; height:1px; background:var(--color-accent); display:block; }
+.hv-hint i { width:34px; height:1px; background:var(--accent-on-dark, var(--color-accent)); display:block; }
 @media (min-width:1040px){ .hv{ justify-content:center; padding:150px 0 90px } .hv-sub{ font-size:19px } .hv-hint{ display:flex } }
 @media (prefers-reduced-motion:reduce){ .hv-fallback{ animation:none } }
 </style>
