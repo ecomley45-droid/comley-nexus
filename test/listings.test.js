@@ -207,12 +207,68 @@ test('detail blocks are re-rendered from the entry, not string-substituted', () 
   assert.equal(out[3].html, '<p>At 12 Oak Street</p>');
 });
 
-test('the features block disappears when a listing has none tagged', () => {
-  assert.equal(renderBlock('listing-features', { listing: { features: [] } }), '');
+test('the features block disappears on a listing with none tagged', () => {
+  assert.equal(renderBlock('listing-features', { listing: { slug: 'x', features: [] } }), '');
   const out = applyEntryToSections(
     [{ id: 'c', blockType: 'listing-features', fields: {}, html: '<i>stale</i>' }], ASH, collection,
   );
   assert.equal(out[0].html, '', 'better an absent section than an empty heading');
+});
+
+test('but in the editor it explains itself rather than vanishing', () => {
+  // Unbound (no listing at all) is the editor/template case. Dropping a block
+  // and seeing nothing at all reads as broken, so these three say what they
+  // are waiting for — and the template audit enforces that they render.
+  for (const type of ['listing-features', 'price-history', 'nearby-schools']) {
+    for (const fields of [{}, { listing: {} }]) {
+      const html = renderBlock(type, fields);
+      assert.ok(html && html.includes('once this page is showing a listing'),
+        `${type} vanished in the editor`);
+    }
+    // Bound but empty still collapses.
+    assert.equal(renderBlock(type, { listing: { slug: 'x', features: [], priceHistory: [], schools: [] } }), '');
+  }
+});
+
+// ------------------------------------------------- payment, history, schools
+
+test('price history and schools parse from pipe-delimited lines', () => {
+  const e = entry('h', {
+    address: 'H', price: 1,
+    price_history: '2026-06-02 | Listed | 385000\n2026-07-14 | Price reduced | 372000\n   \nbroken',
+    schools: 'Greenville High | 7 | 1.2 mi | 9-12\nOakview Elementary | 9 | 0.4 mi | K-5',
+  });
+  const l = toListing(e, collection);
+  assert.deepEqual(l.priceHistory, [
+    { date: '2026-06-02', event: 'Listed', price: 385000 },
+    { date: '2026-07-14', event: 'Price reduced', price: 372000 },
+  ], 'blank and single-column lines are skipped, not rendered as junk rows');
+  assert.deepEqual(l.schools[0], { name: 'Greenville High', rating: 7, distance: '1.2 mi', grades: '9-12' });
+
+  const ph = renderBlock('price-history', { listing: l });
+  assert.ok(ph.includes('$385,000') && ph.includes('Price reduced'));
+  const ns = renderBlock('nearby-schools', { listing: l });
+  assert.ok(ns.includes('Greenville High') && ns.includes('Grades 9-12') && ns.includes('0.4 mi'));
+});
+
+test('the payment calculator prefills from the listing and never posts anywhere', () => {
+  const l = toListing(entry('m', { address: 'M', price: 400000, hoa_fee: 50, tax_year: 3200 }), collection);
+  const html = renderBlock('mortgage-calculator', { listing: l });
+  assert.ok(html.includes('value="400000"'), 'the home price seeds the calculator');
+  assert.ok(html.includes('value="3200"'), 'a real tax figure beats the 1.1% guess');
+  assert.ok(html.includes('value="50"'), 'HOA carries over');
+  assert.ok(!/<form|action=|name="/.test(html), 'it collects nothing, so it submits nothing');
+  assert.ok(/estimate/i.test(html), 'quoting someone else’s mortgage as fact would be a lie');
+
+  // Off a listing page it still works, from the authored default.
+  const bare = renderBlock('mortgage-calculator', { defaultPrice: 250000 });
+  assert.ok(bare.includes('value="250000"'));
+});
+
+test('the amortisation handles a 0% loan without printing NaN', () => {
+  // The standard formula divides by (1+r)^n - 1, which is zero at r=0.
+  const html = renderBlock('mortgage-calculator', {});
+  assert.ok(html.includes('r === 0 ? loan/n'), 'the zero-rate branch has to exist');
 });
 
 test('the photo grid adapts to how many photos there are', () => {

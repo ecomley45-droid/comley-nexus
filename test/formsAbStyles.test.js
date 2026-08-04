@@ -321,7 +321,8 @@ test('the realtor template installs with every link resolving to a real page', (
   assert.ok(row, 'template should be in the seeded marketplace');
   const { pages, theme } = materializeInstall(row.payload, { stamp: 1 });
 
-  assert.deepEqual(pages.map((p) => p.slug), ['index', 'start', 'black-book', 'portal', 'about', 'notes']);
+  assert.deepEqual(pages.map((p) => p.slug),
+    ['index', 'homes', 'listing', 'start', 'black-book', 'portal', 'about', 'notes']);
   assert.equal(theme.fontDisplay, 'grotesk', 'font roles must survive payload validation');
 
   // The Keller Williams palette, read off kw.com. Every text pair the theme

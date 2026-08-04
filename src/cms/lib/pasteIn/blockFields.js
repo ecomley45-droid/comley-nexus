@@ -663,6 +663,29 @@ export const BLOCK_FIELDS = {
     order: ['headings'],
     headings: { label: 'Heading', max: 1 },
   },
+  'mortgage-calculator': {
+    order: ['headings', 'text', 'defaultPrice', 'downPercent', 'ratePercent', 'termYears'],
+    headings: { label: 'Heading', max: 1 },
+    text: { ...BODY_TEXT, max: 1, label: 'Disclaimer' },
+    extras: {
+      defaultPrice: {
+        kind: 'number', label: 'Price when not on a listing', min: 0, placeholder: '350000',
+        hint: 'On a listing page the home’s own price is used instead.',
+      },
+      downPercent: { kind: 'number', label: 'Starting down payment (%)', min: 0, max: 100, placeholder: '20' },
+      ratePercent: { kind: 'number', label: 'Starting interest rate (%)', min: 0, max: 30, placeholder: '6.5' },
+      termYears: { kind: 'number', label: 'Starting term (years)', min: 1, max: 50, placeholder: '30' },
+    },
+  },
+  'price-history': {
+    order: ['headings'],
+    headings: { label: 'Heading', max: 1 },
+  },
+  'nearby-schools': {
+    order: ['headings', 'text'],
+    headings: { label: 'Heading', max: 1 },
+    text: { ...BODY_TEXT, max: 1, label: 'Note' },
+  },
 
   'events-list': {
     order: ['headings', 'text', 'items'],

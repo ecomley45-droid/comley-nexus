@@ -31,7 +31,8 @@ const EAGER = 'decoding="async" fetchpriority="high"';
 import { FORM_FIELD_TYPES, formFieldsFor } from '../../../shared/formFields.js';
 import {
   renderListingCards, renderListingSearch, renderListingHero,
-  renderListingFacts, renderListingFeatures,
+  renderListingFacts, renderListingFeatures, renderMortgageCalc,
+  renderPriceHistory, renderNearbySchools,
 } from './listingRenderers.js';
 
 const headingsHtml = (headings = [], startAt = 1) =>
@@ -1758,6 +1759,9 @@ export const BLOCK_RENDERERS = {
   'listing-hero': renderListingHero,
   'listing-facts': renderListingFacts,
   'listing-features': renderListingFeatures,
+  'mortgage-calculator': renderMortgageCalc,
+  'price-history': renderPriceHistory,
+  'nearby-schools': renderNearbySchools,
   script: renderScript,
   layout: renderLayout,
   // Polished block set

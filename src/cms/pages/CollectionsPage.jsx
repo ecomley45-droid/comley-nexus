@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Database, Home, Plus, Trash2 } from 'lucide-react';
 import { LISTING_PRESET } from '../../shared/listingsMap.js';
-import { getCollections, createCollection, deleteCollection } from '../lib/api.js';
+import {
+  getCollections, createCollection, deleteCollection, getPages, updateCollection,
+} from '../lib/api.js';
 import { GlassPanel, GlassButton, GlassInput, Badge } from '../lib/ui/Glass.jsx';
 import EmptyState from '../lib/ui/EmptyState.jsx';
 import { useConfirm } from '../lib/ui/useConfirm.jsx';
@@ -48,7 +50,18 @@ export default function CollectionsPage() {
   const createListings = async () => {
     setBusy(true);
     try {
-      await createCollection(LISTING_PRESET);
+      const { collection } = await createCollection(LISTING_PRESET);
+      // Detail pages are on, but they need a template page to render through.
+      // The Realtor template ships one; find it by the block it must contain
+      // rather than by name or slug, which an author is free to change. Without
+      // this the collection is created with detail URLs that 404 until someone
+      // works out they have to go and pick a page.
+      try {
+        const { pages } = await getPages();
+        const tpl = (pages || []).find((p) =>
+          (p.content || []).some((s) => s.blockType === 'listing-hero'));
+        if (tpl && collection?.id) await updateCollection(collection.id, { detailPageId: tpl.id });
+      } catch { /* the collection is made; linking is a convenience, not a step */ }
       await load();
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   };

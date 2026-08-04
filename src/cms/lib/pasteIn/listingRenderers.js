@@ -45,6 +45,18 @@ const CARD_CSS = `
 .lst-empty { padding:40px 20px; text-align:center; color:var(--color-muted); border:1px dashed var(--border); border-radius:12px; }
 `;
 
+// Is this block actually bound to a listing, or is it sitting in the editor
+// waiting to be? The three blocks that collapse when they have nothing to
+// show have to tell those apart: an empty section is right on a live listing
+// with no features tagged, and wrong in the editor, where dropping a block
+// and seeing nothing at all reads as broken.
+const boundToListing = (l) => Boolean(l && (l.slug || l.address));
+
+const placeholder = (what) =>
+  `<style>.lst-ph { max-width:1240px; margin:0 auto; padding:28px 24px; }
+.lst-ph div { padding:28px 20px; text-align:center; color:var(--color-muted); font-size:13.5px; border:1px dashed var(--border); border-radius:12px; }
+</style><div class="lst-ph"><div>${esc(what)} appears here once this page is showing a listing.</div></div>`;
+
 const statBits = (l) => [
   l.beds !== null ? `<span><b>${esc(num(l.beds))}</b> bd</span>` : '',
   l.baths !== null ? `<span><b>${esc(num(l.baths))}</b> ba</span>` : '',
@@ -482,12 +494,178 @@ export function renderListingFacts(fields) {
 </div>`;
 }
 
+// An estimated monthly payment, recalculated live.
+//
+// Prefilled from the listing (price, HOA, the tax figure if one is entered)
+// and then entirely the visitor's to play with — the numbers never post
+// anywhere, so this collects no financial data and needs no consent.
+//
+// It is an estimate and says so. Quoting a precise figure for someone else's
+// mortgage without knowing their credit, insurer or escrow terms would be
+// stating something we cannot know.
+export function renderMortgageCalc(fields) {
+  const l = fields.listing || {};
+  const price = l.price !== null && l.price !== undefined ? l.price : Number(fields.defaultPrice) || 350000;
+  const down = Number(fields.downPercent) || 20;
+  const rate = Number(fields.ratePercent) || 6.5;
+  const years = Number(fields.termYears) || 30;
+  // A rough national default when the listing carries no tax figure — 1.1%
+  // of value a year. Labelled as an estimate, and the field is editable.
+  const tax = l.annualTax !== null && l.annualTax !== undefined ? l.annualTax : Math.round(price * 0.011);
+  const hoa = l.hoaFee !== null && l.hoaFee !== undefined ? l.hoaFee : 0;
+  const ins = Math.round(price * 0.0035);
+
+  const row = (key, label, value, step) => `
+    <label class="mc-row"><span>${esc(label)}</span>
+      <input type="number" data-mc="${key}" value="${esc(value)}" step="${esc(step || 1)}" min="0" inputmode="decimal" />
+    </label>`;
+
+  return `<style>
+.mc { max-width:1240px; margin:0 auto; padding:32px 24px; }
+.mc h2 { font-family:var(--font-display); font-size:var(--text-h3); margin:0 0 6px; }
+.mc-note { color:var(--color-muted); font-size:13px; margin:0 0 20px; max-width:60ch; }
+.mc-grid { display:grid; gap:28px; grid-template-columns:1fr; align-items:start; }
+@media (min-width:820px){ .mc-grid { grid-template-columns:1fr 300px; } }
+.mc-row { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:9px 0; border-bottom:1px solid var(--border); }
+.mc-row span { font-size:14px; }
+.mc-row input { width:130px; padding:8px 10px; border:1px solid var(--border); border-radius:6px; background:var(--color-bg); color:var(--color-text); font:inherit; font-size:14px; text-align:right; }
+.mc-out { border:1px solid var(--border); border-radius:12px; padding:20px; background:var(--surface); text-align:center; }
+.mc-total { font-family:var(--font-display); font-size:34px; font-weight:700; letter-spacing:-.02em; margin:8px 0 2px; }
+.mc-sub { font-size:12px; color:var(--color-muted); text-transform:uppercase; letter-spacing:.07em; }
+.mc-ring { display:block; margin:14px auto 10px; }
+.mc-key { display:flex; flex-direction:column; gap:7px; margin-top:14px; text-align:left; }
+.mc-key div { display:flex; align-items:center; gap:8px; font-size:13px; }
+.mc-key i { width:10px; height:10px; border-radius:2px; display:block; flex:none; }
+.mc-key b { margin-left:auto; font-weight:600; }
+</style>
+<div class="mc" data-mortgage>
+  <h2>${esc(fields.headings?.[0] || 'Estimated monthly payment')}</h2>
+  <p class="mc-note">${esc(fields.text?.[0] || 'An estimate only — your real payment depends on your rate, credit, insurer and escrow. Nothing here is sent anywhere.')}</p>
+  <div class="mc-grid">
+    <div>
+      ${row('price', 'Home price', price)}
+      ${row('down', 'Down payment (%)', down, '0.5')}
+      ${row('rate', 'Interest rate (%)', rate, '0.05')}
+      ${row('years', 'Loan term (years)', years)}
+      ${row('tax', 'Property tax (per year)', tax)}
+      ${row('ins', 'Home insurance (per year)', ins)}
+      ${row('hoa', 'HOA (per month)', hoa)}
+    </div>
+    <div class="mc-out">
+      <div class="mc-sub">Estimated total</div>
+      <div class="mc-total" data-mc-total>—</div>
+      <div class="mc-sub">per month</div>
+      <svg class="mc-ring" width="150" height="150" viewBox="0 0 42 42" role="img" aria-label="Payment breakdown">
+        <circle cx="21" cy="21" r="15.915" fill="none" stroke="var(--border)" stroke-width="5"></circle>
+        <circle data-mc-arc="principal" cx="21" cy="21" r="15.915" fill="none" stroke="var(--color-accent)" stroke-width="5" stroke-dasharray="0 100" transform="rotate(-90 21 21)"></circle>
+        <circle data-mc-arc="tax" cx="21" cy="21" r="15.915" fill="none" stroke="var(--color-secondary)" stroke-width="5" stroke-dasharray="0 100" transform="rotate(-90 21 21)"></circle>
+        <circle data-mc-arc="ins" cx="21" cy="21" r="15.915" fill="none" stroke="var(--color-muted)" stroke-width="5" stroke-dasharray="0 100" transform="rotate(-90 21 21)"></circle>
+        <circle data-mc-arc="hoa" cx="21" cy="21" r="15.915" fill="none" stroke="var(--color-primary)" stroke-width="5" stroke-dasharray="0 100" transform="rotate(-90 21 21)"></circle>
+      </svg>
+      <div class="mc-key">
+        <div><i style="background:var(--color-accent)"></i>Principal &amp; interest<b data-mc-key="principal">—</b></div>
+        <div><i style="background:var(--color-secondary)"></i>Property tax<b data-mc-key="tax">—</b></div>
+        <div><i style="background:var(--color-muted)"></i>Insurance<b data-mc-key="ins">—</b></div>
+        <div><i style="background:var(--color-primary)"></i>HOA<b data-mc-key="hoa">—</b></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var root = document.currentScript.previousElementSibling;
+  if(!root) return;
+  var get = function(k){
+    var el = root.querySelector('[data-mc="'+k+'"]');
+    var n = el ? Number(el.value) : 0;
+    return isFinite(n) && n >= 0 ? n : 0;
+  };
+  var money = function(n){ return '$' + Math.round(n).toLocaleString('en-US'); };
+  function calc(){
+    var price = get('price'), down = Math.min(100, get('down')), years = get('years') || 30;
+    var loan = price * (1 - down/100);
+    var r = get('rate')/100/12, n = years*12;
+    // A 0% loan is a straight division; the amortisation formula divides by
+    // zero there and would print NaN into the page.
+    var pi = loan <= 0 ? 0 : (r === 0 ? loan/n : loan * r * Math.pow(1+r,n) / (Math.pow(1+r,n) - 1));
+    var parts = { principal: pi, tax: get('tax')/12, ins: get('ins')/12, hoa: get('hoa') };
+    var total = parts.principal + parts.tax + parts.ins + parts.hoa;
+    root.querySelector('[data-mc-total]').textContent = money(total);
+    var offset = 0;
+    ['principal','tax','ins','hoa'].forEach(function(k){
+      var pct = total > 0 ? parts[k]/total*100 : 0;
+      var arc = root.querySelector('[data-mc-arc="'+k+'"]');
+      arc.setAttribute('stroke-dasharray', pct.toFixed(2)+' '+(100-pct).toFixed(2));
+      arc.setAttribute('stroke-dashoffset', (-offset).toFixed(2));
+      offset += pct;
+      root.querySelector('[data-mc-key="'+k+'"]').textContent = money(parts[k]);
+    });
+  }
+  root.addEventListener('input', calc);
+  calc();
+})();
+</script>`;
+}
+
+// What the price has done since it was listed. Reads the listing's own
+// history, so it is per-property rather than something authored on the page.
+export function renderPriceHistory(fields) {
+  const rows = fields.listing?.priceHistory || [];
+  if (rows.length === 0) return boundToListing(fields.listing) ? '' : placeholder('Price history');
+  return `<style>
+.ph { max-width:1240px; margin:0 auto; padding:32px 24px; }
+.ph h2 { font-family:var(--font-display); font-size:var(--text-h3); margin:0 0 14px; }
+.ph table { width:100%; border-collapse:collapse; max-width:680px; }
+.ph th, .ph td { text-align:left; padding:11px 12px 11px 0; border-bottom:1px solid var(--border); font-size:14.5px; }
+.ph thead th { font-family:var(--font-mono,monospace); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--color-muted); }
+.ph td:last-child { text-align:right; padding-right:0; font-weight:600; }
+</style>
+<div class="ph">
+  <h2>${esc(fields.headings?.[0] || 'Price history')}</h2>
+  <table>
+    <thead><tr><th>Date</th><th>Event</th><th>Price</th></tr></thead>
+    <tbody>
+      ${rows.map((r) => `<tr><td>${esc(r.date)}</td><td>${esc(r.event)}</td><td>${r.price === null ? '—' : esc('$' + num(r.price))}</td></tr>`).join('')}
+    </tbody>
+  </table>
+</div>`;
+}
+
+// Nearby schools. The rating bar is drawn from the number rather than an
+// image, so it costs nothing and inherits the theme.
+export function renderNearbySchools(fields) {
+  const rows = fields.listing?.schools || [];
+  if (rows.length === 0) return boundToListing(fields.listing) ? '' : placeholder('Nearby schools');
+  return `<style>
+.ns { max-width:1240px; margin:0 auto; padding:32px 24px; }
+.ns h2 { font-family:var(--font-display); font-size:var(--text-h3); margin:0 0 6px; }
+.ns-note { color:var(--color-muted); font-size:13px; margin:0 0 16px; max-width:60ch; }
+.ns-row { display:flex; align-items:center; gap:14px; padding:13px 0; border-bottom:1px solid var(--border); max-width:680px; }
+.ns-score { width:38px; height:38px; flex:none; border-radius:8px; display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-weight:700; font-size:15px; background:var(--accent-soft); color:var(--color-text); }
+.ns-name { font-weight:600; font-size:15px; }
+.ns-meta { font-size:13px; color:var(--color-muted); }
+.ns-dist { margin-left:auto; font-size:13px; color:var(--color-muted); white-space:nowrap; }
+</style>
+<div class="ns">
+  <h2>${esc(fields.headings?.[0] || 'Nearby schools')}</h2>
+  <p class="ns-note">${esc(fields.text?.[0] || 'Ratings and distances are a starting point — check current attendance zones with the district before you rely on them.')}</p>
+  ${rows.map((s) => `<div class="ns-row">
+    ${s.rating === null ? '' : `<div class="ns-score">${esc(s.rating)}</div>`}
+    <div>
+      <div class="ns-name">${esc(s.name)}</div>
+      ${s.grades ? `<div class="ns-meta">Grades ${esc(s.grades)}</div>` : ''}
+    </div>
+    ${s.distance ? `<div class="ns-dist">${esc(s.distance)}</div>` : ''}
+  </div>`).join('')}
+</div>`;
+}
+
 // The amenity list, grouped the same way the filter panel groups it so the
 // two read as the same vocabulary rather than two unrelated lists.
 export function renderListingFeatures(fields) {
   const l = fields.listing || {};
   const mine = new Set(l.features || []);
-  if (mine.size === 0) return '';
+  if (mine.size === 0) return boundToListing(l) ? '' : placeholder('Features');
   const groups = FEATURE_GROUPS
     .map((g) => ({ label: g.label, options: g.options.filter((o) => mine.has(o)) }))
     .filter((g) => g.options.length > 0);

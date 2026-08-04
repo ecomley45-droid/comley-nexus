@@ -18,7 +18,10 @@ import { renderBlock } from '../cms/lib/pasteIn/blockRenderers.js';
 // Listing blocks bound to a whole collection (a search page, a featured row).
 export const LISTING_COLLECTION_BLOCKS = new Set(['listing-cards', 'listing-search']);
 // Listing blocks that render one entry, on a collection detail page.
-export const LISTING_ENTRY_BLOCKS = new Set(['listing-hero', 'listing-facts', 'listing-features']);
+export const LISTING_ENTRY_BLOCKS = new Set([
+  'listing-hero', 'listing-facts', 'listing-features',
+  'mortgage-calculator', 'price-history', 'nearby-schools',
+]);
 
 // Layout key -> the block type that actually renders it.
 export const COLLECTION_LAYOUTS = {

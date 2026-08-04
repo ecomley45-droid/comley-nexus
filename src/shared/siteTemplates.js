@@ -43,7 +43,7 @@ const CONTACT_PAGE = (name, intro) => ({
 // Shared pieces for the Realtor template. The nav and footer repeat on every
 // page, so they're defined once — every nav item and every call to action
 // below points at a page that exists in this template.
-const AGENT_NAV = [{ href: '/', label: 'Home' }, { href: '/start', label: 'Start my search' }, { href: '/black-book', label: 'The Black Book' }, { href: '/portal', label: 'After closing' }, { href: '/about', label: 'About' }, { href: '/notes', label: 'Upstate notes' }];
+const AGENT_NAV = [{ href: '/', label: 'Home' }, { href: '/homes', label: 'Homes for sale' }, { href: '/start', label: 'Start my search' }, { href: '/black-book', label: 'The Black Book' }, { href: '/portal', label: 'After closing' }, { href: '/about', label: 'About' }, { href: '/notes', label: 'Upstate notes' }];
 
 const AGENT_HEADER = {
   name: 'Header', blockType: 'header',
@@ -346,6 +346,52 @@ export const SITE_TEMPLATES = [
             headings: ['Ask me anything about the area.'],
             text: ['Not ready to start a search? Follow along, or just send me a question — my inbox is open either way.'],
             links: [{ href: '/start', label: 'Start my search' }, { href: 'mailto:ethanscott21@kw.com', label: 'Email me' }],
+          } },
+          AGENT_FOOTER,
+          FURNITURE_STICKY,
+        ],
+      },
+      {
+        // The listings pages ship unbound: the blocks carry no collectionSlug
+        // until someone creates a listings collection and picks it, at which
+        // point every one of them fills itself. Shipping them empty is the
+        // point -- an agent who never adds listings still gets a coherent
+        // site, and one who does has the pages already built.
+        name: 'Homes for sale', slug: 'homes',
+        sections: [
+          AGENT_HEADER,
+          { name: 'Listing search', blockType: 'listing-search', fields: {
+            placeholder: 'Search by address, city, or MLS #',
+            showMap: true,
+            emptyText: 'No listings loaded yet. Create a Property listings collection under Content, then point this block at it.',
+          } },
+          AGENT_FOOTER,
+          FURNITURE_STICKY,
+        ],
+      },
+      {
+        // The per-listing page. Every block here reads the entry being
+        // rendered, so this one page is every property's page.
+        name: 'Listing', slug: 'listing',
+        sections: [
+          AGENT_HEADER,
+          { name: 'Listing hero', blockType: 'listing-hero', fields: {} },
+          { name: 'Details', blockType: 'listing-facts', fields: { headings: ['Property details'] } },
+          { name: 'Features', blockType: 'listing-features', fields: { headings: ['Features'] } },
+          { name: 'Payment', blockType: 'mortgage-calculator', fields: {
+            headings: ['What this costs a month'],
+            text: ['An estimate to get you oriented — your real payment depends on your rate, credit, insurer and escrow. Nothing you type here is sent anywhere.'],
+            downPercent: 20, ratePercent: 6.5, termYears: 30,
+          } },
+          { name: 'Price history', blockType: 'price-history', fields: { headings: ['Price history'] } },
+          { name: 'Schools', blockType: 'nearby-schools', fields: {
+            headings: ['Nearby schools'],
+            text: ['A starting point only — confirm current attendance zones with Greenville County Schools before you count on them.'],
+          } },
+          { name: 'Ask about this one', blockType: 'cta-band', fields: {
+            headings: ['Want to see this one?'],
+            text: ['Tell me when you\'re free and I\'ll get you in — or send me the address of something else you\'ve spotted.'],
+            links: [{ href: '/start', label: 'Start my search' }, { href: 'tel:8643809582', label: 'Call or text' }],
           } },
           AGENT_FOOTER,
           FURNITURE_STICKY,

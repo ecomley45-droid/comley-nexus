@@ -102,6 +102,15 @@ export const LISTING_FIELDS = [
   { key: 'hoa_fee', label: 'HOA fee', type: 'number', help: 'Monthly, if any.' },
   { key: 'mls', label: 'MLS #', type: 'text' },
   { key: 'listed_on', label: 'Listed on', type: 'date' },
+  { key: 'tax_year', label: 'Annual property tax', type: 'number', help: 'Used to estimate the monthly payment.' },
+  {
+    key: 'price_history', label: 'Price history', type: 'textarea',
+    help: 'One event per line: 2026-06-02 | Listed | 385000',
+  },
+  {
+    key: 'schools', label: 'Nearby schools', type: 'textarea',
+    help: 'One per line: Greenville High | 7 | 1.2 mi | 9-12',
+  },
   { key: 'description', label: 'Description', type: 'richtext' },
 ];
 
@@ -162,6 +171,17 @@ export function toListing(entry, collection, mapping = {}) {
     ? `/${collection.detailBase}/${entry.slug}`
     : '';
 
+  // Pipe-delimited lines rather than nested jsonb: a price history and a
+  // school list are small, ordered, and edited as a block. A repeating-group
+  // editor for two fields nobody fills in more than five times is more
+  // machinery than the problem needs, and this pastes cleanly out of a sheet.
+  const lines = (raw, arity) => String(raw || '')
+    .split('\n').map((l) => l.trim()).filter(Boolean)
+    .map((l) => l.split('|').map((c) => c.trim()))
+    .filter((c) => c.length >= 2)
+    .map((c) => c.slice(0, arity))
+    .slice(0, 40);
+
   return {
     slug: entry?.slug || '',
     href,
@@ -181,6 +201,13 @@ export function toListing(entry, collection, mapping = {}) {
     hoaFee: num(at('hoa_fee')),
     mls: String(at('mls') || ''),
     listedOn: String(at('listed_on') || ''),
+    annualTax: num(at('tax_year')),
+    priceHistory: lines(at('price_history'), 3)
+      .map(([date, event, amount]) => ({ date, event, price: num(amount) })),
+    schools: lines(at('schools'), 4)
+      .map(([name, rating, distance, grades]) => ({
+        name, rating: num(rating), distance: distance || '', grades: grades || '',
+      })),
     lat: num(at('lat')),
     lng: num(at('lng')),
     image,
