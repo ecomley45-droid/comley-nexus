@@ -1570,6 +1570,146 @@ export function renderLeadForm(fields) {
 </script>`;
 }
 
+// A full-viewport hero with moving media behind it.
+//
+// Distinct from video-bg, which is a 460px centred band: this fills the
+// screen, bottom-aligns its copy on phones (where the top half is covered by
+// the browser chrome anyway) and centres it on desktop. When no video and no
+// poster are set it falls back to a slow animated gradient rather than a flat
+// colour, so the block is never a dead grey rectangle while someone is still
+// sourcing footage.
+//
+// The video only mounts when a source exists, the connection isn't metered
+// and the visitor hasn't asked for reduced motion — a 3MB autoplaying loop is
+// exactly what you don't want to push at someone on a train.
+export function renderHeroVideo(fields) {
+  const poster = fields.images?.[0];
+  const src = fields.videoUrl ? esc(fields.videoUrl) : '';
+  const links = fields.links || [];
+  return `<style>
+.hv { position:relative; min-height:100svh; display:flex; flex-direction:column; justify-content:flex-end; overflow:clip; padding:120px 0 56px; color:#fff; }
+.hv-bg { position:absolute; inset:0; z-index:0; }
+.hv-bg video, .hv-bg img, .hv-fallback { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.hv-fallback { background:
+    radial-gradient(120% 80% at 20% 15%, var(--color-secondary, #2C4640) 0%, transparent 60%),
+    radial-gradient(110% 70% at 85% 80%, var(--color-accent, #3A4F3B) 0%, transparent 55%),
+    linear-gradient(165deg, var(--color-primary, #16241F) 0%, #0D1614 55%, var(--color-primary, #1A2622) 100%);
+  animation: hv-drift 26s ease-in-out infinite alternate; }
+@keyframes hv-drift { from { transform:scale(1.06) } to { transform:scale(1.16) translate3d(-2%,-2%,0) } }
+.hv-scrim { position:absolute; inset:0; z-index:1; background:linear-gradient(180deg, rgba(11,18,17,.62) 0%, rgba(11,18,17,.28) 35%, rgba(11,18,17,.84) 100%); }
+.hv-grain { position:absolute; inset:0; z-index:1; opacity:.35; pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E"); }
+.hv-wrap { position:relative; z-index:2; max-width:1240px; margin:0 auto; padding:0 24px; width:100%; }
+.hv-eyebrow { font-family:var(--font-mono, monospace); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--color-accent); display:block; margin-bottom:18px; }
+.hv h1 { font-family:var(--font-display); font-size:clamp(38px,9vw,74px); letter-spacing:-.025em; line-height:1.05; margin:0; text-wrap:balance; }
+.hv-sub { font-size:17px; margin-top:20px; max-width:36ch; color:rgba(255,255,255,.82); }
+.hv-cta { display:flex; flex-wrap:wrap; gap:10px; margin-top:28px; }
+.hv-cta a { font-family:var(--font-display); font-size:16px; font-weight:600; padding:15px 22px; border-radius:3px; text-decoration:none; background:var(--color-accent); color:var(--on-accent,#fff); }
+.hv-cta a + a { background:transparent; color:#fff; border:1px solid rgba(255,255,255,.28); }
+.hv-hint { display:none; align-items:center; gap:10px; margin-top:40px; color:rgba(255,255,255,.6); font-family:var(--font-mono, monospace); font-size:10px; letter-spacing:.16em; text-transform:uppercase; }
+.hv-hint i { width:34px; height:1px; background:var(--color-accent); display:block; }
+@media (min-width:1040px){ .hv{ justify-content:center; padding:150px 0 90px } .hv-sub{ font-size:19px } .hv-hint{ display:flex } }
+@media (prefers-reduced-motion:reduce){ .hv-fallback{ animation:none } }
+</style>
+<div class="hv">
+  <div class="hv-bg" data-hero-bg${src ? ` data-src="${src}"` : ''}>
+    ${poster ? `<img ${EAGER} src="${esc(poster.src)}" alt="${esc(poster.alt || '')}" />` : '<div class="hv-fallback"></div>'}
+  </div>
+  <div class="hv-scrim"></div><div class="hv-grain"></div>
+  <div class="hv-wrap">
+    ${fields.eyebrow ? `<span class="hv-eyebrow">${esc(fields.eyebrow)}</span>` : ''}
+    <h1>${esc(fields.headings?.[0] || '')}</h1>
+    ${(fields.text || []).map((t) => `<p class="hv-sub">${esc(t)}</p>`).join('')}
+    ${links.length ? `<div class="hv-cta">${links.map((l) => `<a href="${esc(l.href || '#')}">${esc(l.label || 'Learn more')}</a>`).join('')}</div>` : ''}
+    ${fields.buttonLabel ? `<div class="hv-hint"><i></i>${esc(fields.buttonLabel)}</div>` : ''}
+  </div>
+</div>
+<script>
+(function(){
+  var bg = document.currentScript.previousElementSibling.querySelector('[data-hero-bg]');
+  var src = bg && bg.getAttribute('data-src');
+  if(!src) return;
+  var conn = navigator.connection || {};
+  if(conn.saveData || /2g/.test(conn.effectiveType || '')) return;
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var v = document.createElement('video');
+  v.autoplay = true; v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'none';
+  v.setAttribute('aria-hidden','true');
+  v.addEventListener('error', function(){ v.remove(); });
+  v.src = src;
+  bg.appendChild(v);
+  var p = v.play(); if(p && p.catch) p.catch(function(){});
+})();
+</script>`;
+}
+
+// A bar pinned to the bottom of the screen on phones, where the real call to
+// action is otherwise a scroll away. Hidden from 1040px up, because on
+// desktop the nav is always visible and a permanent bar is just lost space.
+//
+// It retracts while the section it points at is on screen — nobody needs a
+// "Start my search" button floating over the search form.
+export function renderStickyCta(fields) {
+  const links = fields.links || [];
+  if (links.length === 0) return '';
+  const primary = links[0];
+  const secondary = links[1];
+  return `<style>
+.sk { position:fixed; left:0; right:0; bottom:0; z-index:90; display:flex; gap:10px;
+  padding:12px 20px calc(12px + env(safe-area-inset-bottom));
+  background:color-mix(in srgb, var(--color-primary, #12201F) 92%, transparent);
+  backdrop-filter:blur(14px); border-top:1px solid rgba(255,255,255,.14);
+  transition:transform .35s ease; }
+.sk.sk-hide { transform:translateY(130%); }
+.sk a { font-family:var(--font-display); font-size:16px; font-weight:600; text-align:center;
+  padding:15px 20px; border-radius:3px; text-decoration:none; min-height:48px;
+  background:var(--color-accent); color:var(--on-accent,#fff); flex:1;
+  display:flex; align-items:center; justify-content:center; }
+.sk a + a { flex:none; background:transparent; color:#fff; border:1px solid rgba(255,255,255,.22); padding:15px 18px; }
+@media (min-width:1040px){ .sk{ display:none } }
+</style>
+<div class="sk" data-sticky${fields.buttonLabel ? ` data-until="${esc(fields.buttonLabel)}"` : ''}>
+  <a href="${esc(primary.href || '#')}">${esc(primary.label || 'Get started')}</a>
+  ${secondary ? `<a href="${esc(secondary.href || '#')}">${esc(secondary.label || 'Call')}</a>` : ''}
+</div>
+<script>
+(function(){
+  var bar = document.currentScript.previousElementSibling;
+  var sel = bar.getAttribute('data-until');
+  if(!sel) return;
+  var target;
+  try { target = document.querySelector(sel); } catch(e) { return; }
+  if(!target || !('IntersectionObserver' in window)) return;
+  new IntersectionObserver(function(entries){
+    bar.classList.toggle('sk-hide', entries[0].isIntersecting);
+  }, { threshold: 0.15 }).observe(target);
+})();
+</script>`;
+}
+
+// A hairline reading-progress bar across the top of the window. Purely
+// ambient, so it sits behind prefers-reduced-motion and adds nothing to the
+// accessibility tree.
+export function renderScrollProgress(fields) {
+  return `<style>
+.sp { position:fixed; top:0; left:0; height:${Math.min(8, Math.max(1, Number(fields.limit) || 2))}px; width:100%;
+  transform:scaleX(0); transform-origin:0 50%; background:var(--color-accent); z-index:120; pointer-events:none; }
+</style>
+<div class="sp" data-progress aria-hidden="true"></div>
+<script>
+(function(){
+  var bar = document.currentScript.previousElementSibling, ticking = false;
+  function frame(){
+    ticking = false;
+    var h = document.documentElement.scrollHeight - innerHeight;
+    bar.style.transform = 'scaleX(' + (h > 0 ? Math.min(1, scrollY / h) : 0) + ')';
+  }
+  addEventListener('scroll', function(){ if(!ticking){ ticking = true; requestAnimationFrame(frame); } }, { passive: true });
+  frame();
+})();
+</script>`;
+}
+
 export const BLOCK_RENDERERS = {
   header: renderHeader,
   navigation: renderNavigation,
@@ -1606,6 +1746,9 @@ export const BLOCK_RENDERERS = {
   'swatch-cards': renderSwatchCards,
   timeline: renderTimeline,
   'lead-form': renderLeadForm,
+  'hero-video': renderHeroVideo,
+  'sticky-cta': renderStickyCta,
+  'scroll-progress': renderScrollProgress,
   script: renderScript,
   layout: renderLayout,
   // Polished block set

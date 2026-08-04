@@ -67,6 +67,20 @@ const AGENT_FOOTER = {
   },
 };
 
+// Page furniture. The sticky bar is deliberately absent from /start — the
+// form is already the whole page there, so a floating "Start my search"
+// button would be pointing at itself.
+const FURNITURE_PROGRESS = {
+  name: 'Reading progress', blockType: 'scroll-progress', fields: { limit: 2 },
+};
+
+const FURNITURE_STICKY = {
+  name: 'Sticky CTA', blockType: 'sticky-cta',
+  fields: {
+    links: [{ href: '/start', label: 'Start my search' }, { href: 'tel:8643809582', label: 'Call' }],
+  },
+};
+
 const TRADES = [
   { heading: 'Plumbing' }, { heading: 'HVAC' }, { heading: 'Roofing' },
   { heading: 'Electrical' }, { heading: 'Foundation' }, { heading: 'Painting' },
@@ -293,11 +307,16 @@ export const SITE_TEMPLATES = [
       {
         name: 'Home', slug: 'index',
         sections: [
+          FURNITURE_PROGRESS,
           AGENT_HEADER,
-          { name: 'Hero', blockType: 'hero-split', fields: {
+          { name: 'Hero', blockType: 'hero-video', fields: {
+            eyebrow: 'Greenville · Greer · Travelers Rest',
             headings: ["I've been inside these houses since I was fifteen."],
             text: ['Renovations first, investing second, agent third. Tell me what you\'re actually looking for and I\'ll send the listings worth your Saturday — not every file that hits the MLS.'],
             links: [{ href: '/start', label: 'Start my search' }, { href: 'tel:8643809582', label: 'Call or text' }],
+            buttonLabel: 'Four questions, thirty seconds',
+            // Drop an .mp4 in here and it takes over from the gradient.
+            videoUrl: '',
           } },
           { name: 'Black Book teaser', blockType: 'numbered-index', fields: {
             eyebrow: 'The part that starts after closing',
@@ -321,6 +340,7 @@ export const SITE_TEMPLATES = [
             links: [{ href: '/start', label: 'Start my search' }, { href: 'mailto:ethanscott21@kw.com', label: 'Email me' }],
           } },
           AGENT_FOOTER,
+          FURNITURE_STICKY,
         ],
       },
       {
@@ -375,6 +395,7 @@ export const SITE_TEMPLATES = [
             links: [{ href: '/start', label: 'Start my search' }],
           } },
           AGENT_FOOTER,
+          FURNITURE_STICKY,
         ],
       },
       {
@@ -388,6 +409,7 @@ export const SITE_TEMPLATES = [
             links: [{ href: '/start', label: 'Start my search' }],
           } },
           AGENT_FOOTER,
+          FURNITURE_STICKY,
         ],
       },
       {
@@ -417,6 +439,7 @@ export const SITE_TEMPLATES = [
             links: [{ href: '/start', label: 'Start my search' }, { href: 'tel:8643809582', label: 'Call or text' }],
           } },
           AGENT_FOOTER,
+          FURNITURE_STICKY,
         ],
       },
       {
@@ -432,6 +455,7 @@ export const SITE_TEMPLATES = [
             links: [{ href: '/start', label: 'Start my search' }],
           } },
           AGENT_FOOTER,
+          FURNITURE_STICKY,
         ],
       },
     ],

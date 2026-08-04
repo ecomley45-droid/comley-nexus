@@ -219,6 +219,74 @@ test('a theme with web fonts asks for them once, device fonts ask for nothing', 
   assert.equal(webfontHref({}), '');
 });
 
+// ------------------------------------------------------------ page furniture
+
+test('the video hero fills the screen without a video, and never ships an empty one', () => {
+  const html = renderBlock('hero-video', {
+    eyebrow: 'Greenville',
+    headings: ['A headline worth the whole screen.'],
+    text: ['One line about what you do.'],
+    links: [{ href: '/start', label: 'Get started' }],
+  });
+  assert.ok(html.includes('min-height:100svh'), 'a hero that is not full height is just a banner');
+  assert.ok(html.includes('<div class="hv-fallback">'), 'no video and no poster still needs something to look at');
+  assert.ok(!/<video/.test(html), 'the video is mounted by script, so it costs nothing until it exists');
+  assert.ok(!html.includes('data-src="'), 'no video URL means no lazy-mount attribute either');
+});
+
+test('a hero video is skipped on metered connections and for reduced motion', () => {
+  const html = renderBlock('hero-video', { videoUrl: 'https://cdn.example/h.mp4', headings: ['X'] });
+  assert.ok(html.includes('data-src="https://cdn.example/h.mp4"'));
+  assert.ok(html.includes('conn.saveData'), 'a 6MB autoplay loop on a capped plan is a real cost to someone');
+  assert.ok(html.includes('prefers-reduced-motion'));
+  assert.ok(html.includes("v.muted = true"), 'an autoplaying hero with sound is never what was wanted');
+});
+
+test('a hero poster replaces the gradient and both are escaped', () => {
+  const html = renderBlock('hero-video', {
+    images: [{ src: '/a.jpg', alt: '"><script>x</script>' }],
+    headings: ['"><script>steal()</script>'],
+    eyebrow: '"><img onerror=y>',
+  });
+  assert.ok(html.includes('src="/a.jpg"'));
+  assert.ok(!html.includes('<div class="hv-fallback">'), 'a poster is the fallback');
+  assert.ok(!html.includes('<script>steal()'));
+  assert.ok(!html.includes('<script>x</script>'));
+  assert.ok(!html.includes('<img onerror'));
+});
+
+test('the sticky bar renders nothing with nothing to say', () => {
+  assert.equal(renderBlock('sticky-cta', {}), '');
+  assert.equal(renderBlock('sticky-cta', { links: [] }), '');
+});
+
+test('the sticky bar is a phone affordance and retracts over its own target', () => {
+  const html = renderBlock('sticky-cta', {
+    links: [{ href: '/start', label: 'Start' }, { href: 'tel:1', label: 'Call' }],
+    buttonLabel: '#search',
+  });
+  assert.ok(/@media \(min-width:1040px\)\{ \.sk\{ display:none \}/.test(html),
+    'on desktop the nav is already visible — a permanent bar is lost space');
+  assert.ok(html.includes('data-until="#search"'));
+  assert.ok(html.includes('IntersectionObserver'));
+  assert.ok(html.includes('safe-area-inset-bottom'), 'it sits where the home indicator is');
+  // A bad selector from the editor must not take the page down with it.
+  assert.ok(html.includes('try {') && html.includes('catch(e) { return; }'));
+  assert.ok(!renderBlock('sticky-cta', { links: [{ href: '/x', label: 'X' }] }).includes('data-until="'),
+    'no target means no observer at all');
+});
+
+test('the progress bar stays a hairline and stays out of the a11y tree', () => {
+  // 0 and '' mean "nothing entered", not "a zero-height bar", so they take the
+  // default. Only a real number outside the range gets clamped.
+  for (const [limit, px] of [[0, 2], ['', 2], [2, 2], ['4', 4], [40, 8], [-3, 1]]) {
+    const html = renderBlock('scroll-progress', { limit });
+    assert.ok(html.includes(`height:${px}px`), `limit ${JSON.stringify(limit)} should clamp to ${px}px`);
+  }
+  assert.ok(renderBlock('scroll-progress', {}).includes('aria-hidden="true"'),
+    'it carries no information a screen reader needs');
+});
+
 test('the realtor template installs with every link resolving to a real page', () => {
   const row = defaultMarketplaceTemplates().find((t) => t.slug === 'realtor');
   assert.ok(row, 'template should be in the seeded marketplace');
@@ -242,4 +310,19 @@ test('the realtor template installs with every link resolving to a real page', (
     }
   }
   assert.deepEqual(broken, [], 'a template whose own nav 404s is worse than no template');
+});
+
+test('the realtor template puts its furniture where it belongs', () => {
+  const row = defaultMarketplaceTemplates().find((t) => t.slug === 'realtor');
+  const { pages } = materializeInstall(row.payload, { stamp: 1 });
+  const typesOf = (slug) => pages.find((p) => p.slug === slug).content.map((s) => s.blockType);
+
+  assert.equal(typesOf('index')[0], 'scroll-progress', 'the progress bar has to be first to sit on top');
+  assert.ok(typesOf('index').includes('hero-video'));
+
+  for (const slug of ['index', 'black-book', 'portal', 'about', 'notes']) {
+    assert.ok(typesOf(slug).includes('sticky-cta'), `${slug} needs a thumb-reachable CTA`);
+  }
+  assert.ok(!typesOf('start').includes('sticky-cta'),
+    'the form is the whole page on /start — a bar pointing at it would cover it');
 });

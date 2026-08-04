@@ -473,6 +473,36 @@ export const BLOCK_FIELDS = {
       limit: { kind: 'number', label: 'Posts to show', min: 1, max: 12, placeholder: '6' },
     },
   },
+  'hero-video': {
+    order: ['eyebrow', 'headings', 'text', 'links', 'videoUrl', 'images', 'buttonLabel'],
+    headings: { label: 'Headline', max: 1 },
+    text: BODY_TEXT,
+    links: { ...BUTTONS, hint: 'The first is the main button; the second renders as an outline.' },
+    images: { label: 'Poster image', max: 1, hint: 'Shown before the video loads. With no video and no poster, an animated gradient fills the space.' },
+    extras: {
+      eyebrow: { kind: 'text', label: 'Kicker', placeholder: 'Greenville · Greer · Travelers Rest' },
+      videoUrl: {
+        kind: 'text', label: 'Background video (.mp4)', placeholder: 'https://…/hero.mp4',
+        hint: 'Muted and looped. Skipped automatically on metered connections and for visitors who prefer reduced motion.',
+      },
+      buttonLabel: { kind: 'text', label: 'Scroll hint', placeholder: 'Four questions, thirty seconds' },
+    },
+  },
+  'sticky-cta': {
+    order: ['links', 'buttonLabel'],
+    links: { ...BUTTONS, max: 2, label: 'Buttons', hint: 'The first fills the bar; an optional second sits beside it.' },
+    extras: {
+      buttonLabel: {
+        kind: 'text', label: 'Hide when this is on screen', placeholder: '#search',
+        hint: 'A CSS selector. The bar retracts while that element is visible — no point floating "Start" over the form itself.',
+      },
+    },
+  },
+  'scroll-progress': {
+    order: ['limit'],
+    extras: { limit: { kind: 'number', label: 'Bar height (px)', min: 1, max: 8, placeholder: '2' } },
+  },
+
   // --- Editorial set --------------------------------------------------------
   'numbered-index': {
     order: ['eyebrow', 'headings', 'text', 'items'],
