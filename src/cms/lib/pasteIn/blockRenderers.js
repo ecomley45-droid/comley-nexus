@@ -1336,6 +1336,240 @@ export function renderSearch(fields) {
 </script>`;
 }
 
+// ---------------------------------------------------------------------------
+// Editorial block set ("ed-" prefix). Added for the Ethan Scott Realty
+// template, but deliberately generic: an eyebrow label, a numbered index, a
+// swatch grid and a timeline are the four shapes almost every editorial
+// layout reaches for, and none of them existed.
+//
+// All four honour --font-display / --font-mono, so they pick up whatever type
+// roles the workspace theme selects rather than hardcoding a family.
+// ---------------------------------------------------------------------------
+
+const ED_STYLE = `
+.ed-wrap { max-width: 1240px; margin: 0 auto; padding: 0 24px; }
+.ed-eyebrow { font-family: var(--font-mono, monospace); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--color-accent); display: block; margin-bottom: 14px; }
+.ed-head { margin-bottom: 34px; }
+.ed-head h2 { font-family: var(--font-display); font-size: clamp(29px, 5vw, 50px); letter-spacing: -.025em; line-height: 1.05; margin: 0; }
+.ed-lede { font-size: 17px; color: var(--color-muted); margin: 18px 0 0; max-width: 62ch; }
+@media (min-width: 900px) {
+  .ed-head.split { display: grid; grid-template-columns: 1fr 1.15fr; gap: 60px; align-items: end; }
+  .ed-head.split .ed-lede { margin-top: 0; }
+}
+`;
+
+// A numbered index — the "list of nine trades" shape. Reads as a reference
+// table rather than a bulleted list, which is the point.
+export function renderNumberedIndex(fields) {
+  const items = fields.items || [];
+  return `<style>${ED_STYLE}
+.ed-index { display: grid; border-top: 1px solid var(--border); }
+.ed-index-item { padding: 16px 0; border-bottom: 1px solid var(--border); display: flex; align-items: baseline; gap: 14px; }
+.ed-index-item i { font-family: var(--font-mono, monospace); font-size: 10px; color: var(--color-muted); font-style: normal; flex: none; }
+.ed-index-item b { font-family: var(--font-display); font-size: 19px; font-weight: 500; }
+.ed-index-item span { font-size: 14px; color: var(--color-muted); margin-left: auto; text-align: right; }
+@media (min-width: 720px) { .ed-index { grid-template-columns: 1fr 1fr; column-gap: 36px; } }
+@media (min-width: 1040px) { .ed-index { grid-template-columns: repeat(3, 1fr); } }
+</style>
+<div class="ed-wrap" style="padding-top:64px;padding-bottom:64px">
+  <div class="ed-head split">
+    <div>${fields.eyebrow ? `<span class="ed-eyebrow">${esc(fields.eyebrow)}</span>` : ''}${headingsHtml(fields.headings, 2)}</div>
+    ${(fields.text || []).map((t) => `<p class="ed-lede">${esc(t)}</p>`).join('')}
+  </div>
+  <div class="ed-index">
+    ${items.map((it, i) => `<div class="ed-index-item"><i>${String(i + 1).padStart(2, '0')}</i><b>${esc(it.heading)}</b>${it.meta ? `<span>${esc(it.meta)}</span>` : ''}</div>`).join('')}
+  </div>
+</div>`;
+}
+
+// Swatch cards: a colour bar over a coded, titled card. `meta` is the colour,
+// so it stays editable as plain text rather than needing a picker.
+export function renderSwatchCards(fields) {
+  const items = fields.items || [];
+  return `<style>${ED_STYLE}
+.ed-sw-grid { display: grid; gap: 14px; }
+.ed-sw { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.ed-sw-bar { height: 88px; background: var(--color-accent); }
+.ed-sw-txt { padding: 18px 18px 22px; }
+.ed-sw-txt .code { font-family: var(--font-mono, monospace); font-size: 10px; letter-spacing: .12em; color: var(--color-muted); display: block; margin-bottom: 9px; text-transform: uppercase; }
+.ed-sw-txt h3 { font-family: var(--font-display); font-size: 20px; margin: 0 0 8px; }
+.ed-sw-txt p { font-size: 15px; color: var(--color-muted); margin: 0; }
+@media (min-width: 720px) { .ed-sw-grid { grid-template-columns: repeat(3, 1fr); gap: 18px; } }
+</style>
+<div class="ed-wrap" style="padding-top:64px;padding-bottom:64px">
+  <div class="ed-head split">
+    <div>${fields.eyebrow ? `<span class="ed-eyebrow">${esc(fields.eyebrow)}</span>` : ''}${headingsHtml(fields.headings, 2)}</div>
+    ${(fields.text || []).map((t) => `<p class="ed-lede">${esc(t)}</p>`).join('')}
+  </div>
+  <div class="ed-sw-grid">
+    ${items.map((it, i) => `<div class="ed-sw">
+      <div class="ed-sw-bar"${it.meta ? ` style="background:${esc(it.meta)}"` : ''}></div>
+      <div class="ed-sw-txt"><span class="code">${String(i + 1).padStart(2, '0')} — ${esc(it.link || it.heading)}</span><h3>${esc(it.heading)}</h3><p>${esc(it.body)}</p></div>
+    </div>`).join('')}
+  </div>
+  ${fields.buttonLabel ? `<span class="ed-eyebrow" style="margin-top:26px">${esc(fields.buttonLabel)}</span>` : ''}
+</div>`;
+}
+
+// A labelled timeline — "AGE 15 / THEN / NOW". The label column is fixed so
+// the entries line up however long the labels get.
+export function renderTimeline(fields) {
+  const items = fields.items || [];
+  return `<style>${ED_STYLE}
+.ed-tl { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--border); }
+.ed-tl li { display: grid; grid-template-columns: 84px 1fr; gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--border); font-size: 16px; }
+.ed-tl i { font-family: var(--font-mono, monospace); font-size: 10px; letter-spacing: .11em; color: var(--color-accent); font-style: normal; padding-top: 5px; text-transform: uppercase; }
+</style>
+<div class="ed-wrap" style="padding-top:64px;padding-bottom:64px">
+  <div class="ed-head">
+    ${fields.eyebrow ? `<span class="ed-eyebrow">${esc(fields.eyebrow)}</span>` : ''}${headingsHtml(fields.headings, 2)}
+    ${(fields.text || []).map((t) => `<p class="ed-lede">${esc(t)}</p>`).join('')}
+  </div>
+  <ul class="ed-tl">
+    ${items.map((it) => `<li><i>${esc(it.meta)}</i><span>${esc(it.body || it.heading)}</span></li>`).join('')}
+  </ul>
+</div>`;
+}
+
+// A multi-step qualifying form — the "four questions, thirty seconds" card.
+//
+// Why this rather than the plain Contact Form block: asking for an email
+// first converts far worse than asking it last, after someone has already
+// invested four taps. The steps are authored as `items`, one per step, with
+// the chip choices in `body` as a comma-separated list; the contact step is
+// always appended last so the block can't be misconfigured into collecting
+// nothing.
+//
+// It posts to /api/public/forms like every other form, so responses land in
+// the same inbox. No JS means no multi-step, so the fallback is the whole
+// thing rendered as one plain form — it still submits.
+export function renderLeadForm(fields) {
+  const steps = (fields.items || []).filter((it) => it.heading);
+  const formName = fields.headings?.[0] || 'Home search preferences';
+  const total = steps.length + 1;
+
+  const chipsFor = (step, si) => (step.body || '')
+    .split(',').map((c) => c.trim()).filter(Boolean)
+    .map((c) => `<button type="button" class="lf-chip" data-group="q${si}" data-multi="${step.meta === 'multi' ? '1' : '0'}" aria-pressed="false">${esc(c)}</button>`)
+    .join('');
+
+  return `<style>${BASE_STYLE}
+.lf { background: var(--surface-strong, #fff); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; box-shadow: 0 30px 60px -34px rgba(0,0,0,.5); max-width: 560px; margin: 0 auto; }
+.lf-head { background: var(--color-primary); color: #fff; padding: 15px 18px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.lf-head span { font-family: var(--font-mono, monospace); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; }
+.lf-head em { font-family: var(--font-mono, monospace); font-size: 10px; font-style: normal; color: rgba(255,255,255,.6); flex: none; }
+.lf-ticks { display: flex; gap: 4px; padding: 0 18px; background: var(--color-primary); }
+.lf-tick { height: 3px; flex: 1; background: rgba(255,255,255,.2); transition: background .4s ease; }
+.lf-tick.on { background: var(--color-accent); }
+.lf-body { padding: 26px 18px 22px; }
+.lf-q { font-family: var(--font-display); font-size: 25px; font-weight: 600; letter-spacing: -.025em; margin-bottom: 6px; }
+.lf-help { font-size: 14.5px; color: var(--color-muted); margin-bottom: 18px; }
+.lf-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.lf-chip { font-family: var(--font-display); font-size: 15.5px; background: var(--surface); border: 1px solid var(--border); padding: 12px 16px; border-radius: 3px; cursor: pointer; color: inherit; min-height: 46px; transition: all .16s ease; }
+.lf-chip[aria-pressed="true"] { background: var(--color-accent); color: var(--on-accent, #fff); border-color: var(--color-accent); }
+.lf-fields { display: grid; gap: 10px; }
+.lf-fields input { font-family: inherit; font-size: 16px; padding: 14px; border: 1px solid var(--border); border-radius: 3px; background: var(--surface); color: inherit; width: 100%; min-height: 50px; }
+.lf-row2 { display: grid; gap: 10px; }
+@media (min-width: 560px) { .lf-row2 { grid-template-columns: 1fr 1fr; } }
+.lf-consent { display: flex; gap: 11px; align-items: flex-start; margin: 16px 0 2px; font-size: 12.5px; line-height: 1.5; color: var(--color-muted); cursor: pointer; }
+.lf-consent input { margin-top: 2px; width: 20px; height: 20px; flex: none; }
+.lf-foot { display: flex; gap: 10px; align-items: center; padding: 0 18px 22px; }
+.lf-back { background: none; border: none; font-family: var(--font-display); font-size: 15px; color: var(--color-muted); cursor: pointer; padding: 12px 6px; min-height: 46px; }
+.lf-next { flex: 1; font-family: var(--font-display); font-size: 16px; font-weight: 600; border: none; cursor: pointer; background: var(--color-accent); color: var(--on-accent, #fff); padding: 15px 20px; border-radius: 3px; min-height: 48px; }
+.lf-next:disabled { opacity: .45; cursor: not-allowed; }
+.lf-step { display: none; }
+.lf-step.on { display: block; }
+.lf-nojs .lf-step { display: block; }
+.lf-nojs .lf-ticks, .lf-nojs .lf-back { display: none; }
+</style>
+<div class="lf lf-nojs" data-leadform>
+  <div class="lf-head"><span>${esc(formName)}</span><em data-lf-label>Step 1 / ${total}</em></div>
+  <div class="lf-ticks">${Array.from({ length: total }, (_, i) => `<i class="lf-tick${i === 0 ? ' on' : ''}" data-t="${i + 1}"></i>`).join('')}</div>
+  <form action="/api/public/forms" method="POST">
+    <input type="hidden" name="_form" value="${esc(formName)}" />
+    <input type="text" name="_hp" style="position:absolute;left:-9999px" tabindex="-1" autocomplete="off" />
+    <div class="lf-body">
+      ${steps.map((step, si) => `<div class="lf-step${si === 0 ? ' on' : ''}" data-step="${si + 1}">
+        <div class="lf-q">${esc(step.heading)}</div>
+        ${step.link ? `<p class="lf-help">${esc(step.link)}</p>` : ''}
+        <div class="lf-chips">${chipsFor(step, si)}</div>
+        <input type="hidden" name="${esc(step.image || `answer_${si + 1}`)}" data-answer="q${si}" />
+      </div>`).join('')}
+      <div class="lf-step" data-step="${total}">
+        <div class="lf-q">${esc(fields.buttonLabel || 'Where should I send them?')}</div>
+        <p class="lf-help">${esc(fields.placeholder || "You'll hear from a person, not a call centre.")}</p>
+        <div class="lf-fields">
+          <div class="lf-row2">
+            <input type="text" name="first_name" placeholder="First name" autocomplete="given-name" />
+            <input type="text" name="last_name" placeholder="Last name" autocomplete="family-name" />
+          </div>
+          <input type="email" name="email" placeholder="Email address" autocomplete="email" inputmode="email" required />
+          <input type="tel" name="phone" placeholder="Phone (optional)" autocomplete="tel" inputmode="tel" />
+        </div>
+        <label class="lf-consent"><input type="checkbox" name="consent" value="yes" required /><span>${esc(fields.consent || 'Send me matching listings and market notes by email. I can unsubscribe any time.')}</span></label>
+      </div>
+    </div>
+    <div class="lf-foot">
+      <button type="button" class="lf-back" data-lf-back hidden>Back</button>
+      <button type="submit" class="lf-next" data-lf-next>Continue</button>
+    </div>
+  </form>
+</div>
+<script>
+(function(){
+  var root = document.currentScript.previousElementSibling;
+  if(!root) return;
+  root.classList.remove('lf-nojs');
+  var form = root.querySelector('form'), steps = root.querySelectorAll('.lf-step');
+  // The contact fields carry the required attribute so the no-JS fallback
+  // (every step visible, one plain form) still validates. With JS on, those
+  // fields are display:none until the last step, and a hidden required
+  // control blocks submit entirely -- so Continue silently did nothing. JS
+  // gates each step itself via ok(), so it strips them now that it owns that.
+  form.querySelectorAll('[required]').forEach(function(el){ el.removeAttribute('required'); });
+  var next = root.querySelector('[data-lf-next]'), back = root.querySelector('[data-lf-back]');
+  var label = root.querySelector('[data-lf-label]'), ticks = root.querySelectorAll('.lf-tick');
+  var TOTAL = steps.length, step = 1;
+
+  function answers(g){ return Array.prototype.slice.call(root.querySelectorAll('.lf-chip[data-group="'+g+'"][aria-pressed="true"]')).map(function(c){return c.textContent;}); }
+  function sync(){
+    root.querySelectorAll('[data-answer]').forEach(function(inp){ inp.value = answers(inp.getAttribute('data-answer')).join(', '); });
+  }
+  function ok(){
+    var cur = steps[step-1];
+    if(step === TOTAL){
+      var em = form.querySelector('input[name=email]'), cs = form.querySelector('input[name=consent]');
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em.value.trim()) && cs.checked;
+    }
+    return cur.querySelectorAll('.lf-chip[aria-pressed="true"]').length > 0;
+  }
+  function show(n){
+    for(var i=0;i<steps.length;i++) steps[i].classList.toggle('on', i === n-1);
+    for(var j=0;j<ticks.length;j++) ticks[j].classList.toggle('on', j < n);
+    label.textContent = 'Step ' + n + ' / ' + TOTAL;
+    back.hidden = n === 1;
+    next.textContent = n === TOTAL ? 'Send my matches' : 'Continue';
+    next.disabled = !ok();
+  }
+  root.addEventListener('click', function(e){
+    var chip = e.target.closest('.lf-chip'); if(!chip) return;
+    var multi = chip.getAttribute('data-multi') === '1', on = chip.getAttribute('aria-pressed') === 'true';
+    if(!multi) root.querySelectorAll('.lf-chip[data-group="'+chip.getAttribute('data-group')+'"]').forEach(function(c){ c.setAttribute('aria-pressed','false'); });
+    chip.setAttribute('aria-pressed', on ? 'false' : 'true');
+    sync(); next.disabled = !ok();
+  });
+  form.addEventListener('input', function(){ next.disabled = !ok(); });
+  form.addEventListener('change', function(){ next.disabled = !ok(); });
+  back.addEventListener('click', function(){ if(step>1){ step--; show(step); } });
+  form.addEventListener('submit', function(e){
+    if(step < TOTAL){ e.preventDefault(); step++; show(step); root.scrollIntoView({block:'nearest'}); }
+    // On the last step the browser submits normally to /api/public/forms.
+  });
+  show(1);
+})();
+</script>`;
+}
+
 export const BLOCK_RENDERERS = {
   header: renderHeader,
   navigation: renderNavigation,
@@ -1368,6 +1602,10 @@ export const BLOCK_RENDERERS = {
   'collection-list': renderCollectionList,
   'language-switcher': renderLanguageSwitcher,
   search: renderSearch,
+  'numbered-index': renderNumberedIndex,
+  'swatch-cards': renderSwatchCards,
+  timeline: renderTimeline,
+  'lead-form': renderLeadForm,
   script: renderScript,
   layout: renderLayout,
   // Polished block set

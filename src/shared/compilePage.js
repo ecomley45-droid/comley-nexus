@@ -2,7 +2,7 @@
 // static export route. Pages are stored as an ordered list of sections
 // (each with raw `html`), optionally A/B-tested via `abVariants`.
 
-import { buildThemeStyleBlock } from './theme.js';
+import { buildThemeStyleBlock, webfontHref } from './theme.js';
 import { buildPageStyleCss } from './blockStyle.js';
 import { extractSharedStyles } from './dedupeStyles.js';
 import { resolveSectionHtml } from './syncedBlocks.js';
@@ -125,6 +125,9 @@ export function compilePageHtml(page, pages, library, globalSettings, abChoices 
   // different languages rather than duplicates competing with each other.
   const alternates = alternateLinks(getFullPath(page, pages), globalSettings, origin);
   const htmlLang = locale || defaultLocaleOf(globalSettings).code;
+  // Preconnect before the stylesheet so the TLS handshake overlaps the CSS
+  // request rather than following it — worth ~100ms on a cold mobile load.
+  const fontHref = webfontHref(theme);
 
   return `<!doctype html>
 <html lang="${escapeHtml(htmlLang)}">
@@ -143,6 +146,9 @@ ${canonicalUrl ? `<meta property="og:url" content="${escapeHtml(canonicalUrl)}" 
 ${ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />` : ''}
 <meta name="twitter:card" content="${ogImage ? 'summary_large_image' : 'summary'}" />
 ${globalSettings?.siteName ? `<meta property="og:site_name" content="${escapeHtml(globalSettings.siteName)}" />` : ''}
+${fontHref ? `<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="${escapeHtml(fontHref)}" />` : ''}
 <style>
 ${buildThemeStyleBlock(theme)}
 </style>

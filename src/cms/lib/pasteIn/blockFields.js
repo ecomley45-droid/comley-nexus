@@ -473,6 +473,66 @@ export const BLOCK_FIELDS = {
       limit: { kind: 'number', label: 'Posts to show', min: 1, max: 12, placeholder: '6' },
     },
   },
+  // --- Editorial set --------------------------------------------------------
+  'numbered-index': {
+    order: ['eyebrow', 'headings', 'text', 'items'],
+    headings: { label: 'Heading' },
+    text: BODY_TEXT,
+    items: {
+      label: 'Entries', singular: 'entry',
+      use: ['heading', 'meta'],
+      labels: { heading: 'Name', meta: 'Note (optional)' },
+      hint: 'Numbered automatically, in the order listed.',
+    },
+    extras: { eyebrow: { kind: 'text', label: 'Kicker', placeholder: 'The part that starts after closing' } },
+  },
+  'swatch-cards': {
+    order: ['eyebrow', 'headings', 'text', 'items', 'buttonLabel'],
+    headings: { label: 'Heading' },
+    text: BODY_TEXT,
+    items: {
+      label: 'Cards', singular: 'card',
+      use: ['heading', 'link', 'body', 'meta'],
+      labels: { heading: 'Title', link: 'Label above the title', body: 'Description', meta: 'Bar colour' },
+      placeholders: { link: 'Warranties', meta: '#C08A2E' },
+    },
+    extras: {
+      eyebrow: { kind: 'text', label: 'Kicker', placeholder: 'Coming soon' },
+      buttonLabel: { kind: 'text', label: 'Status line', placeholder: 'In development' },
+    },
+  },
+  timeline: {
+    order: ['eyebrow', 'headings', 'text', 'items'],
+    headings: { label: 'Heading' },
+    text: BODY_TEXT,
+    items: {
+      label: 'Milestones', singular: 'milestone',
+      use: ['meta', 'body'],
+      labels: { meta: 'Label', body: 'What happened' },
+      placeholders: { meta: 'AGE 15' },
+    },
+    extras: { eyebrow: { kind: 'text', label: 'Kicker', placeholder: "Who you're calling" } },
+  },
+  'lead-form': {
+    order: ['headings', 'items', 'buttonLabel', 'placeholder', 'consent'],
+    headings: { label: 'Form name', max: 1, hint: 'Shown on the card and used to label responses in your Forms inbox.' },
+    items: {
+      label: 'Questions', singular: 'question',
+      use: ['heading', 'link', 'body', 'meta', 'image'],
+      labels: {
+        heading: 'Question', link: 'Helper text', body: 'Choices, comma separated',
+        meta: 'single or multi', image: 'Field name in your inbox',
+      },
+      placeholders: { heading: 'What brings you here?', body: 'Buying, Selling, Both', meta: 'single', image: 'intent' },
+      hint: 'One step per question. The contact step is always added last.',
+    },
+    extras: {
+      buttonLabel: { kind: 'text', label: 'Contact step heading', placeholder: 'Where should I send them?' },
+      placeholder: { kind: 'text', label: 'Contact step helper', placeholder: "You'll hear from a person." },
+      consent: { kind: 'text', label: 'Consent wording' },
+    },
+  },
+
   search: {
     order: ['headings', 'placeholder', 'buttonLabel'],
     headings: { label: 'Heading' },

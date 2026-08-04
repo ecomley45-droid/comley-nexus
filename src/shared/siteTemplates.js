@@ -39,6 +39,59 @@ const CONTACT_PAGE = (name, intro) => ({
   ],
 });
 
+
+// Shared pieces for the Realtor template. The nav and footer repeat on every
+// page, so they're defined once — every nav item and every call to action
+// below points at a page that exists in this template.
+const AGENT_NAV = [{ href: '/', label: 'Home' }, { href: '/start', label: 'Start my search' }, { href: '/black-book', label: 'The Black Book' }, { href: '/portal', label: 'After closing' }, { href: '/about', label: 'About' }, { href: '/notes', label: 'Upstate notes' }];
+
+const AGENT_HEADER = {
+  name: 'Header', blockType: 'header',
+  fields: { headings: ['Ethan Scott'], links: AGENT_NAV },
+};
+
+const AGENT_FOOTER = {
+  name: 'Footer', blockType: 'footer',
+  fields: {
+    text: [
+      'Ethan Scott · REALTOR® · SC License #146507',
+      'Keller Williams Greenville Upstate · 403 Woods Lake Road, Ste. 100, Greenville, SC 29607',
+      'Each Keller Williams® office is independently owned and operated. Equal Opportunity Employer, supporting the Fair Housing Act.',
+    ],
+    links: [
+      { href: 'tel:8643809582', label: '(864) 380-9582' },
+      { href: 'mailto:ethanscott21@kw.com', label: 'ethanscott21@kw.com' },
+      { href: 'https://www.instagram.com/ethandreamhomes', label: 'Instagram' },
+      { href: '/start', label: 'Start my search' },
+    ],
+  },
+};
+
+const TRADES = [
+  { heading: 'Plumbing' }, { heading: 'HVAC' }, { heading: 'Roofing' },
+  { heading: 'Electrical' }, { heading: 'Foundation' }, { heading: 'Painting' },
+  { heading: 'Flooring' }, { heading: 'Landscaping' }, { heading: 'General contracting' },
+];
+
+const PORTAL_FIELDS = {
+  eyebrow: 'Coming soon · The homeowner portal',
+  headings: ['Everything about your house, in one place.'],
+  text: ['You close, the folder goes in a drawer, and three years later nobody remembers what colour the guest room was. I\'m building the fix.'],
+  items: [
+    { heading: 'Every document, filed', link: 'Warranties', body: 'Appliance warranties, roof coverage, permits and manuals — searchable instead of shoved in a drawer.', meta: '#4E6E62' },
+    { heading: 'Room by room', link: 'Paint colours', body: 'The exact colour and finish in each room, so a touch-up takes five minutes instead of a trip to the store with a chipped-off flake.', meta: '#C08A2E' },
+    { heading: 'A calendar that nudges you', link: 'Maintenance', body: 'Filter changes, gutter clearing, HVAC service — seasonal reminders tuned to Upstate weather.', meta: '#12201F' },
+  ],
+  buttonLabel: 'In development — my clients get first access',
+};
+
+const NOTES = [
+  { heading: 'What a first-time buyer actually needs saved', meta: 'Part one', body: 'Down payment, closing costs, and the number nobody mentions until week three.', link: '/start' },
+  { heading: 'Reading an inspection report without panicking', meta: 'Part two', body: 'Which findings are negotiating points and which are walk-away items.', link: '/start' },
+  { heading: 'What your offer says besides the price', meta: 'Part three', body: 'Contingencies, timelines, and why the highest number does not always win.', link: '/start' },
+  { heading: 'The first ninety days in a new house', meta: 'Part four', body: 'What to fix immediately, what can wait, and what to document now.', link: '/start' },
+];
+
 export const SITE_TEMPLATES = [
   {
     id: 'agency',
@@ -220,6 +273,167 @@ export const SITE_TEMPLATES = [
         ],
       },
       CONTACT_PAGE('Hometown Services Co.', 'Describe the job and your zip code — we\'ll reply with a quote or a visit time.'),
+    ],
+  },
+  {
+    id: 'realtor',
+    name: 'Realtor / Agent',
+    description: 'A local real-estate agent: a short qualifying form instead of a contact box, plus the pages that make an agent worth calling twice.',
+    // Paper-and-ink editorial palette. Brass is the accent because it reads as
+    // a considered choice against the deep green rather than a default blue,
+    // and it clears 4.5:1 on both the paper and slate backgrounds.
+    theme: {
+      primary: '#12201F', secondary: '#4E6E62', bg: '#EDEEE9', text: '#0B1211',
+      accent: '#C08A2E', link: '#4E6E62', muted: '#5C6A68',
+      fontFamily: 'sourceserif', fontDisplay: 'grotesk', fontMono: 'plexmono',
+      fontScale: 'comfortable',
+    },
+    siteNamePlaceholder: 'Your Name — Real Estate',
+    pages: [
+      {
+        name: 'Home', slug: 'index',
+        sections: [
+          AGENT_HEADER,
+          { name: 'Hero', blockType: 'hero-split', fields: {
+            headings: ["I've been inside these houses since I was fifteen."],
+            text: ['Renovations first, investing second, agent third. Tell me what you\'re actually looking for and I\'ll send the listings worth your Saturday — not every file that hits the MLS.'],
+            links: [{ href: '/start', label: 'Start my search' }, { href: 'tel:8643809582', label: 'Call or text' }],
+          } },
+          { name: 'Black Book teaser', blockType: 'numbered-index', fields: {
+            eyebrow: 'The part that starts after closing',
+            headings: ['The Black Book'],
+            text: ['Every homeowner eventually has a water heater fail on a Sunday. My clients get the name and number of someone who actually answers — a private list of trades I\'ve built and used since my renovation days.'],
+            items: TRADES.slice(0, 6),
+          } },
+          { name: 'Quote band', blockType: 'parallax', fields: {
+            headings: ['Most agents look at a house. I look at what it costs you in year seven.'],
+            text: ['Ethan Scott · REALTOR® · SC #146507'],
+            links: [{ href: '/start', label: 'Start my search' }],
+          } },
+          { name: 'Portal teaser', blockType: 'swatch-cards', fields: PORTAL_FIELDS },
+          { name: 'Notes teaser', blockType: 'blog-cards', fields: {
+            headings: ['Read before you sign anything.'],
+            items: NOTES.slice(0, 4),
+          } },
+          { name: 'Get in touch', blockType: 'cta-band', fields: {
+            headings: ['Ask me anything about the area.'],
+            text: ['Not ready to start a search? Follow along, or just send me a question — my inbox is open either way.'],
+            links: [{ href: '/start', label: 'Start my search' }, { href: 'mailto:ethanscott21@kw.com', label: 'Email me' }],
+          } },
+          AGENT_FOOTER,
+        ],
+      },
+      {
+        name: 'Start my search', slug: 'start',
+        sections: [
+          AGENT_HEADER,
+          { name: 'Intro', blockType: 'feature', fields: {
+            headings: ['Four questions, thirty seconds.'],
+            text: ['Tell me what you\'re looking for and I\'ll set up a search that only sends you homes worth a Saturday. You\'ll hear from me, not a call centre.'],
+          } },
+          { name: 'Search form', blockType: 'lead-form', fields: {
+            headings: ['Home search preferences'],
+            items: [
+              { heading: 'What brings you here?', link: 'Pick one. You can change your mind later — most people do.', meta: 'single', body: 'Buying a home, Selling my home, Both at once, Investing', image: 'intent' },
+              { heading: 'Which part of the Upstate?', link: 'Choose as many as you like.', meta: 'multi', body: 'Greenville, Greer, Simpsonville, Five Forks, Travelers Rest, Taylors, Still deciding', image: 'areas' },
+              { heading: 'Price range.', link: 'Rough is fine. It only shapes what I send you.', meta: 'single', body: 'Under $300k, $300-500k, $500-750k, $750k+', image: 'price' },
+              { heading: 'When would you like to move?', link: 'No wrong answer.', meta: 'single', body: 'Next 3 months, 3-6 months, 6-12 months, Just watching', image: 'timing' },
+            ],
+            buttonLabel: 'Where should I send them?',
+            placeholder: 'You\'ll hear from me, not a call centre.',
+            consent: 'Send me matching listings and Upstate market notes by email. I can unsubscribe any time. If I\'ve given a phone number, Ethan may text or call me about my search.',
+          } },
+          { name: 'What happens next', blockType: 'steps', fields: {
+            headings: ['What happens next'],
+            text: ['No mystery, and no drip you can\'t get out of.'],
+            items: [
+              { heading: 'A confirmation today', body: 'An email with the search I\'ve set up for you.' },
+              { heading: 'Listings as they land', body: 'New homes that fit arrive in your inbox as they hit the market.' },
+              { heading: 'A real follow-up', body: 'I follow up personally within one business day.' },
+            ],
+          } },
+          AGENT_FOOTER,
+        ],
+      },
+      {
+        name: 'The Black Book', slug: 'black-book',
+        sections: [
+          AGENT_HEADER,
+          { name: 'Trades index', blockType: 'numbered-index', fields: {
+            eyebrow: 'The part that starts after closing',
+            headings: ['The Black Book'],
+            text: ['A private list of trades I\'ve built and used since my renovation days. My clients get the name and number of someone who actually answers — and they go to the front of the line.'],
+            items: TRADES,
+          } },
+          { name: 'Not a referral scheme', blockType: 'feature', fields: {
+            headings: ['Not a referral scheme.'],
+            text: ['These are people whose work I\'ve stood next to. No kickbacks, no arrangement — which is exactly why my clients keep my number in their phone years after the sale.'],
+          } },
+          { name: 'CTA', blockType: 'cta-band', fields: {
+            headings: ['Want the list?'],
+            text: ['It comes with every home I sell.'],
+            links: [{ href: '/start', label: 'Start my search' }],
+          } },
+          AGENT_FOOTER,
+        ],
+      },
+      {
+        name: 'After closing', slug: 'portal',
+        sections: [
+          AGENT_HEADER,
+          { name: 'Portal', blockType: 'swatch-cards', fields: PORTAL_FIELDS },
+          { name: 'Why', blockType: 'split-content', fields: {
+            headings: ['Your house, still documented in year seven.'],
+            text: ['You close, the folder goes in a drawer, and three years later nobody remembers what colour the guest room was. I\'m building the fix — a private portal that comes with every home I sell.'],
+            links: [{ href: '/start', label: 'Start my search' }],
+          } },
+          AGENT_FOOTER,
+        ],
+      },
+      {
+        name: 'About', slug: 'about',
+        sections: [
+          AGENT_HEADER,
+          { name: 'Story', blockType: 'split-content', fields: {
+            headings: ['The Upstate changed street by street. I watched it happen.'],
+            text: [
+              'I started at fifteen, helping my parents fix up homes across the Upstate. For most of my career I worked the investment side — buying, renovating, running the numbers on what a property is genuinely worth once the work is done.',
+              'I\'ve lived in South Carolina my whole life. That\'s the part I bring to the table: not just what a home is listed at, but what it\'s likely to do for you.',
+              'Buying or selling is one of the more stressful things you\'ll go through. I\'d rather be the person you can ask a stupid question at nine at night than the one who disappears after the closing table.',
+            ],
+          } },
+          { name: 'Timeline', blockType: 'timeline', fields: {
+            eyebrow: 'Who you\'re actually calling',
+            headings: ['The short version.'],
+            items: [
+              { meta: 'AGE 15', body: 'First renovation — working alongside my parents on Upstate homes.' },
+              { meta: 'THEN', body: 'Years on the investment side, learning what actually adds value and what just photographs well.' },
+              { meta: 'NOW', body: 'Licensed SC agent (#146507) with Keller Williams Greenville Upstate, backed by an experienced team on every deal.' },
+              { meta: 'AFTER', body: 'The Black Book and the homeowner portal — because my job doesn\'t end when yours starts.' },
+            ],
+          } },
+          { name: 'CTA', blockType: 'cta-band', fields: {
+            headings: ['Ask me anything about the Upstate.'],
+            links: [{ href: '/start', label: 'Start my search' }, { href: 'tel:8643809582', label: 'Call or text' }],
+          } },
+          AGENT_FOOTER,
+        ],
+      },
+      {
+        name: 'Upstate notes', slug: 'notes',
+        sections: [
+          AGENT_HEADER,
+          { name: 'Notes', blockType: 'blog-cards', fields: {
+            headings: ['Read before you sign anything.'],
+            items: NOTES,
+          } },
+          { name: 'CTA', blockType: 'cta-band', fields: {
+            headings: ['Questions the guides didn\'t answer?'],
+            links: [{ href: '/start', label: 'Start my search' }],
+          } },
+          AGENT_FOOTER,
+        ],
+      },
     ],
   },
 ];

@@ -7,6 +7,9 @@ import { readExperiment, compareVariant, MIN_IMPRESSIONS, formatRate } from '../
 import { extractSharedStyles } from '../src/shared/dedupeStyles.js';
 import { renderBlock } from '../src/cms/lib/pasteIn/blockRenderers.js';
 import { compilePageHtml } from '../src/shared/compilePage.js';
+import { buildThemeStyleBlock, webfontHref } from '../src/shared/theme.js';
+import { contrastRatio } from '../src/shared/pageAudit.js';
+import { defaultMarketplaceTemplates, materializeInstall } from '../lib/sitePayload.js';
 
 // ---------------------------------------------------------------- form fields
 
@@ -160,4 +163,83 @@ test('a repeated block ships its CSS once on a real page', () => {
   const out = compilePageHtml(page, [page], [], {});
   assert.equal((out.match(/\.nx-item \{/g) || []).length, 1, 'the shared rules should appear once, not eight times');
   assert.equal((out.match(/data-section-id/g) || []).length, 8, 'all eight blocks still render');
+});
+
+// ------------------------------------------------------- realtor template set
+
+test('the lead form gates on JS and still submits without it', () => {
+  const html = renderBlock('lead-form', {
+    headings: ['Home search preferences'],
+    items: [{ heading: 'What brings you here?', meta: 'single', body: 'Buying, Selling', image: 'intent' }],
+  });
+  assert.ok(html.includes('action="/api/public/forms"'), 'responses must land in the Forms inbox');
+  assert.ok(html.includes('name="_hp"'), 'honeypot');
+  assert.ok(html.includes('name="intent"'), 'answers post under the authored field name');
+  // Contact fields keep `required` for the no-JS path…
+  assert.ok(/name="email"[^>]*required/.test(html) || /required[^>]*name="email"/.test(html));
+  // …and JS strips it, because a hidden required control blocks submit
+  // entirely, which silently broke the Continue button.
+  assert.ok(html.includes("removeAttribute('required')"));
+});
+
+test('lead form escapes authored content', () => {
+  const html = renderBlock('lead-form', {
+    headings: ['"><script>steal()</script>'],
+    items: [{ heading: '"><script>x</script>', meta: 'single', body: '"><script>y</script>', image: 'q' }],
+  });
+  assert.ok(!html.includes('<script>steal()'));
+  assert.ok(!html.includes('<script>x</script>'));
+});
+
+test('on-accent text is chosen by contrast, not brightness', () => {
+  // The contract is "pick whichever of black/white reads better on this
+  // accent" — not "always clear 4.5:1", which no black/white choice can
+  // guarantee for an arbitrary colour (the platform's own indigo tops out at
+  // 4.47:1 either way). A mid-tone accent is where the old brightness guess
+  // went wrong: brass scored just under its threshold and took white at
+  // 3.04:1 when black gives 6.22:1.
+  for (const accent of ['#C08A2E', '#6366f1', '#4E6E62', '#EDEEE9', '#12201F']) {
+    const css = buildThemeStyleBlock({ accent });
+    const on = /--on-accent: (\S+);/.exec(css)[1];
+    const chosen = contrastRatio(on, accent);
+    const other = contrastRatio(on === '#111111' ? '#ffffff' : '#111111', accent);
+    assert.ok(chosen >= other, `${accent} chose ${on} at ${chosen.toFixed(2)} over the better ${other.toFixed(2)}`);
+  }
+  // Brass is the specific case the old rule got backwards.
+  const brass = /--on-accent: (\S+);/.exec(buildThemeStyleBlock({ accent: '#C08A2E' }))[1];
+  assert.equal(brass, '#111111');
+  assert.ok(contrastRatio(brass, '#C08A2E') > 4.5);
+});
+
+test('a theme with web fonts asks for them once, device fonts ask for nothing', () => {
+  const href = webfontHref({ fontFamily: 'sourceserif', fontDisplay: 'grotesk', fontMono: 'plexmono' });
+  assert.equal(href.split('family=').length - 1, 3, 'one request covering all three roles');
+  assert.ok(href.includes('display=swap'), 'text must paint in the fallback rather than hang invisible');
+  assert.equal(webfontHref({ fontFamily: 'system' }), '');
+  assert.equal(webfontHref({}), '');
+});
+
+test('the realtor template installs with every link resolving to a real page', () => {
+  const row = defaultMarketplaceTemplates().find((t) => t.slug === 'realtor');
+  assert.ok(row, 'template should be in the seeded marketplace');
+  const { pages, theme } = materializeInstall(row.payload, { stamp: 1 });
+
+  assert.deepEqual(pages.map((p) => p.slug), ['index', 'start', 'black-book', 'portal', 'about', 'notes']);
+  assert.equal(theme.fontDisplay, 'grotesk', 'font roles must survive payload validation');
+
+  const known = new Set(pages.map((p) => (p.slug === 'index' ? '/' : `/${p.slug}`)));
+  const broken = [];
+  for (const page of pages) {
+    for (const section of page.content) {
+      assert.ok(section.blockType && section.html, `${page.slug}/${section.name} did not render`);
+      const hrefs = [
+        ...(section.fields.links || []).map((l) => l.href),
+        ...(section.fields.items || []).map((i) => i.link),
+      ];
+      for (const href of hrefs) {
+        if (href && href.startsWith('/') && !known.has(href)) broken.push(`${page.slug} -> ${href}`);
+      }
+    }
+  }
+  assert.deepEqual(broken, [], 'a template whose own nav 404s is worse than no template');
 });
