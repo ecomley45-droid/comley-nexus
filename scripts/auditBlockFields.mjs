@@ -24,16 +24,28 @@ const { BLOCK_FIELDS, GENERIC_SCHEMA, CUSTOM_EDITOR_TYPES } =
 
 const src = fs.readFileSync(RENDERERS, 'utf8');
 
-// Slice the file into function bodies, keyed by function name. Null-prototype
-// so a callee named `constructor`/`toString` can't resolve to Object.prototype.
+// Renderers no longer all live in one file — the listing set is big enough to
+// have its own module, and more will follow. Follow blockRenderers.js's own
+// relative imports so a renderer that moves out doesn't silently read as
+// "reads no fields", which reports every one of its editors as dead UI and
+// hides any genuinely missing one.
+const sources = [src];
+for (const m of src.matchAll(/^import\s+[^'"]*from\s+'(\.\/[^']+)'/gm)) {
+  const file = path.join(path.dirname(RENDERERS), m[1]);
+  if (fs.existsSync(file)) sources.push(fs.readFileSync(file, 'utf8'));
+}
+
+// Slice the sources into function bodies, keyed by function name.
+// Null-prototype so a callee named `constructor`/`toString` can't resolve to
+// Object.prototype.
 const bodies = Object.create(null);
-{
+for (const text of sources) {
   const re = /(?:export )?function ([A-Za-z_$][\w$]*)\s*\(/g;
   const starts = [];
   let m;
-  while ((m = re.exec(src))) starts.push({ name: m[1], idx: m.index });
+  while ((m = re.exec(text))) starts.push({ name: m[1], idx: m.index });
   starts.forEach((s, i) => {
-    bodies[s.name] = src.slice(s.idx, i + 1 < starts.length ? starts[i + 1].idx : src.length);
+    bodies[s.name] = text.slice(s.idx, i + 1 < starts.length ? starts[i + 1].idx : text.length);
   });
 }
 
@@ -63,6 +75,10 @@ function fieldsRead(fnName, seen = new Set()) {
 const INDIRECT = {
   form: ['formFields'],            // via formFieldsFor()
   'collection-list': ['mapping'],  // via applyCollectionToBlock() at hydrate
+  // Read by applyCollectionToListingBlock() when the server hydrates the
+  // bound collection, never by the renderer itself.
+  'listing-cards': ['collectionSlug', 'limit', 'mapping'],
+  'listing-search': ['collectionSlug', 'mapping'],
 };
 
 // Fields the editor never surfaces as an editor of their own, by design.
@@ -72,6 +88,12 @@ const IGNORED = new Set([
   'columns',     // layout only — hand-written editor
   'template',    // layout only — hand-written editor
   'code',        // script only — hand-written editor
+  // Filled by the server from the bound collection or the entry being
+  // rendered. Offering these as editors would invite someone to type a
+  // listing into a block instead of into the collection that owns it.
+  'listings',
+  'facets',
+  'listing',
 ]);
 
 function offeredBy(blockType) {

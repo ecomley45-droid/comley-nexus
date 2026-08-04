@@ -9,6 +9,20 @@ import { BLOCK_RENDERERS, renderBlock } from '../src/cms/lib/pasteIn/blockRender
 
 const TYPES = Object.keys(BLOCK_RENDERERS).filter((t) => t !== 'layout' && t !== 'script');
 
+// One fully-populated listing, in the shape src/shared/listingsMap.js flattens
+// an entry into. Values are all present so the listing blocks render their
+// full markup here; their absent-value behaviour is covered in listings.test.js.
+const LISTING = {
+  slug: 'x', href: '/listings/x', address: '1 Test Street',
+  city: 'Testville', state: 'SC', zip: '00000',
+  price: 100000, status: 'For sale', tone: 'sale', propertyType: 'House',
+  beds: 3, baths: 2, sqft: 1500, lotSize: '0.25 acres', yearBuilt: 2001,
+  hoaFee: 40, mls: '999', listedOn: '2026-01-01', lat: 34.85, lng: -82.39,
+  image: 'https://cdn.test/l.png',
+  gallery: ['https://cdn.test/l.png', 'https://cdn.test/l2.png'],
+  features: ['Pool', 'Fireplace'], description: 'A house.',
+};
+
 const FIELDS = {
   headings: ['Heading'], text: ['Body copy.'],
   links: [{ href: '/x', label: 'Link' }],
@@ -18,6 +32,11 @@ const FIELDS = {
   image: 'https://cdn.test/p.png', videoUrl: 'https://cdn.test/v.mp4',
   platform: 'ig', limit: 3, month: '2026-03', targetDate: '2026-12-01T00:00:00.000Z',
   buttonLabel: 'Send', productId: 'p1', price: '$9',
+  // Listing blocks render from a flattened listing rather than loose fields,
+  // and the collection-bound ones from a list of them. Without these the five
+  // listing types would only ever be exercised in their empty state.
+  listing: LISTING,
+  listings: [LISTING],
 };
 
 test('every block type renders non-empty html', () => {

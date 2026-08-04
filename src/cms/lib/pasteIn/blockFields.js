@@ -608,6 +608,62 @@ export const BLOCK_FIELDS = {
     },
   },
 
+  // --- Property listings ----------------------------------------------------
+  //
+  // `listings` and `facets` are filled server-side from the bound collection,
+  // so they are deliberately absent here: they aren't authored, and showing
+  // them as editable fields would invite someone to type a listing into a
+  // block instead of into the collection where it belongs.
+  'listing-cards': {
+    order: ['headings', 'text', 'collectionSlug', 'limit', 'tagLimit', 'emptyText'],
+    headings: { label: 'Heading' },
+    text: BODY_TEXT,
+    extras: {
+      collectionSlug: {
+        kind: 'collection', label: 'Listings collection',
+        hint: 'Pick a collection built from the Property listings preset.',
+      },
+      limit: { kind: 'number', label: 'Listings to show', min: 1, max: 60, placeholder: 'All' },
+      tagLimit: {
+        kind: 'number', label: 'Feature tags per card', min: 0, max: 8, placeholder: '3',
+        hint: 'Keeps a home with twenty amenities from towering over its neighbours in the grid.',
+      },
+      emptyText: {
+        kind: 'text', label: 'Text when there are no listings',
+        placeholder: 'No listings yet.',
+      },
+      mapping: { kind: 'collectionMapping', label: 'Field mapping' },
+    },
+  },
+  'listing-search': {
+    order: ['collectionSlug', 'placeholder', 'showMap', 'emptyText'],
+    extras: {
+      collectionSlug: {
+        kind: 'collection', label: 'Listings collection',
+        hint: 'Every published entry is searchable. Filters build themselves from what the listings actually contain.',
+      },
+      placeholder: { kind: 'text', label: 'Search box hint', placeholder: 'Search by address, city, or MLS #' },
+      showMap: {
+        kind: 'boolean', label: 'Show map',
+        hint: 'Listings need latitude and longitude to appear as pins.',
+      },
+      emptyText: { kind: 'text', label: 'Text when there are no listings', placeholder: 'No listings yet.' },
+      mapping: { kind: 'collectionMapping', label: 'Field mapping' },
+    },
+  },
+  'listing-hero': {
+    order: [],
+    extras: {},
+  },
+  'listing-facts': {
+    order: ['headings'],
+    headings: { label: 'Heading', max: 1 },
+  },
+  'listing-features': {
+    order: ['headings'],
+    headings: { label: 'Heading', max: 1 },
+  },
+
   'events-list': {
     order: ['headings', 'text', 'items'],
     headings: { label: 'Heading' },

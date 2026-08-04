@@ -12,6 +12,13 @@
 // server hydrates through this, so what you see is what gets published.
 
 import { guessRole, fillPlaceholders } from './collectionFields.js';
+import { toListing, toListings, facetsOf } from './listingsMap.js';
+import { renderBlock } from '../cms/lib/pasteIn/blockRenderers.js';
+
+// Listing blocks bound to a whole collection (a search page, a featured row).
+export const LISTING_COLLECTION_BLOCKS = new Set(['listing-cards', 'listing-search']);
+// Listing blocks that render one entry, on a collection detail page.
+export const LISTING_ENTRY_BLOCKS = new Set(['listing-hero', 'listing-facts', 'listing-features']);
 
 // Layout key -> the block type that actually renders it.
 export const COLLECTION_LAYOUTS = {
@@ -102,18 +109,48 @@ export function applyCollectionToBlock(blockFields, collection, entries) {
 }
 
 /**
- * Render a detail page's blocks for one entry: every `{{field_key}}` in the
- * block's html is replaced with that entry's value.
+ * The fields a collection-bound listing block renders with.
  *
- * Operates on the already-rendered html rather than re-running the renderers,
- * so it works for typed blocks and hand-written HTML sections alike.
+ * Separate from applyCollectionToBlock because listings don't map onto the
+ * generic item shape — a card needs price, beds and status as distinct typed
+ * values, not three strings crammed into `meta`.
  */
-export function applyEntryToSections(sections, entry) {
+export function applyCollectionToListingBlock(blockFields, collection, entries) {
+  const listings = toListings(collection, entries, {
+    mapping: blockFields?.mapping || {},
+    limit: Number(blockFields?.limit) || 0,
+  });
+  return {
+    ...blockFields,
+    listings,
+    // Facets come from the unlimited set, so a "featured 6" block still
+    // offers the full filter vocabulary if it ever grows a filter panel.
+    facets: facetsOf(toListings(collection, entries, { mapping: blockFields?.mapping || {} })),
+  };
+}
+
+/**
+ * Render a detail page's blocks for one entry.
+ *
+ * Two mechanisms, because two kinds of block live on a detail page. Ordinary
+ * blocks get `{{field_key}}` substituted into their already-rendered html,
+ * which works for typed blocks and hand-written HTML alike. Listing blocks
+ * are re-rendered from the entry instead: their content is a photo grid, a
+ * details table and grouped amenity chips, and none of that survives being
+ * expressed as a string substitution.
+ */
+export function applyEntryToSections(sections, entry, collection) {
   const data = entry?.data || {};
-  return (sections || []).map((section) => ({
-    ...section,
-    html: fillPlaceholders(section.html || '', data),
-  }));
+  const listing = collection ? toListing(entry, collection) : null;
+  return (sections || []).map((section) => {
+    if (listing && LISTING_ENTRY_BLOCKS.has(section.blockType)) {
+      const html = renderBlock(section.blockType, { ...(section.fields || {}), listing });
+      // A renderer that returns '' (features with nothing ticked) collapses
+      // the section rather than leaving the unfilled template behind.
+      return { ...section, html: html === '' ? '' : html || section.html };
+    }
+    return { ...section, html: fillPlaceholders(section.html || '', data) };
+  });
 }
 
 /** The placeholder tokens available for a collection, for the editor's help text. */

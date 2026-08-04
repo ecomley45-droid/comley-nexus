@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Database, Plus, Trash2 } from 'lucide-react';
+import { Database, Home, Plus, Trash2 } from 'lucide-react';
+import { LISTING_PRESET } from '../../shared/listingsMap.js';
 import { getCollections, createCollection, deleteCollection } from '../lib/api.js';
 import { GlassPanel, GlassButton, GlassInput, Badge } from '../lib/ui/Glass.jsx';
 import EmptyState from '../lib/ui/EmptyState.jsx';
@@ -39,6 +40,20 @@ export default function CollectionsPage() {
       await load();
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   };
+
+  // Property listings carry twenty-odd fields and a fifty-item amenity
+  // vocabulary. Hand-building that is an afternoon of typing, and getting a
+  // key name wrong quietly stops the listing blocks finding the price — so
+  // the preset exists to make the zero-config path the default one.
+  const createListings = async () => {
+    setBusy(true);
+    try {
+      await createCollection(LISTING_PRESET);
+      await load();
+    } catch (e) { setError(e.message); } finally { setBusy(false); }
+  };
+
+  const hasListings = (collections || []).some((c) => c.slug === LISTING_PRESET.slug);
 
   const remove = async (c) => {
     const ok = await confirm({
@@ -81,6 +96,17 @@ export default function CollectionsPage() {
           <GlassButton onClick={create} disabled={busy || !name.trim()}>
             <Plus size={14} /> Create
           </GlassButton>
+          {!hasListings && (
+            <div className="w-full flex items-center gap-2 pt-1 border-t border-white/10 mt-1">
+              <span className="text-xs text-zinc-500">Start from a preset:</span>
+              <GlassButton onClick={createListings} disabled={busy} className="text-xs py-1">
+                <Home size={13} /> Property listings
+              </GlassButton>
+              <span className="text-[11px] text-zinc-600">
+                Price, beds, baths, photos, map location, and a full amenity list — ready for the Listing blocks.
+              </span>
+            </div>
+          )}
         </GlassPanel>
       )}
 

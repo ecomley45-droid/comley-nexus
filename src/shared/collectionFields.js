@@ -16,8 +16,12 @@ export const FIELD_TYPES = {
   image: { label: 'Image', help: 'A URL, or pick from the media library.' },
   url: { label: 'Link', help: 'An external or internal URL.' },
   select: { label: 'Choice', help: 'One of a fixed list you define.' },
+  tags: { label: 'Tags', help: 'Any number from a list you define — features, amenities, categories.' },
   richtext: { label: 'Rich text', help: 'Formatted body copy for a detail page.' },
 };
+
+// The types that carry a list of allowed values the author defines.
+export const OPTION_TYPES = new Set(['select', 'tags']);
 
 // Field keys become jsonb keys and `{{placeholders}}`, so they're restricted
 // to something safe to interpolate and stable to rename around.
@@ -62,9 +66,12 @@ export function normalizeFields(raw) {
       required: f.required === true,
     };
     if (f.help) field.help = String(f.help).slice(0, 200);
-    if (type === 'select') {
+    if (OPTION_TYPES.has(type)) {
+      // Tags carry more values than a dropdown reasonably can — a listing's
+      // amenity list runs to dozens — so the cap is per-type.
+      const max = type === 'tags' ? 120 : 40;
       field.options = (Array.isArray(f.options) ? f.options : [])
-        .map((o) => String(o).slice(0, 60)).filter(Boolean).slice(0, 40);
+        .map((o) => String(o).slice(0, 60)).filter(Boolean).slice(0, max);
     }
     seen.add(key);
     out.push(field);
@@ -115,6 +122,19 @@ function coerce(value, field) {
     }
     case 'select':
       return (field.options || []).includes(String(value)) ? String(value) : '';
+    case 'tags': {
+      // Accepts an array from the editor or a comma string from an import,
+      // and keeps only values the field actually declares — so a filter UI
+      // built from `options` can never miss an entry it should have matched.
+      const raw = Array.isArray(value) ? value : String(value ?? '').split(',');
+      const allowed = new Set(field.options || []);
+      const out = [];
+      for (const v of raw) {
+        const s = String(v).trim();
+        if (allowed.has(s) && !out.includes(s)) out.push(s);
+      }
+      return out.slice(0, 120);
+    }
     case 'textarea':
     case 'richtext':
       return String(value ?? '').slice(0, 20000);
@@ -143,6 +163,7 @@ export function missingRequired(data, fields) {
       const v = data?.[f.key];
       if (f.type === 'boolean') return v !== true;
       if (f.type === 'number') return v === null || v === undefined || v === '';
+      if (f.type === 'tags') return !Array.isArray(v) || v.length === 0;
       return !String(v ?? '').trim();
     })
     .map((f) => f.label);
@@ -158,6 +179,7 @@ export function fillPlaceholders(text, data) {
   return String(text ?? '').replace(/\{\{\s*([a-z][a-z0-9_]{0,39})\s*\}\}/gi, (_, key) => {
     const v = data?.[key.toLowerCase()];
     if (v === null || v === undefined || v === false) return '';
+    if (Array.isArray(v)) return v.join(', ');
     return String(v);
   });
 }

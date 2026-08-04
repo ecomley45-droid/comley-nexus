@@ -29,6 +29,10 @@ const LAZY = 'loading="lazy" decoding="async"';
 const EAGER = 'decoding="async" fetchpriority="high"';
 
 import { FORM_FIELD_TYPES, formFieldsFor } from '../../../shared/formFields.js';
+import {
+  renderListingCards, renderListingSearch, renderListingHero,
+  renderListingFacts, renderListingFeatures,
+} from './listingRenderers.js';
 
 const headingsHtml = (headings = [], startAt = 1) =>
   headings.map((h, i) => `<h${Math.min(startAt + i, 4)}>${esc(h)}</h${Math.min(startAt + i, 4)}>`).join('\n');
@@ -1749,6 +1753,11 @@ export const BLOCK_RENDERERS = {
   'hero-video': renderHeroVideo,
   'sticky-cta': renderStickyCta,
   'scroll-progress': renderScrollProgress,
+  'listing-cards': renderListingCards,
+  'listing-search': renderListingSearch,
+  'listing-hero': renderListingHero,
+  'listing-facts': renderListingFacts,
+  'listing-features': renderListingFeatures,
   script: renderScript,
   layout: renderLayout,
   // Polished block set

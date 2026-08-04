@@ -8,7 +8,7 @@ import { GlassPanel, GlassButton, GlassInput, GlassTextarea, GlassSelect, Badge 
 import EmptyState from '../lib/ui/EmptyState.jsx';
 import { useConfirm } from '../lib/ui/useConfirm.jsx';
 import { useOrgBase, useIsAdmin } from '../lib/useMe.jsx';
-import { FIELD_TYPES, keyify, normalizeEntryData } from '../../shared/collectionFields.js';
+import { FIELD_TYPES, OPTION_TYPES, keyify, normalizeEntryData } from '../../shared/collectionFields.js';
 
 // One collection: its field designer (admin) and its entries (editor).
 //
@@ -41,11 +41,11 @@ function FieldRow({ field, onChange, onRemove, onMove, isFirst, isLast }) {
         <span className="text-[11px] text-zinc-600 font-mono">{`{{${field.key}}}`}</span>
         <span className="text-[11px] text-zinc-600">{FIELD_TYPES[field.type]?.help}</span>
       </div>
-      {field.type === 'select' && (
+      {OPTION_TYPES.has(field.type) && (
         <GlassInput
           value={(field.options || []).join(', ')}
           onChange={(e) => onChange({ options: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
-          placeholder="Choices, comma separated"
+          placeholder={field.type === 'tags' ? 'Tags, comma separated' : 'Choices, comma separated'}
           className="w-full mt-1.5 py-1 text-xs"
         />
       )}
@@ -96,6 +96,39 @@ function EntryEditor({ collection, entry, onSave, onRemove }) {
             {(field.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
           </GlassSelect>
         );
+      case 'tags': {
+        // Chips rather than a multi-select: a listing routinely carries a
+        // dozen of these, and a ctrl-click multi-select makes that painful to
+        // set and impossible to read back at a glance.
+        const picked = Array.isArray(value) ? value : [];
+        const toggle = (opt) => {
+          const next = picked.includes(opt) ? picked.filter((p) => p !== opt) : [...picked, opt];
+          set(next);
+          commit({ [field.key]: next });
+        };
+        if ((field.options || []).length === 0) {
+          return <span className="text-[11px] text-zinc-500">Add some tags to this field first.</span>;
+        }
+        return (
+          <div className="flex flex-wrap gap-1.5">
+            {field.options.map((o) => (
+              <button
+                key={o}
+                type="button"
+                onClick={() => toggle(o)}
+                aria-pressed={picked.includes(o)}
+                className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
+                  picked.includes(o)
+                    ? 'bg-indigo-500 border-indigo-500 text-zinc-100'
+                    : 'border-white/15 text-zinc-400 hover:border-white/30 hover:text-zinc-200'
+                }`}
+              >
+                {o}
+              </button>
+            ))}
+          </div>
+        );
+      }
       case 'image':
         return (
           <div className="flex gap-1.5">
