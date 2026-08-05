@@ -13,6 +13,34 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { compilePageHtml, getFullPath, pickWeightedVariant } from './src/shared/compilePage.js';
 import { applyResponsiveImages, buildMediaIndex } from './src/shared/responsiveImages.js';
+
+// The srcset pass needs the org's media on every public page render, and
+// media.list is unbounded — one row per upload, forever. Fetching all of it
+// per request is a query whose cost grows with the library and has nothing to
+// do with the page being served, so it is cached briefly per org.
+//
+// 60 seconds is chosen against what actually goes wrong: a freshly uploaded
+// image renders without a srcset for up to a minute, which costs one visitor
+// some bytes. The alternative — a full media read on every request — costs
+// every visitor.
+const MEDIA_INDEX_TTL_MS = 60_000;
+const mediaIndexCache = new Map();
+
+async function mediaIndexFor(orgId) {
+  const hit = mediaIndexCache.get(orgId);
+  if (hit && hit.expires > Date.now()) return hit.index;
+  const index = buildMediaIndex(await storage.media.list(orgId));
+  mediaIndexCache.set(orgId, { index, expires: Date.now() + MEDIA_INDEX_TTL_MS });
+  // Bound the map itself: one entry per org that has served a page since the
+  // process started, which on a shared instance is otherwise unbounded too.
+  if (mediaIndexCache.size > 200) {
+    for (const key of mediaIndexCache.keys()) {
+      if (mediaIndexCache.size <= 100) break;
+      mediaIndexCache.delete(key);
+    }
+  }
+  return index;
+}
 import { mountCommerceWebhooks, mountCommerceApi } from './lib/commerce/routes.js';
 import { mountOpsApi } from './lib/ops/routes.js';
 import { mountNexusApi } from './lib/nexusRoutes.js';
@@ -676,6 +704,67 @@ app.get('/api/analytics/views', requireOrg, async (req, res, next) => {
 // keeps its look).
 const aiGenerateLimit = rateLimit({ windowMs: 60_000, max: 3, standardHeaders: true, legacyHeaders: false });
 
+// Same generation, reported as it happens.
+//
+// The work takes twenty to forty seconds and used to be a silent spinner.
+// This streams progress events read from the model's own output — never a
+// timer — and finishes with the same payload the JSON route returns, so the
+// two cannot drift in what they actually do.
+//
+// Errors are delivered as an `error` event rather than a status code: by the
+// time anything can fail the 200 and the headers are long gone.
+app.post('/api/ai/generate-site/stream', aiGenerateLimit, requireOrg, requireRole('editor'), async (req, res) => {
+  const send = (event, data) => {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  };
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    // Nginx and some CDNs buffer a response until it closes, which would
+    // hold every progress event until the very end and defeat the point.
+    'X-Accel-Buffering': 'no',
+  });
+  res.flushHeaders?.();
+
+  try {
+    const { description } = req.body || {};
+    if (!description?.trim() || description.trim().length < 10) {
+      send('error', { error: 'Describe your business in a sentence or two first.' });
+      return res.end();
+    }
+    const { pages: generated, theme } = await generateSite(
+      description.trim(),
+      (p) => send('progress', p),
+    );
+
+    send('progress', { phase: 'saving', message: 'Saving your pages…' });
+    const existing = await storage.pages.list(req.org.id);
+    const existingSlugs = new Set(existing.map((p) => p.slug));
+    const deduped = generated.map((p) => {
+      let slug = p.slug;
+      while (existingSlugs.has(slug)) slug = `${p.slug}-${Math.floor(Math.random() * 1000)}`;
+      existingSlugs.add(slug);
+      return { ...p, slug };
+    });
+
+    await storage.pages.bulkReplace(req.org.id, [...existing, ...deduped.map(sanitizePage)]);
+    if (existing.length === 0 && Object.keys(theme).length > 0) {
+      const settings = await storage.settings.get(req.org.id);
+      await storage.settings.replace(req.org.id, sanitizeGlobalSettings({ ...settings, theme: { ...settings.theme, ...theme } }));
+    }
+    await auditFor(req.org.id, req.viewer)('AI generated site', `${deduped.length} pages from a description`);
+    send('done', {
+      success: true,
+      pages: deduped.map((p) => ({ id: p.id, name: p.name, slug: p.slug })),
+      themeApplied: existing.length === 0,
+    });
+  } catch (e) {
+    send('error', { error: e.message });
+  }
+  res.end();
+});
+
 app.post('/api/ai/generate-site', aiGenerateLimit, requireOrg, requireRole('editor'), async (req, res, next) => {
   try {
     const { description } = req.body || {};
@@ -1093,7 +1182,7 @@ app.use(async (req, res, next) => {
     // Additive only: an <img> that already declares srcset is left alone.
     if (site.orgId) {
       try {
-        renderedHtml = applyResponsiveImages(renderedHtml, buildMediaIndex(await storage.media.list(site.orgId)));
+        renderedHtml = applyResponsiveImages(renderedHtml, await mediaIndexFor(site.orgId));
       } catch { /* a missing srcset is not worth failing a page render over */ }
     }
     const analyticsHosts = process.env.ANALYTICS_HOSTS || '';

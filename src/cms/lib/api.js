@@ -81,6 +81,55 @@ export const getSiteViews = (days = 30) => request(`/analytics/views?days=${days
 export const generateAiSite = (description) =>
   request('/ai/generate-site', { method: 'POST', body: JSON.stringify({ description }) });
 
+// Streaming variant: same work, but reports what it is doing as it happens.
+// `onProgress` is called with { phase, message } frames; resolves with the
+// same payload the JSON route returns.
+//
+// Not built on EventSource, which cannot POST or send an Authorization
+// header — this reads the response body directly.
+export async function generateAiSiteStreaming(description, onProgress) {
+  const token = await getAuthToken();
+  const res = await fetch('/api/ai/generate-site/stream', {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ description }),
+  });
+  if (!res.ok || !res.body) throw new Error('Could not start generation. Please try again.');
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let result = null;
+  let failure = null;
+
+  // Frames are separated by a blank line; a frame may span several reads.
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const frames = buffer.split('\n\n');
+    buffer = frames.pop() || '';
+    for (const frame of frames) {
+      const event = /^event:\s*(.+)$/m.exec(frame)?.[1]?.trim();
+      const raw = /^data:\s*(.+)$/m.exec(frame)?.[1];
+      if (!event || !raw) continue;
+      let payload;
+      try { payload = JSON.parse(raw); } catch { continue; }
+      if (event === 'progress') onProgress?.(payload);
+      else if (event === 'done') result = payload;
+      else if (event === 'error') failure = payload.error;
+    }
+  }
+  // The stream ending without either is a dropped connection, not a success.
+  if (failure) throw new Error(failure);
+  if (!result) throw new Error('Generation stopped before it finished. Please try again.');
+  return result;
+}
+
 // ---- Platform billing (Nexus's own plans) ----
 export const getBillingStatus = () => request('/billing/status');
 export const startCheckout = (plan, interval) =>

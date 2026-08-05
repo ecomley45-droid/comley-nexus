@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import { GlassPanel, GlassTextarea, GlassButton } from './ui/Glass.jsx';
-import { generateAiSite } from './api.js';
+import { generateAiSiteStreaming } from './api.js';
 import { useOrgBase } from './useMe.jsx';
 
 // Dashboard AI bar: describe the business, get a complete multi-page site
@@ -15,15 +15,17 @@ export default function AiPromptBar() {
   const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [status, setStatus] = useState('');
 
   const generate = async () => {
     if (description.trim().length < 10) return;
-    setBusy(true); setError('');
+    setBusy(true); setError(''); setStatus('Starting…');
     try {
-      await generateAiSite(description.trim());
+      await generateAiSiteStreaming(description.trim(), (p) => setStatus(p.message || ''));
       navigate(`${base}/pages`);
     } catch (e) {
       setError(e.message);
+      setStatus('');
       setBusy(false);
     }
   };
@@ -53,7 +55,14 @@ export default function AiPromptBar() {
         </GlassButton>
       </div>
 
-      {busy && <p className="text-xs text-zinc-500">Writing copy, picking a theme, and assembling pages — usually 15–30 seconds.</p>}
+      {busy && (
+        <p className="text-xs text-zinc-400 flex items-center gap-2" aria-live="polite">
+          <span className="w-1.5 h-1.5 rounded-full bg-glass-fuchsia animate-pulse shrink-0" />
+          {/* Each line is read from what the model has actually written, so
+              it never claims a page exists before it does. */}
+          {status || 'Starting…'}
+        </p>
+      )}
       {error && <p className="text-sm text-red-400">{error}</p>}
     </GlassPanel>
   );
