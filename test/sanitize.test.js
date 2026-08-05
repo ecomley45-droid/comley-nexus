@@ -121,3 +121,59 @@ test('global settings: theme colors and custom CSS are both sanitised', () => {
   assert.ok(!clean.globals.header.html.includes('onclick'));
   assert.ok(clean.analytics.headSnippet.includes('ok()'));
 });
+
+// ------------------------------------------------------------- inline SVG
+
+test('an inline icon survives import intact', () => {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
+    + '<linearGradient id="g" gradientUnits="userSpaceOnUse"><stop stop-color="#CE011F"/></linearGradient>'
+    + '<clipPath id="c"><circle cx="12" cy="12" r="11"/></clipPath>'
+    + '<path d="M6 12l4 4 8-8" stroke-width="2" fill="url(#g)" clip-path="url(#c)"/></svg>';
+  const out = sanitizeFullPageHtml(svg);
+  // Names come back lowercase because the parser lowercases them. That is
+  // fine: parsing inline SVG in an HTML document runs the spec's "adjust SVG
+  // tag names"/"adjust SVG attributes" tables, so the browser restores
+  // viewBox, linearGradient, clipPath and gradientUnits on the way into the
+  // DOM. Verified in a browser, not assumed.
+  assert.ok(out.includes('viewbox="0 0 24 24"'), 'an SVG without its viewBox does not scale');
+  assert.ok(out.includes('lineargradient') && out.includes('stop-color="#CE011F"'));
+  assert.ok(out.includes('clippath') && out.includes('gradientunits'));
+  assert.ok(out.includes('d="M6 12l4 4 8-8"') && out.includes('stroke-width="2"'));
+});
+
+test('the executable half of SVG does not survive', () => {
+  const cases = {
+    'inline handler': '<svg onload="steal()"><path d="M0" onclick="x()"/></svg>',
+    'script child': '<svg><script>steal()</script><path d="M0"/></svg>',
+    'nested svg script': '<svg><g><svg><script>steal()</script></svg></g></svg>',
+    foreignObject: '<svg><foreignObject><img src=x onerror="steal()"></foreignObject></svg>',
+    'SMIL retarget': '<svg><a href="#"><animate attributeName="href" to="javascript:steal()"/></a></svg>',
+  };
+  for (const [name, input] of Object.entries(cases)) {
+    const out = sanitizeFullPageHtml(input);
+    assert.ok(!/onload|onclick|onerror/.test(out), `${name}: an event handler survived`);
+    assert.ok(!out.includes('steal()'), `${name}: executable content survived`);
+    assert.ok(!/<animate|foreignObject/i.test(out), `${name}: a retargeting element survived`);
+  }
+});
+
+test('a <use> may only point inside its own document', () => {
+  const out = sanitizeFullPageHtml(
+    '<svg><use href="https://evil.test/x.svg#a"/><use xlink:href="//evil.test/y.svg#b"/><use href="#local"/></svg>',
+  );
+  assert.ok(!out.includes('evil.test'), 'an external use fetches a document the visitor never asked for');
+  assert.ok(out.includes('href="#local"'), 'a same-document reference is the whole point of <use>');
+});
+
+test('<title> is scoped: an icon label, never a page title from inside a block', () => {
+  const content = sanitizeContentHtml('<title>doc</title><svg><title>Icon</title><path d="M1"/></svg>');
+  assert.ok(!content.includes('<title>doc</title>'), 'a block must not set the document title');
+  assert.ok(content.includes('<title>Icon</title>'), 'but an SVG needs its accessible name');
+  // A full page legitimately has one.
+  assert.ok(sanitizeFullPageHtml('<html><head><title>t</title></head><body>x</body></html>').includes('<title>t</title>'));
+});
+
+test('a page script outside an SVG is still allowed, as the Script block needs', () => {
+  assert.ok(sanitizeContentHtml('<div><script>legit()</script></div>').includes('legit()'));
+  assert.ok(sanitizeContentHtml('<svg><path d="M0"/></svg><script>legit()</script>').includes('legit()'));
+});
