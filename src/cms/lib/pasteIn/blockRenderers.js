@@ -28,16 +28,6 @@ const esc = (s) =>
 const LAZY = 'loading="lazy" decoding="async"';
 const EAGER = 'decoding="async" fetchpriority="high"';
 
-import { FORM_FIELD_TYPES, formFieldsFor } from '../../../shared/formFields.js';
-import {
-  renderListingCards, renderListingSearch, renderListingHero,
-  renderListingFacts, renderListingFeatures, renderMortgageCalc,
-  renderPriceHistory, renderNearbySchools,
-} from './listingRenderers.js';
-import {
-  renderNavLogo, renderNavCenter, renderNavUtility, renderNavOverlay, renderNavDrawer,
-} from './navRenderers.js';
-
 const headingsHtml = (headings = [], startAt = 1) =>
   headings.map((h, i) => `<h${Math.min(startAt + i, 4)}>${esc(h)}</h${Math.min(startAt + i, 4)}>`).join('\n');
 

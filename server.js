@@ -12,6 +12,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { compilePageHtml, getFullPath, pickWeightedVariant } from './src/shared/compilePage.js';
+import { applyResponsiveImages, buildMediaIndex } from './src/shared/responsiveImages.js';
 import { mountCommerceWebhooks, mountCommerceApi } from './lib/commerce/routes.js';
 import { mountOpsApi } from './lib/ops/routes.js';
 import { mountNexusApi } from './lib/nexusRoutes.js';
@@ -1084,6 +1085,17 @@ app.use(async (req, res, next) => {
     // (and cheap) when the page has no feed block. Runs before the CSP hash
     // pass since it may add a <style> block (never a <script>).
     if (site.orgId) renderedHtml = await injectSocialFeeds(renderedHtml, site.orgId);
+
+    // Give every image we host a srcset, so a phone stops downloading a
+    // 3000px file into a 390px column. Runs on the finished HTML rather than
+    // in the renderers because card items, listing photos and imported
+    // full-HTML pages carry bare URL strings that no renderer helper reaches.
+    // Additive only: an <img> that already declares srcset is left alone.
+    if (site.orgId) {
+      try {
+        renderedHtml = applyResponsiveImages(renderedHtml, buildMediaIndex(await storage.media.list(site.orgId)));
+      } catch { /* a missing srcset is not worth failing a page render over */ }
+    }
     const analyticsHosts = process.env.ANALYTICS_HOSTS || '';
 
     // Full HTML mode is the trusted-author escape hatch: it already bypasses
