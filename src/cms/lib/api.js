@@ -162,6 +162,31 @@ export const getTemplate = (id) => request(`/templates/${id}`);
 export const installTemplate = (id, applyTheme = true) =>
   request(`/templates/${id}/install`, { method: 'POST', body: JSON.stringify({ applyTheme }) });
 export const getTemplateInstalls = () => request('/template-installs');
+
+// Export bypasses request() because the response is a file download, not
+// JSON: it needs the auth header but must reach the browser as a Blob.
+export async function exportTemplate(id, filename) {
+  const token = await getAuthToken();
+  const res = await fetch(`/api/templates/${id}/export`, {
+    credentials: 'include',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Export failed');
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename || `${id}.nexus-template.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Revoking immediately can cancel the download in some browsers; a tick
+  // is enough for the click to have been handed off.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export const importTemplate = (file) =>
+  request('/templates/import', { method: 'POST', body: JSON.stringify(file) });
 // Super-admin authoring
 export const createTemplate = (payload) => request('/templates', { method: 'POST', body: JSON.stringify(payload) });
 export const updateTemplate = (id, patch) => request(`/templates/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });

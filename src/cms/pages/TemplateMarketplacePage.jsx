@@ -1,6 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getTemplates, getTemplateInstalls, restoreBackup, saveSiteAsTemplate } from '../lib/api.js';
+import { Download, Upload } from 'lucide-react';
+import {
+  getTemplates, getTemplateInstalls, restoreBackup, saveSiteAsTemplate,
+  exportTemplate, importTemplate,
+} from '../lib/api.js';
 import TemplatePreviewFrame from '../lib/templates/TemplatePreviewFrame.jsx';
 import { GlassPanel, GlassButton, Badge } from '../lib/ui/Glass.jsx';
 import { useMe, useIsSuperAdmin } from '../lib/useMe.jsx';
@@ -20,6 +24,36 @@ export default function TemplateMarketplacePage() {
   const [installs, setInstalls] = useState(null);
   const [error, setError] = useState('');
   const [busyBackup, setBusyBackup] = useState('');
+  const [busyIo, setBusyIo] = useState('');
+  const fileRef = useRef(null);
+  const [notice, setNotice] = useState('');
+
+  // A template used to exist only as a row in one database, which is why a
+  // single bad DELETE was unrecoverable. Exporting writes a file the user
+  // keeps; importing reads one back. It doubles as the way to move a
+  // template between environments.
+  const onExport = async (t) => {
+    setBusyIo(t.id); setNotice(''); setError('');
+    try {
+      await exportTemplate(t.id, `${t.slug || t.id}.nexus-template.json`);
+    } catch (e) { setError(e.message); } finally { setBusyIo(''); }
+  };
+
+  const onImportFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';                      // let the same file be picked twice
+    if (!file) return;
+    setBusyIo('import'); setNotice(''); setError('');
+    try {
+      const parsed = JSON.parse(await file.text());
+      const { template } = await importTemplate(parsed);
+      setNotice(`Imported “${template.name}”.`);
+      const d = await getTemplates();
+      setTemplates(d.templates);
+    } catch (err) {
+      setError(err instanceof SyntaxError ? 'That file isn’t valid JSON.' : err.message);
+    } finally { setBusyIo(''); }
+  };
 
   useEffect(() => {
     getTemplates().then((d) => setTemplates(d.templates)).catch((e) => setError(e.message));
@@ -67,7 +101,7 @@ export default function TemplateMarketplacePage() {
     }
   };
 
-  if (error) return <p className="text-red-400">{error}</p>;
+  if (error && !templates) return <p className="text-red-400">{error}</p>;
 
   return (
     <div className="max-w-6xl">
@@ -75,12 +109,30 @@ export default function TemplateMarketplacePage() {
         <h1 className="text-2xl font-semibold">Site templates</h1>
         <div className="flex gap-2">
           {isSuperAdmin && (
-            <GlassButton variant="secondary" onClick={onCaptureSite}>Save this site as template</GlassButton>
+            <>
+              <GlassButton variant="secondary" onClick={onCaptureSite}>Save this site as template</GlassButton>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/json,.json"
+                onChange={onImportFile}
+                className="hidden"
+              />
+              <GlassButton
+                variant="secondary"
+                disabled={busyIo === 'import'}
+                onClick={() => fileRef.current?.click()}
+              >
+                <Upload size={14} /> {busyIo === 'import' ? 'Importing…' : 'Import file'}
+              </GlassButton>
+            </>
           )}
           <GlassButton variant={tab === 'browse' ? 'primary' : 'ghost'} onClick={() => setTab('browse')}>Browse</GlassButton>
           <GlassButton variant={tab === 'mine' ? 'primary' : 'ghost'} onClick={() => setTab('mine')}>My Templates</GlassButton>
         </div>
       </div>
+      {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
+      {notice && <p className="text-emerald-400 text-sm mb-3">{notice}</p>}
       <p className="text-sm text-zinc-400 mb-6">
         Install a ready-made starter site. Installing replaces your current pages{isAdmin ? '' : ' (admins only)'} — a backup is always saved first, so you can roll back any time.
       </p>
@@ -117,9 +169,19 @@ export default function TemplateMarketplacePage() {
                     <div className="text-[11px] text-zinc-500">
                       {t.summary.pageCount} pages · {t.summary.blockTypes.length} block types
                     </div>
-                    <Link to={`/${orgSlug}/templates/${t.id}`}>
-                      <GlassButton variant="secondary" className="w-full mt-1">View template</GlassButton>
-                    </Link>
+                    <div className="flex gap-2 mt-1">
+                      <Link to={`/${orgSlug}/templates/${t.id}`} className="flex-1">
+                        <GlassButton variant="secondary" className="w-full">View template</GlassButton>
+                      </Link>
+                      <GlassButton
+                        variant="ghost"
+                        title="Download this template as a file"
+                        disabled={busyIo === t.id}
+                        onClick={() => onExport(t)}
+                      >
+                        <Download size={14} />
+                      </GlassButton>
+                    </div>
                   </div>
                 </GlassPanel>
               ))}

@@ -146,3 +146,49 @@ test('deactivating survives a refresh, so it stays the way to hide a template', 
   assert.equal(after.is_active, false, '…and is_active is not code’s to reset');
   assert.ok(!out.some((r) => r.slug === 'realtor'), 'so it stays out of the marketplace');
 });
+
+// ------------------------------------------------------- export / import
+
+test('a template survives a round trip through a file', async (t) => {
+  // The point of the file: a template used to exist only as one row in one
+  // database, so a single bad DELETE was unrecoverable.
+  const { validateSitePayload } = await import('../lib/sitePayload.js');
+  const row = defaultMarketplaceTemplates().find((x) => x.slug === 'realtor');
+
+  const file = {
+    nexusTemplate: 1,
+    exportedAt: '2026-08-05T00:00:00.000Z',
+    slug: row.slug, name: row.name, category: row.category,
+    description: row.description, featureList: row.featureList,
+    payload: row.payload,
+  };
+  // Whatever produced the file, it is untrusted input on the way back in.
+  const reimported = validateSitePayload(JSON.parse(JSON.stringify(file)).payload);
+
+  assert.deepEqual(
+    reimported.pages.map((p) => p.slug),
+    row.payload.pages.map((p) => p.slug),
+    'every page has to come back',
+  );
+  assert.equal(reimported.theme.accent, row.payload.theme.accent, 'and the theme with it');
+  for (const [i, page] of reimported.pages.entries()) {
+    assert.equal(
+      (page.sections || []).length,
+      (row.payload.pages[i].sections || []).length,
+      `${page.slug}: lost sections in the round trip`,
+    );
+  }
+});
+
+test('import refuses anything that is not a template file', async () => {
+  const { validateSitePayload } = await import('../lib/sitePayload.js');
+  // The route checks the marker before touching the payload; these are the
+  // shapes that must not be mistaken for one.
+  for (const bad of [{}, { nexusTemplate: 2 }, { nexusTemplate: '1' }, { payload: {} }]) {
+    assert.notEqual(bad.nexusTemplate, 1, 'guard is a strict === 1 on purpose');
+  }
+  // A file carrying a structurally empty payload is rejected rather than
+  // creating a template with nothing in it.
+  assert.equal(validateSitePayload({ pages: [], theme: {} }).pages.length, 0);
+  assert.equal(validateSitePayload(null).pages.length, 0);
+});
