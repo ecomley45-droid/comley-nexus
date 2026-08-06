@@ -14,6 +14,7 @@ import { fileURLToPath } from 'url';
 import { compilePageHtml, getFullPath, pickWeightedVariant } from './src/shared/compilePage.js';
 import { applyResponsiveImages, buildMediaIndex } from './src/shared/responsiveImages.js';
 import { renderModelFrame, modelFrameCsp } from './lib/modelFrame.js';
+import { tourFrameSrc } from './src/shared/tourProviders.js';
 
 // The srcset pass needs the org's media on every public page render, and
 // media.list is unbounded — one row per upload, forever. Fetching all of it
@@ -1257,7 +1258,7 @@ app.use(async (req, res, next) => {
       `connect-src 'self' ${analyticsHosts}`,
       // Video Embed block: default-src 'self' was blocking YouTube/Vimeo
       // iframes entirely in production.
-      `frame-src 'self' https://www.youtube.com https://player.vimeo.com`,
+      `frame-src 'self' https://www.youtube.com https://player.vimeo.com ${tourFrameSrc()}`.trim(),
       `frame-ancestors 'none'`,
       `base-uri 'self'`,
       `form-action 'self'`,

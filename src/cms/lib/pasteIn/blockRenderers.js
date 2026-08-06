@@ -37,6 +37,7 @@ import {
 import {
   renderNavLogo, renderNavCenter, renderNavUtility, renderNavOverlay, renderNavDrawer,
 } from './navRenderers.js';
+import { parseTourInput, TOUR_PROVIDER_NAMES } from '../../../shared/tourProviders.js';
 
 const headingsHtml = (headings = [], startAt = 1) =>
   headings.map((h, i) => `<h${Math.min(startAt + i, 4)}>${esc(h)}</h${Math.min(startAt + i, 4)}>`).join('\n');
@@ -1766,6 +1767,41 @@ export function renderModel3d(fields) {
 </div>`;
 }
 
+// A hosted virtual tour (Matterport and the like), embedded through the
+// provider's own player. Same shape as the Video Embed block: the agent
+// pastes a share link or the provider's <iframe> snippet, and it is validated
+// against tourProviders.js before an iframe is emitted -- an unsupported host
+// gets an explanation, not a frame the page CSP would just block. The allow
+// list here (gyroscope/xr) is what lets a 360 or VR tour respond to a phone's
+// motion and enter fullscreen or headset view.
+export function renderVirtualTour(fields) {
+  const heading = fields.headings?.[0];
+  const intro = (fields.text || []).map((t) => `<p class="nx-tour-intro">${esc(t)}</p>`).join('');
+  const caption = String(fields.caption || '').trim();
+  const height = Math.min(900, Math.max(280, Number(fields.height) || 520));
+  const head = heading ? `<h2 class="nx-tour-h">${esc(heading)}</h2>` : '';
+
+  const parsed = parseTourInput(fields.tourUrl);
+  const shell = (inner) => `<style>
+.nx-tour-wrap { max-width:1100px; margin:0 auto; padding:48px 24px; }
+.nx-tour-h { font-family:var(--font-display); font-size:var(--text-h2); margin:0 0 12px; }
+.nx-tour-intro { color:var(--color-muted); max-width:60ch; margin:0 0 20px; }
+.nx-tour-frame { width:100%; border:0; display:block; border-radius:12px; background:var(--surface-strong); }
+.nx-tour-cap { color:var(--color-muted); font-size:13px; margin-top:10px; text-align:center; }
+.nx-tour-empty { border:1px dashed var(--border); border-radius:12px; padding:56px 20px; text-align:center; color:var(--color-muted); font-size:14px; }
+</style>
+<div class="nx-tour-wrap">${head}${intro}${inner}</div>`;
+
+  if (!parsed.ok) {
+    const msg = parsed.reason === 'empty'
+      ? `Paste a virtual tour link to show it here. Works with ${esc(TOUR_PROVIDER_NAMES)}.`
+      : `That link isn't from a tour host we can embed. Supported: ${esc(TOUR_PROVIDER_NAMES)}.`;
+    return shell(`<div class="nx-tour-empty">${msg}</div>`);
+  }
+
+  return shell(`<iframe class="nx-tour-frame" src="${esc(parsed.url)}" title="${esc(heading || 'Virtual tour')}" style="height:${height}px" loading="lazy" allow="xr-spatial-tracking; gyroscope; accelerometer; fullscreen; vr" allowfullscreen></iframe>${caption ? `<p class="nx-tour-cap">${esc(caption)}</p>` : ''}`);
+}
+
 export const BLOCK_RENDERERS = {
   header: renderHeader,
   navigation: renderNavigation,
@@ -1795,6 +1831,7 @@ export const BLOCK_RENDERERS = {
   gallery: renderGallery,
   video: renderVideo,
   'model-3d': renderModel3d,
+  'virtual-tour': renderVirtualTour,
   faq: renderFaq,
   tabs: renderTabs,
   countdown: renderCountdown,

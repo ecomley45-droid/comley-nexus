@@ -491,6 +491,16 @@ export const BLOCK_FIELDS = {
     headings: { label: 'Heading' },
     images: { label: 'Slides', hint: 'One image per slide, swipeable on the published page.' },
   },
+  'virtual-tour': {
+    order: ['headings', 'text', 'tourUrl', 'height', 'caption'],
+    headings: { label: 'Heading', max: 1 },
+    text: { ...BODY_TEXT, max: 1, label: 'Intro' },
+    extras: {
+      tourUrl: { kind: 'text', label: 'Tour link or embed code', placeholder: 'https://my.matterport.com/show/?m=…', hint: 'Paste the share link — or the whole embed snippet — from Matterport, Kuula, CloudPano, Momento360, iGuide or Panoee.' },
+      height: { kind: 'number', label: 'Height (px)', min: 280, max: 900, placeholder: '520' },
+      caption: { kind: 'text', label: 'Caption', placeholder: 'Drag to look around' },
+    },
+  },
   'model-3d': {
     order: ['headings', 'modelUrl', 'poster', 'alt', 'rotate', 'interact', 'ar', 'iosUrl', 'bg', 'bgColor', 'height', 'caption'],
     headings: { label: 'Heading', max: 1 },
