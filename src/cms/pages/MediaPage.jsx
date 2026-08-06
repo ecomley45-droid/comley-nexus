@@ -90,9 +90,15 @@ export default function MediaPage({ nexus = false }) {
     setUploading(true);
     try {
       const dataBase64 = await fileToBase64(file);
+      // Browsers report 3D files inconsistently — a .glb often arrives as ''
+      // or application/octet-stream — so derive the type from the extension
+      // when the browser's guess isn't one the server accepts.
+      const ext = file.name.toLowerCase().split('.').pop();
+      const byExt = { glb: 'model/gltf-binary', usdz: 'model/vnd.usdz+zip' }[ext];
+      const mimeType = byExt || file.type;
       // Server auto-converts raster images to WebP; the list refresh below
       // reflects the final stored name/type.
-      await api.upload(file.name, file.type, dataBase64);
+      await api.upload(file.name, mimeType, dataBase64);
       load();
     } catch (err) {
       setError(err.message);
@@ -127,7 +133,7 @@ export default function MediaPage({ nexus = false }) {
         <h1 className="text-2xl font-semibold">Media library</h1>
         <label className="inline-flex items-center justify-center gap-1.5 rounded-xl text-sm font-medium transition active:scale-95 px-4 py-2 text-white bg-gradient-to-tr from-glass-indigo to-glass-fuchsia shadow-lg shadow-glass-fuchsia/20 hover:brightness-110 cursor-pointer">
           {uploading ? 'Uploading…' : 'Upload file'}
-          <input id="nx-media-input" type="file" onChange={handleUpload} className="hidden" disabled={uploading} />
+          <input id="nx-media-input" type="file" accept="image/*,video/*,audio/*,application/pdf,.glb,.usdz,model/gltf-binary,model/vnd.usdz+zip" onChange={handleUpload} className="hidden" disabled={uploading} />
         </label>
       </div>
       <p className="text-xs text-zinc-500 mb-4">Images are automatically optimized to WebP on upload.</p>
@@ -150,7 +156,7 @@ export default function MediaPage({ nexus = false }) {
               <img src={item.url} alt={item.altText || item.name} className="w-full h-24 object-cover rounded-xl mb-2" />
             ) : (
               <div className="w-full h-24 bg-white/5 rounded-xl mb-2 flex items-center justify-center text-xs text-zinc-400">
-                {item.mimeType}
+                {item.mimeType === 'model/gltf-binary' ? '3D model (.glb)' : item.mimeType === 'model/vnd.usdz+zip' ? 'AR model (.usdz)' : item.mimeType}
               </div>
             )}
             <p className="text-xs truncate text-zinc-300" title={item.name}>{item.name}</p>

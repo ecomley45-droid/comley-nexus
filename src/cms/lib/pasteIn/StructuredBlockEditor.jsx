@@ -152,17 +152,24 @@ function ImagesEditor({ spec, images, onChange }) {
 // as a plain string field (Product) rather than in the `images` array.
 function MediaUrlField({ spec, value, onChange }) {
   const library = useMediaLibrary();
+  // spec.accept narrows the library dropdown to one kind, so a 3D-model field
+  // does not list every photo in the workspace and vice versa.
+  const wanted = {
+    glb: (m) => m.mimeType === 'model/gltf-binary',
+    usdz: (m) => m.mimeType === 'model/vnd.usdz+zip',
+  }[spec.accept];
+  const shown = wanted ? library.filter(wanted) : library;
   return (
     <FieldShell label={spec.label} hint={spec.hint}>
       <div className="flex gap-1.5">
-        {library.length > 0 && (
+        {shown.length > 0 && (
           <GlassSelect
             value=""
-            onChange={(e) => { const m = library.find((x) => x.id === e.target.value); if (m) onChange(m.url); }}
+            onChange={(e) => { const m = shown.find((x) => x.id === e.target.value); if (m) onChange(m.url); }}
             className="w-28 shrink-0"
           >
             <option value="">Library…</option>
-            {library.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            {shown.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </GlassSelect>
         )}
         <GlassInput value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={spec.placeholder || 'https://…'} className="flex-1 min-w-0" />
@@ -443,8 +450,15 @@ function ExtraField({ fieldKey, spec, value, onChange }) {
   if (spec.kind === 'formFields') {
     return <FormFieldsEditor spec={spec} value={value} onChange={onChange} />;
   }
-  if (spec.kind === 'image') {
+  if (spec.kind === 'image' || spec.kind === 'model') {
     return <MediaUrlField spec={spec} value={value} onChange={onChange} />;
+  }
+  if (spec.kind === 'boolean') {
+    return (
+      <FieldShell label={spec.label} hint={spec.hint}>
+        <ToggleChip checked={!!value} onChange={onChange} label={value ? 'On' : 'Off'} />
+      </FieldShell>
+    );
   }
   if (spec.kind === 'select') {
     return (

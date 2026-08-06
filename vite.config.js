@@ -17,6 +17,7 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:5050',
       '/media': 'http://localhost:5050',
+      '/_nexus': 'http://localhost:5050',
     },
   },
 })

@@ -491,6 +491,23 @@ export const BLOCK_FIELDS = {
     headings: { label: 'Heading' },
     images: { label: 'Slides', hint: 'One image per slide, swipeable on the published page.' },
   },
+  'model-3d': {
+    order: ['headings', 'modelUrl', 'poster', 'alt', 'rotate', 'interact', 'ar', 'iosUrl', 'bg', 'bgColor', 'height', 'caption'],
+    headings: { label: 'Heading', max: 1 },
+    extras: {
+      modelUrl: { kind: 'model', accept: 'glb', label: '3D model (.glb)', hint: 'Pick from your media library or paste a URL. Not sure where to get one? Phone-scanning apps like Polycam export .glb files.' },
+      poster: { kind: 'image', label: 'Poster image', hint: 'Shown until someone taps. The 3D viewer only loads on interaction, so a poster keeps the page fast.' },
+      alt: { kind: 'text', label: 'Describe the model', placeholder: 'A mid-century lounge chair', hint: 'Read aloud by screen readers.' },
+      rotate: { kind: 'boolean', label: 'Spin it automatically' },
+      interact: { kind: 'boolean', label: 'Let visitors rotate and zoom' },
+      ar: { kind: 'boolean', label: 'Let visitors view it in their space (AR)', hint: 'On a phone, opens the model in the room through the camera.' },
+      iosUrl: { kind: 'model', accept: 'usdz', label: 'iPhone AR file (.usdz)', hint: 'Optional. iPhones need a .usdz for AR — without one, AR still works on Android.' },
+      bg: { kind: 'select', label: 'Background', options: [{ value: 'transparent', label: 'Transparent' }, { value: 'surface', label: 'Theme surface' }, { value: 'color', label: 'Custom colour' }] },
+      bgColor: { kind: 'text', label: 'Background colour', placeholder: '#f2f3f7' },
+      height: { kind: 'number', label: 'Height (px)', min: 240, max: 900, placeholder: '480' },
+      caption: { kind: 'text', label: 'Caption', placeholder: 'Drag to rotate' },
+    },
+  },
   video: {
     order: ['headings', 'videoUrl'],
     headings: { label: 'Heading' },

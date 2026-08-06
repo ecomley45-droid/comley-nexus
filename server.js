@@ -13,6 +13,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { compilePageHtml, getFullPath, pickWeightedVariant } from './src/shared/compilePage.js';
 import { applyResponsiveImages, buildMediaIndex } from './src/shared/responsiveImages.js';
+import { renderModelFrame, modelFrameCsp } from './lib/modelFrame.js';
 
 // The srcset pass needs the org's media on every public page render, and
 // media.list is unbounded — one row per upload, forever. Fetching all of it
@@ -1082,6 +1083,39 @@ function inlineScriptHashes(html) {
   return hashes.join(' ');
 }
 
+// ---- 3D model viewer (see lib/modelFrame.js for why it is isolated) ----
+//
+// Registered before the public catch-all: the catch-all treats any dotted or
+// slashed path as a page to resolve, and these are neither pages nor API.
+
+// The vendored Google <model-viewer> library, served same-origin so the
+// frame's strict `script-src 'self'` accepts it. Read once, cached, immutable.
+let _modelViewerJs;
+app.get('/_nexus/model-viewer.js', (_req, res) => {
+  if (_modelViewerJs === undefined) {
+    try { _modelViewerJs = fs.readFileSync(path.join(__dirname, 'vendor', 'model-viewer.min.js'), 'utf8'); }
+    catch { _modelViewerJs = null; }
+  }
+  if (!_modelViewerJs) return res.status(404).type('text/plain').send('3D viewer unavailable');
+  res.setHeader('Content-Type', 'text/javascript; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  res.send(_modelViewerJs);
+});
+
+// The sandboxed frame. Its own CSP (not the page's) governs what runs inside.
+app.get('/_nexus/model-frame', (req, res) => {
+  const { ok, html } = renderModelFrame({
+    src: req.query.src, poster: req.query.poster, ios: req.query.ios,
+    alt: req.query.alt, bg: req.query.bg,
+    rotate: req.query.rotate, interact: req.query.interact, ar: req.query.ar,
+  });
+  res.setHeader('Content-Security-Policy', modelFrameCsp());
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.status(ok ? 200 : 400).type('text/html; charset=utf-8').send(html);
+});
+
 app.use(async (req, res, next) => {
   try {
     // HEAD included: uptime monitors and some crawlers probe with HEAD,
@@ -1223,7 +1257,7 @@ app.use(async (req, res, next) => {
       `connect-src 'self' ${analyticsHosts}`,
       // Video Embed block: default-src 'self' was blocking YouTube/Vimeo
       // iframes entirely in production.
-      `frame-src https://www.youtube.com https://player.vimeo.com`,
+      `frame-src 'self' https://www.youtube.com https://player.vimeo.com`,
       `frame-ancestors 'none'`,
       `base-uri 'self'`,
       `form-action 'self'`,

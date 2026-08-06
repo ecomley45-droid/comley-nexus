@@ -1718,6 +1718,54 @@ export function renderScrollProgress(fields) {
 </script>`;
 }
 
+// A 3D model, embedded through the sandboxed frame (see lib/modelFrame.js).
+//
+// The block itself is trivial: it is an <iframe> pointing at /_nexus/model-frame
+// with the chosen options as query params. All the WebGL, WASM and CSP
+// handling lives in the frame; the published page stays strict and only had to
+// gain frame-src 'self'. `allow="xr-spatial-tracking"` is what lets AR ("view
+// in your space") run inside the frame; without it WebXR is blocked there.
+export function renderModel3d(fields) {
+  const model = String(fields.modelUrl || '').trim();
+  const heading = fields.headings?.[0];
+  const caption = String(fields.caption || '').trim();
+  const height = Math.min(900, Math.max(240, Number(fields.height) || 480));
+  const head = heading ? `<h2 class="nx-model-h">${esc(heading)}</h2>` : '';
+
+  if (!model) {
+    return `<style>
+.nx-model-wrap { max-width:1000px; margin:0 auto; padding:48px 24px; }
+.nx-model-h { font-family:var(--font-display); font-size:var(--text-h2); margin:0 0 16px; }
+.nx-model-empty { border:1px dashed var(--border); border-radius:12px; padding:56px 20px; text-align:center; color:var(--color-muted); font-size:14px; }
+</style>
+<div class="nx-model-wrap">${head}<div class="nx-model-empty">Add a 3D model (a .glb file) to this block.</div></div>`;
+  }
+
+  const params = new URLSearchParams();
+  params.set('src', model);
+  if (fields.poster) params.set('poster', String(fields.poster));
+  if (fields.iosUrl) params.set('ios', String(fields.iosUrl));
+  if (fields.alt) params.set('alt', String(fields.alt).slice(0, 120));
+  if (fields.bg === 'color' && fields.bgColor) params.set('bg', String(fields.bgColor));
+  params.set('rotate', fields.rotate ? '1' : '0');
+  params.set('interact', fields.interact === false ? '0' : '1');
+  params.set('ar', fields.ar ? '1' : '0');
+
+  const bgClass = fields.bg === 'surface' ? ' nx-model-frame--surface' : '';
+  return `<style>
+.nx-model-wrap { max-width:1000px; margin:0 auto; padding:48px 24px; }
+.nx-model-h { font-family:var(--font-display); font-size:var(--text-h2); margin:0 0 16px; }
+.nx-model-frame { width:100%; border:0; display:block; border-radius:12px; overflow:hidden; background:var(--surface); }
+.nx-model-frame--surface { background:var(--surface-strong); }
+.nx-model-cap { color:var(--color-muted); font-size:13px; margin-top:10px; text-align:center; }
+</style>
+<div class="nx-model-wrap">
+  ${head}
+  <iframe class="nx-model-frame${bgClass}" src="/_nexus/model-frame?${esc(params.toString())}" title="${esc(fields.alt || heading || '3D model')}" loading="lazy" allow="xr-spatial-tracking; fullscreen" style="height:${height}px"></iframe>
+  ${caption ? `<p class="nx-model-cap">${esc(caption)}</p>` : ''}
+</div>`;
+}
+
 export const BLOCK_RENDERERS = {
   header: renderHeader,
   navigation: renderNavigation,
@@ -1746,6 +1794,7 @@ export const BLOCK_RENDERERS = {
   image: renderImage,
   gallery: renderGallery,
   video: renderVideo,
+  'model-3d': renderModel3d,
   faq: renderFaq,
   tabs: renderTabs,
   countdown: renderCountdown,
