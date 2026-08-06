@@ -1287,6 +1287,7 @@ Sentry.setupExpressErrorHandler(app);
 // something the message could have just said. Postgres reports it as 42P01;
 // PostgREST passes the text through, so matching on either is enough.
 const MISSING_TABLE = /relation "[^"]*" does not exist|\b42P01\b/i;
+const MISSING_COLUMN = /column [^ ]* does not exist|\b42703\b/i;
 
 app.use((err, req, res, _next) => {
   console.error('[unhandled]', err.message);
@@ -1296,6 +1297,18 @@ app.use((err, req, res, _next) => {
     return res.status(503).json({
       error: table
         ? `This feature needs a database table ("${table}") that hasn't been created yet. Run the pending migrations: npm run migrate`
+        : "This feature needs a database migration that hasn't been applied yet. Run: npm run migrate",
+    });
+  }
+
+  // A missing COLUMN (42703) is the same class of problem as a missing table
+  // -- code deployed ahead of its migration -- but reports differently, so it
+  // used to fall through to a bare 500 with no hint of the real fix.
+  if (MISSING_COLUMN.test(err.message || '')) {
+    const col = /column "?([\w.]+)"? does not exist/i.exec(err.message)?.[1];
+    return res.status(503).json({
+      error: col
+        ? `This feature needs a database column ("${col}") that a migration hasn't added yet. Run: npm run migrate`
         : "This feature needs a database migration that hasn't been applied yet. Run: npm run migrate",
     });
   }
