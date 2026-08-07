@@ -76,7 +76,10 @@ test('sanitizePage cleans every html-bearing field, including variants', () => {
   assert.ok(!clean.content[0].abVariants[0].html.includes('onclick'));
   assert.ok(!clean.layout.headerOverride.includes('onclick'));
   assert.ok(!clean.analytics.headSnippet.includes('<p>'));
-  assert.ok(!clean.fullHtml.includes('onclick'));
+  // fullHtml is the admin-only full-document path and KEEPS its handlers --
+  // its CSP already allows inline <script>, so a handler grants nothing more.
+  // (Block content above still strips them.) See the dedicated full-HTML test.
+  assert.ok(clean.fullHtml.includes('onclick'));
 });
 
 test('sanitizePage validates design tokens and drops unknown keys', () => {
@@ -142,19 +145,26 @@ test('an inline icon survives import intact', () => {
 });
 
 test('the executable half of SVG does not survive', () => {
-  const cases = {
-    'inline handler': '<svg onload="steal()"><path d="M0" onclick="x()"/></svg>',
-    'script child': '<svg><script>steal()</script><path d="M0"/></svg>',
-    'nested svg script': '<svg><g><svg><script>steal()</script></svg></g></svg>',
-    foreignObject: '<svg><foreignObject><img src=x onerror="steal()"></foreignObject></svg>',
-    'SMIL retarget': '<svg><a href="#"><animate attributeName="href" to="javascript:steal()"/></a></svg>',
+  // The dangerous SVG ELEMENTS are stripped on BOTH profiles — they aren't
+  // on* handlers, so allowing handlers on full HTML doesn't bring them back.
+  const elementCases = {
+    'script child': ['<svg><script>steal()</script><path d="M0"/></svg>', 'steal()'],
+    'nested svg script': ['<svg><g><svg><script>steal()</script></svg></g></svg>', 'steal()'],
+    foreignObject: ['<svg><foreignObject><p>x</p></foreignObject></svg>', 'foreignObject'],
+    'SMIL retarget': ['<svg><a href="#"><animate attributeName="href" to="javascript:steal()"/></a></svg>', '<animate'],
   };
-  for (const [name, input] of Object.entries(cases)) {
-    const out = sanitizeFullPageHtml(input);
-    assert.ok(!/onload|onclick|onerror/.test(out), `${name}: an event handler survived`);
-    assert.ok(!out.includes('steal()'), `${name}: executable content survived`);
-    assert.ok(!/<animate|foreignObject/i.test(out), `${name}: a retargeting element survived`);
+  for (const [name, [input, gone]] of Object.entries(elementCases)) {
+    for (const clean of [sanitizeContentHtml, sanitizeFullPageHtml]) {
+      assert.ok(!clean(input).toLowerCase().includes(gone.toLowerCase()), `${name}: survived`);
+    }
   }
+  // Inline handlers on SVG are stripped in block content (strict CSP, lower
+  // trust). On full HTML they're kept deliberately — same as any element,
+  // covered by the full-HTML handler test above — so an onerror there can run,
+  // exactly as a <script> tag the admin could write instead.
+  const handlerSvg = '<svg onload="steal()"><path d="M0" onclick="x()"/></svg>';
+  const c = sanitizeContentHtml(handlerSvg);
+  assert.ok(!/onload|onclick/.test(c) && !c.includes('steal()'), 'block content strips SVG handlers');
 });
 
 test('a <use> may only point inside its own document', () => {
@@ -176,4 +186,27 @@ test('<title> is scoped: an icon label, never a page title from inside a block',
 test('a page script outside an SVG is still allowed, as the Script block needs', () => {
   assert.ok(sanitizeContentHtml('<div><script>legit()</script></div>').includes('legit()'));
   assert.ok(sanitizeContentHtml('<svg><path d="M0"/></svg><script>legit()</script>').includes('legit()'));
+});
+
+// ---------------------------------------------- full-HTML event handlers
+
+test('full-HTML pages keep event handlers; block content still strips them', () => {
+  // The Comley Creative bug: a card's onclick="openModal('x')" was stripped on
+  // save while openModal stayed in the page <script>, so nothing triggered it.
+  // Full HTML is admin-only and its CSP already allows inline <script>, so
+  // keeping handlers there grants nothing a <script> tag couldn't already do.
+  const card = sanitizeFullPageHtml('<div onclick="openProjectModal(\'sentry\')">Sentry</div>');
+  assert.ok(card.includes('onclick'), 'a full-HTML page must keep its click handlers');
+  for (const h of ['onsubmit', 'onchange', 'onkeydown', 'onmouseover', 'oninput']) {
+    assert.ok(sanitizeFullPageHtml(`<i ${h}="f()">x</i>`).includes(h), `${h} should survive on full HTML`);
+  }
+  // Block content is a lower trust tier under a strict CSP — handlers stay out.
+  assert.ok(!sanitizeContentHtml('<div onclick="x()">y</div>').includes('onclick'),
+    'block content must never keep inline handlers');
+});
+
+test('full-HTML still neutralises a javascript: href even with handlers allowed', () => {
+  const out = sanitizeFullPageHtml('<a href="javascript:evil()" onclick="ok()">x</a>');
+  assert.ok(!out.includes('javascript:'), 'the href transform still runs');
+  assert.ok(out.includes('onclick'), 'while the handler an admin authored is kept');
 });
