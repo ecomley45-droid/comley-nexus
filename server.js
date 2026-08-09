@@ -1131,6 +1131,21 @@ app.use(async (req, res, next) => {
     const requestPath = req.path.split('/').filter(Boolean).join('/');
     if (requestPath.startsWith('api') || requestPath.includes('.')) return next();
 
+    // Dedicated Super Admin host (admin.nexuscmshub.com): it is the portal, not
+    // a public site. The platform host would otherwise serve Nexus's marketing
+    // page at "/", so the SPA never boots there and the client-side redirect
+    // can't run. Redirect the root to the portal and serve the SPA shell for
+    // every other path so client routing takes over. (/super-admin/* is served
+    // straight from index.html by vercel.json and never reaches here.) The
+    // serverless function sees VITE_ADMIN_HOST too — the prefix only controls
+    // client inlining, not availability to the function.
+    const adminHost = process.env.ADMIN_HOST || process.env.VITE_ADMIN_HOST;
+    if (adminHost && req.headers.host === adminHost) {
+      if (requestPath === '') return res.redirect(302, '/super-admin');
+      const shell = spaShell();
+      if (shell) return res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').send(shell);
+    }
+
     const site = await resolvePublicSite(req.headers.host);
     if (site.paused) return res.status(423).send(PAUSED_SITE_HTML);
 
