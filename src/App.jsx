@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import PausedGate from './cms/lib/PausedGate.jsx';
 import RequireOrg from './cms/lib/RequireOrg.jsx';
 import RequireSuperAdmin from './cms/lib/RequireSuperAdmin.jsx';
@@ -42,6 +42,7 @@ const EmailCampaignDetailPage = lazy(() => import('./cms/pages/email/EmailCampai
 const TeamPage = lazy(() => import('./cms/pages/TeamPage.jsx'));
 const SettingsPage = lazy(() => import('./cms/pages/SettingsPage.jsx'));
 const WorkspaceSettingsPage = lazy(() => import('./cms/pages/settings/WorkspaceSettingsPage.jsx'));
+const RolesPage = lazy(() => import('./cms/pages/settings/RolesPage.jsx'));
 const DesignSettingsPage = lazy(() => import('./cms/pages/settings/DesignSettingsPage.jsx'));
 const BillingSettingsPage = lazy(() => import('./cms/pages/settings/BillingSettingsPage.jsx'));
 const AuditLogPage = lazy(() => import('./cms/pages/AuditLogPage.jsx'));
@@ -83,6 +84,28 @@ const routeFallback = (
   </div>
 );
 
+// Dedicated host for the Nexus Super Admin portal (e.g. "admin.nexuscmshub.com").
+// Set VITE_ADMIN_HOST once that subdomain's DNS + Clerk origin are live. Until
+// then it's unset and everything behaves exactly as before — /super-admin keeps
+// working on the main host, so nothing breaks ahead of the DNS change.
+const ADMIN_HOST = import.meta.env.VITE_ADMIN_HOST || '';
+const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
+const onAdminHost = !!ADMIN_HOST && currentHost === ADMIN_HOST;
+
+// When the admin host is configured, keep the super-admin portal on its own
+// domain: send /super-admin traffic that lands on the main host over to the
+// subdomain (a full navigation, so Clerk re-establishes the session there).
+function HostRouting() {
+  const location = useLocation();
+  useEffect(() => {
+    if (!ADMIN_HOST || onAdminHost) return;
+    if (location.pathname === '/super-admin' || location.pathname.startsWith('/super-admin/')) {
+      window.location.replace(`https://${ADMIN_HOST}${location.pathname}${location.search}`);
+    }
+  }, [location]);
+  return null;
+}
+
 // The /:orgSlug route param is a client workspace's slug — e.g. Comley
 // Creative (Nexus's first client) is /comley-creative/*. RequireOrg
 // enforces sign-in + org-match on every child route.
@@ -95,11 +118,13 @@ const routeFallback = (
 export default function App() {
   return (
     <BrowserRouter>
+      <HostRouting />
       <PausedGate>
       <Suspense fallback={routeFallback}>
       <Routes>
-        {/* Public marketing */}
-        <Route path="/" element={<LandingPage />} />
+        {/* Public marketing. On the dedicated admin host, "/" is the Super
+            Admin portal rather than the marketing landing. */}
+        <Route path="/" element={onAdminHost ? <Navigate to="/super-admin" replace /> : <LandingPage />} />
         <Route path="/welcome" element={<WelcomePage />} />
 
         {/* Legacy /admin/commerce/* URLs still resolve — reroute them onto
@@ -150,6 +175,7 @@ export default function App() {
           <Route path="email/campaigns" element={<EmailCampaignsPage />} />
           <Route path="email/campaigns/:id" element={<EmailCampaignDetailPage />} />
           <Route path="team" element={<TeamPage />} />
+          <Route path="settings/roles" element={<RolesPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="settings/workspace" element={<WorkspaceSettingsPage />} />
           <Route path="settings/design" element={<DesignSettingsPage />} />

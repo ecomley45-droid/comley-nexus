@@ -311,6 +311,14 @@ export const addTeamMember = (name, email, role) =>
   request('/team', { method: 'POST', body: JSON.stringify({ name, email, role }) });
 export const removeTeamMember = (id) => request(`/team/${id}`, { method: 'DELETE' });
 
+// ---- Roles (custom RBAC; admin-only writes) ----
+export const getRoles = () => request('/roles');
+export const saveRole = ({ id, name, permissions }) =>
+  id
+    ? request(`/roles/${id}`, { method: 'PATCH', body: JSON.stringify({ name, permissions }) })
+    : request('/roles', { method: 'POST', body: JSON.stringify({ name, permissions }) });
+export const deleteRole = (id) => request(`/roles/${id}`, { method: 'DELETE' });
+
 // ---- Feedback tickets (filed from FeedbackWidget.jsx) ----
 export const getFeedback = () => request('/feedback');
 export const submitFeedback = (payload) => request('/feedback', { method: 'POST', body: JSON.stringify(payload) });

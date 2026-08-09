@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import { getMe } from './api.js';
+import { can } from '../../shared/permissions.js';
 
 // Server-derived identity: { viewer: { email, name, image, role },
 // org: { id, slug, name, role, feature_flags } | null }.
@@ -77,4 +78,22 @@ export function useIsAdmin() {
 export function useIsSuperAdmin() {
   const { me } = useMe();
   return !!me?.isSuperAdmin;
+}
+
+// The viewer's resolved permission matrix (src/shared/permissions.js), or a
+// full-access sentinel for super-admins. Null while loading / signed out.
+export function usePermissions() {
+  const { me } = useMe();
+  if (!me) return null;
+  if (me.isSuperAdmin) return { __full: true };
+  return me.permissions || null;
+}
+
+// True if the viewer may perform `action` (default 'view') on `pageKey`,
+// optionally requiring a sub-feature. Mirrors the server's requirePermission.
+// While /api/me is still loading, permissions are null and this returns false,
+// so callers should also consider `loading` before showing a "no access" state.
+export function usePermission(pageKey, action = 'view', featureKey = null) {
+  const permissions = usePermissions();
+  return can(permissions, pageKey, action, featureKey);
 }

@@ -58,6 +58,7 @@ import { registerRedirectRoutes } from './lib/routes/redirects.js';
 import { registerCommentRoutes } from './lib/routes/comments.js';
 import { registerAbRoutes } from './lib/routes/abTesting.js';
 import { registerTeamRoutes } from './lib/routes/team.js';
+import { registerRoleRoutes } from './lib/routes/roles.js';
 import { registerMediaRoutes } from './lib/routes/media.js';
 import { hydrateCollectionBlocks, resolveCollectionDetail, buildDetailPage, hydrateLanguageBlocks } from './lib/collectionsHydrate.js';
 import { editableView } from './src/shared/pageDrafts.js';
@@ -68,7 +69,7 @@ import { mountSocialApi } from './lib/social/routes.js';
 import { injectSocialFeeds } from './lib/social/feed.js';
 import { mountEmailApi } from './lib/email/routes.js';
 import {
-  attachClerk, resolveViewer, requireRole, requireOrgMatch, requireSuperAdmin,
+  attachClerk, resolveViewer, requireRole, requirePermission, requireOrgMatch, requireSuperAdmin,
   isSuperAdminViewer, assertProductionAuth, requireAuth,
 } from './lib/auth.js';
 import { sanitizePage, sanitizeGlobalSettings, sanitizeContentHtml, pagesContainScriptBlock, pagesContainFullHtmlMode } from './lib/sanitize.js';
@@ -187,6 +188,9 @@ app.get('/api/me', (req, res) => {
       role: req.viewer.role,
     },
     isSuperAdmin: isSuperAdminViewer(req.viewer),
+    // Resolved RBAC matrix for nav gating + client-side page guards. Enforced
+    // independently on the server (requirePermission); this is UX only.
+    permissions: req.viewer.permissions || null,
     org: req.org ? {
       id: req.org.id,
       slug: req.org.slug,
@@ -209,7 +213,7 @@ app.get('/api/me', (req, res) => {
 // from this request and is never written by this route.
 const DOMAIN_RE = /^(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$/i;
 
-app.patch('/api/org/custom-domain', requireOrg, requireRole('admin'), async (req, res, next) => {
+app.patch('/api/org/custom-domain', requireOrg, requirePermission('workspace', 'edit'), async (req, res, next) => {
   try {
     const raw = String(req.body?.domain || '').trim().toLowerCase();
     if (raw && !DOMAIN_RE.test(raw)) return res.status(400).json({ error: 'Enter a valid domain, e.g. cms.acmeco.com' });
@@ -230,10 +234,10 @@ mountBlockCatalogApi(app);
 mountMarketplaceApi(app);
 mountEventsApi(app);
 routeContext = {
-  storage, express, requireOrg, requireRole, requireSuperAdmin, auditFor,
+  storage, express, requireOrg, requireRole, requirePermission, requireSuperAdmin, auditFor,
   abTrackLimit, sanitizeContentHtml, sanitizeGlobalSettings,
 };
-registerCollectionRoutes(app, { requireOrg, requireRole, auditFor });
+registerCollectionRoutes(app, { requireOrg, requireRole, requirePermission, auditFor });
 mountSocialApi(app);
 mountEmailApi(app);
 
@@ -250,7 +254,7 @@ app.get('/api/pages', requireOrg, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-app.post('/api/pages', requireOrg, requireRole('editor'), async (req, res, next) => {
+app.post('/api/pages', requireOrg, requirePermission('pages', 'edit'), async (req, res, next) => {
   try {
     const { pages, globalSettings: incomingGlobalSettings } = req.body;
     if (!pages || !Array.isArray(pages)) return res.status(400).json({ error: 'Invalid pages data structure' });
@@ -379,7 +383,7 @@ registerVersionRoutes(app, routeContext);
 // call, so it's rate-limited on top of the normal editor role gate. Returns
 // 501 (matches the deferred501 pattern below) when ANTHROPIC_API_KEY isn't
 // configured -- the client falls back to importing the block as `unknown`.
-app.post('/api/ai/classify-block', requireOrg, requireRole('editor'), aiClassifyLimit, async (req, res, next) => {
+app.post('/api/ai/classify-block', requireOrg, requirePermission('pages', 'edit'), aiClassifyLimit, async (req, res, next) => {
   try {
     if (!hasAnthropicKey()) {
       return res.status(501).json({ error: 'AI classification is not configured on this deployment.' });
@@ -398,6 +402,7 @@ registerRedirectRoutes(app, routeContext);
 registerCommentRoutes(app, routeContext);
 registerAbRoutes(app, routeContext);
 registerTeamRoutes(app, routeContext);
+registerRoleRoutes(app, routeContext);
 registerMediaRoutes(app, routeContext);
 // ================= FORMS =================
 
@@ -471,14 +476,14 @@ app.get('/api/forms', requireOrg, async (req, res, next) => {
   try { res.json(await storage.forms.list(req.org.id)); } catch (e) { next(e); }
 });
 
-app.patch('/api/forms/:id', requireOrg, requireRole('editor'), async (req, res, next) => {
+app.patch('/api/forms/:id', requireOrg, requirePermission('forms', 'edit'), async (req, res, next) => {
   try {
     await storage.forms.markRead(req.org.id, req.params.id, req.body?.read !== false);
     res.json({ success: true });
   } catch (e) { next(e); }
 });
 
-app.delete('/api/forms/:id', requireOrg, requireRole('editor'), async (req, res, next) => {
+app.delete('/api/forms/:id', requireOrg, requirePermission('forms', 'edit'), async (req, res, next) => {
   try {
     await storage.forms.remove(req.org.id, req.params.id);
     res.json({ success: true });
@@ -511,7 +516,7 @@ app.post('/api/feedback', feedbackLimit, feedbackJson, requireOrg, async (req, r
   } catch (e) { next(e); }
 });
 
-app.patch('/api/feedback/:id', requireOrg, requireRole('editor'), async (req, res, next) => {
+app.patch('/api/feedback/:id', requireOrg, requirePermission('feedback', 'edit'), async (req, res, next) => {
   try {
     const { status } = req.body;
     const VALID_STATUSES = ['open', 'acknowledged', 'in_progress', 'sent_to_agent', 'resolved', 'closed'];
@@ -715,7 +720,7 @@ const aiGenerateLimit = rateLimit({ windowMs: 60_000, max: 3, standardHeaders: t
 //
 // Errors are delivered as an `error` event rather than a status code: by the
 // time anything can fail the 200 and the headers are long gone.
-app.post('/api/ai/generate-site/stream', aiGenerateLimit, requireOrg, requireRole('editor'), async (req, res) => {
+app.post('/api/ai/generate-site/stream', aiGenerateLimit, requireOrg, requirePermission('pages', 'edit'), async (req, res) => {
   const send = (event, data) => {
     res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   };
@@ -767,7 +772,7 @@ app.post('/api/ai/generate-site/stream', aiGenerateLimit, requireOrg, requireRol
   res.end();
 });
 
-app.post('/api/ai/generate-site', aiGenerateLimit, requireOrg, requireRole('editor'), async (req, res, next) => {
+app.post('/api/ai/generate-site', aiGenerateLimit, requireOrg, requirePermission('pages', 'edit'), async (req, res, next) => {
   try {
     const { description } = req.body || {};
     if (!description?.trim() || description.trim().length < 10) {
@@ -800,7 +805,7 @@ app.post('/api/ai/generate-site', aiGenerateLimit, requireOrg, requireRole('edit
 
 // ================= PLATFORM BILLING (Nexus's own plans) =================
 
-app.post('/api/billing/checkout', requireOrg, requireRole('admin'), async (req, res, next) => {
+app.post('/api/billing/checkout', requireOrg, requirePermission('billing', 'edit'), async (req, res, next) => {
   try {
     const { plan, interval } = req.body || {};
     const session = await createCheckoutSession({
@@ -812,7 +817,7 @@ app.post('/api/billing/checkout', requireOrg, requireRole('admin'), async (req, 
   } catch (e) { next(e); }
 });
 
-app.post('/api/billing/portal', requireOrg, requireRole('admin'), async (req, res, next) => {
+app.post('/api/billing/portal', requireOrg, requirePermission('billing', 'edit'), async (req, res, next) => {
   try {
     const customerId = req.org.feature_flags?.subscription?.stripe_customer_id;
     if (!customerId) return res.status(400).json({ error: 'No subscription on this workspace yet.' });

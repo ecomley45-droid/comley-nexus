@@ -1,23 +1,22 @@
 import { useEffect, useState } from 'react';
-import { Users } from 'lucide-react';
-import { getTeam, addTeamMember, removeTeamMember } from '../lib/api.js';
+import { Link } from 'react-router-dom';
+import { Users, ShieldCheck } from 'lucide-react';
+import { getTeam, addTeamMember, removeTeamMember, getRoles } from '../lib/api.js';
 import { GlassPanel, GlassButton, GlassInput, GlassSelect, Badge } from '../lib/ui/Glass.jsx';
 import EmptyState from '../lib/ui/EmptyState.jsx';
-
-const ROLE_CAPABILITIES = [
-  { role: 'viewer', tone: 'default', can: 'View pages, library, media, redirects, comments, audit log' },
-  { role: 'editor', tone: 'default', can: 'Everything a viewer can, plus create/edit pages, library entries, media, and comments' },
-  { role: 'admin', tone: 'published', can: 'Everything an editor can, plus redirects, site settings, team roster, deleting media, and restoring versions' },
-];
+import { useOrgBase } from '../lib/useMe.jsx';
 
 export default function TeamPage() {
   const [team, setTeam] = useState(null);
+  const [roles, setRoles] = useState([]);
   const [form, setForm] = useState({ name: '', email: '', role: 'editor' });
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const orgBase = useOrgBase();
 
   const load = () => getTeam().then(setTeam).catch((e) => setError(e.message));
   useEffect(() => { load(); }, []);
+  useEffect(() => { getRoles().then((d) => setRoles(d.roles || [])).catch(() => {}); }, []);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -53,19 +52,28 @@ export default function TeamPage() {
     <div className="max-w-2xl">
       <h1 className="text-2xl font-semibold mb-1">Team &amp; Permissions</h1>
       <p className="text-zinc-500 text-sm mb-4">
-        A reference roster, not authentication — there's no real login system yet, so this documents who
-        <em> should</em> have which role rather than enforcing it. Role writes are still gated server-side
-        via the simulated role switcher in the sidebar.
+        Invite people and set each person's role. A member's role decides which pages they see and what they
+        can change — enforced on the server, not just in the UI. Define custom roles on the Roles page.
       </p>
 
       <GlassPanel className="p-4 mb-4">
-        <h2 className="font-medium mb-2 text-zinc-300">Role capabilities</h2>
-        {ROLE_CAPABILITIES.map((r) => (
-          <div key={r.role} className="flex items-start gap-3 py-2 border-b border-white/5 last:border-0">
-            <Badge tone={r.tone}>{r.role}</Badge>
-            <p className="text-sm text-zinc-300">{r.can}</p>
-          </div>
-        ))}
+        <div className="flex items-center justify-between gap-3 mb-1">
+          <h2 className="font-medium text-zinc-300">Roles</h2>
+          {orgBase && (
+            <Link to={`${orgBase}/settings/roles`} className="text-sm text-indigo-300 hover:text-indigo-200 flex items-center gap-1">
+              <ShieldCheck className="w-4 h-4" /> Manage roles
+            </Link>
+          )}
+        </div>
+        <p className="text-sm text-zinc-500 mb-2">
+          Built-in roles plus any custom roles you've defined. Create roles with fine-grained page and
+          feature permissions on the Roles page.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {roles.map((r) => (
+            <Badge key={r.id} tone={r.id === 'admin' ? 'published' : 'default'}>{r.name}</Badge>
+          ))}
+        </div>
       </GlassPanel>
 
       <GlassPanel className="p-4 mb-4">
@@ -74,9 +82,9 @@ export default function TeamPage() {
           <GlassInput required placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <GlassInput required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <GlassSelect value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-            <option value="viewer">viewer</option>
-            <option value="editor">editor</option>
-            <option value="admin">admin</option>
+            {roles.map((r) => (
+              <option key={r.id} value={r.id}>{r.name}</option>
+            ))}
           </GlassSelect>
           <GlassButton type="submit">Add</GlassButton>
         </form>

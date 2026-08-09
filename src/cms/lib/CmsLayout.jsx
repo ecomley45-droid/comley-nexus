@@ -12,7 +12,8 @@ import {
   Users, Plug, CreditCard, ScrollText, ArrowLeftRight, Archive, Wrench, Activity,
   GitPullRequest, CalendarClock, Lightbulb, ShoppingBag,
 } from 'lucide-react';
-import { useMe, useIsSuperAdmin } from './useMe.jsx';
+import { useMe, useIsSuperAdmin, usePermissions } from './useMe.jsx';
+import { can } from '../../shared/permissions.js';
 import { setDocumentFavicon } from './favicon.js';
 
 // Navigation.
@@ -38,12 +39,12 @@ const NAV_ITEMS = [
     section: true,
     label: 'Content',
     children: [
-      { to: 'pages', label: 'Pages', icon: FileText },
-      { to: 'collections', label: 'Collections', icon: Database },
-      { to: 'events', label: 'Events', icon: CalendarDays },
-      { to: 'media', label: 'Media', icon: Image },
-      { to: 'forms', label: 'Form responses', icon: Inbox },
-      { to: 'comments', label: 'Comments', icon: MessageSquare },
+      { to: 'pages', label: 'Pages', icon: FileText, pageKey: 'pages' },
+      { to: 'collections', label: 'Collections', icon: Database, pageKey: 'collections' },
+      { to: 'events', label: 'Events', icon: CalendarDays, pageKey: 'events' },
+      { to: 'media', label: 'Media', icon: Image, pageKey: 'media' },
+      { to: 'forms', label: 'Form responses', icon: Inbox, pageKey: 'forms' },
+      { to: 'comments', label: 'Comments', icon: MessageSquare, pageKey: 'comments' },
     ],
   },
 
@@ -54,10 +55,10 @@ const NAV_ITEMS = [
       // Renamed from "Templates / Blocks / Library", which read as three
       // words for one thing. These are: whole starter sites, the palette of
       // block types, and your own saved sections.
-      { to: 'templates', label: 'Site templates', icon: LayoutTemplate },
-      { to: 'blocks', label: 'Block catalog', icon: Blocks },
-      { to: 'library', label: 'Saved sections', icon: BookMarked },
-      { to: 'settings/design', label: 'Theme & branding', icon: Palette },
+      { to: 'templates', label: 'Site templates', icon: LayoutTemplate, pageKey: 'templates' },
+      { to: 'blocks', label: 'Block catalog', icon: Blocks, pageKey: 'blocks' },
+      { to: 'library', label: 'Saved sections', icon: BookMarked, pageKey: 'library' },
+      { to: 'settings/design', label: 'Theme & branding', icon: Palette, pageKey: 'design' },
     ],
   },
 
@@ -65,9 +66,9 @@ const NAV_ITEMS = [
     section: true,
     label: 'Marketing',
     children: [
-      { to: 'email', label: 'Newsletter', icon: Mail },
+      { to: 'email', label: 'Newsletter', icon: Mail, pageKey: 'email' },
       // Spliced out below when the workspace doesn't have the social flag.
-      { to: 'social', label: 'Social', icon: Share2, social: true },
+      { to: 'social', label: 'Social', icon: Share2, social: true, pageKey: 'social' },
     ],
   },
 
@@ -78,13 +79,13 @@ const NAV_ITEMS = [
     pinned: true,
     children: [
       { to: 'settings', label: 'Overview', end: true, icon: Settings },
-      { to: 'settings/workspace', label: 'Workspace', icon: Building2 },
-      { to: 'team', label: 'Team & permissions', icon: Users },
-      { to: 'connections', label: 'Integrations', icon: Plug },
-      { to: 'redirects', label: 'Redirects', icon: ArrowLeftRight },
-      { to: 'settings/backups', label: 'Backups', icon: Archive },
-      { to: 'settings/billing', label: 'Billing', icon: CreditCard },
-      { to: 'audit', label: 'Audit log', icon: ScrollText },
+      { to: 'settings/workspace', label: 'Workspace', icon: Building2, pageKey: 'workspace' },
+      { to: 'team', label: 'Team & permissions', icon: Users, pageKey: 'team' },
+      { to: 'connections', label: 'Integrations', icon: Plug, pageKey: 'connections' },
+      { to: 'redirects', label: 'Redirects', icon: ArrowLeftRight, pageKey: 'redirects' },
+      { to: 'settings/backups', label: 'Backups', icon: Archive, pageKey: 'backups' },
+      { to: 'settings/billing', label: 'Billing', icon: CreditCard, pageKey: 'billing' },
+      { to: 'audit', label: 'Audit log', icon: ScrollText, pageKey: 'audit' },
     ],
   },
 
@@ -95,7 +96,7 @@ const NAV_ITEMS = [
     pinned: true,
     children: [
       { to: 'ops/dashboard', label: 'Overview', end: true, icon: Wrench },
-      { to: 'feedback', label: 'Feedback inbox', icon: Lightbulb },
+      { to: 'feedback', label: 'Feedback inbox', icon: Lightbulb, pageKey: 'feedback' },
       { to: 'ops/system-status', label: 'System status', icon: Activity },
       { to: 'ops/feature-requests', label: 'Feature requests', icon: Lightbulb },
       { to: 'ops/schedule', label: 'Schedule', icon: CalendarClock },
@@ -123,6 +124,7 @@ export default function CmsLayout() {
   const base = `/${orgSlug}`;
   const { me, refresh } = useMe();
   const isSuperAdmin = useIsSuperAdmin();
+  const permissions = usePermissions();
   const [commerceEnabled, setCommerceEnabled] = useState(false);
   const [socialEnabled, setSocialEnabled] = useState(false);
   const [searchSignal, setSearchSignal] = useState(0);
@@ -173,6 +175,10 @@ export default function CmsLayout() {
     const allowed = (item) => {
       if (item.social && !socialEnabled) return false;
       if (item.superAdmin && !isSuperAdmin) return false;
+      // RBAC: hide a page this role can't view. Skipped while permissions are
+      // still loading (null) so the nav doesn't flash empty; the server
+      // enforces access regardless.
+      if (item.pageKey && permissions && !can(permissions, item.pageKey, 'view')) return false;
       return true;
     };
     const filtered = NAV_ITEMS
@@ -185,7 +191,7 @@ export default function CmsLayout() {
     // bottom rather than inside a content group.
     if (commerceOn) items.push({ to: `${base}/commerce`, label: 'Commerce', icon: ShoppingBag, pinned: true });
     return items;
-  }, [base, commerceOn, socialEnabled, isSuperAdmin]);
+  }, [base, commerceOn, socialEnabled, isSuperAdmin, permissions]);
 
   // White-label (Agency tier): a workspace with feature_flags.white_label
   // shows the agency's brand instead of Nexus anywhere in the client-facing
