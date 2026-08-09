@@ -220,7 +220,7 @@ function NewOrgModal({ onClose, onCreated }) {
       <label className="text-xs text-zinc-400 block mb-1">Slug (used in the URL)</label>
       <GlassInput value={id} onChange={(e) => setId(e.target.value)} placeholder="acme" className="w-full mb-3" />
       <p className="text-[11px] text-zinc-500 -mt-2 mb-3">
-        Their workspace will live at <code>nexus.comleycreative.com/{id || 'acme'}</code>
+        Their workspace will live at <code>nexuscmshub.com/{id || 'acme'}</code>
       </p>
 
       <label className="text-xs text-zinc-400 block mb-1">Display name</label>

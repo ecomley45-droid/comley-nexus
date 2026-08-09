@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-- **Live site**: https://nexus.comleycreative.com — still on the pre-multi-tenant deploy from earlier tonight. **Untouched**, working, single-tenant. Do not redeploy from this branch until the client-side work below is done.
+- **Live site**: https://nexuscmshub.com — still on the pre-multi-tenant deploy from earlier tonight. **Untouched**, working, single-tenant. Do not redeploy from this branch until the client-side work below is done.
 - **This branch (`feature/ops-console-port`)**: multi-tenant server-side is DONE. Multi-tenant client-side is NOT. If you deploy as-is, the CMS UI will 401/403 everywhere because the client doesn't send an org context yet.
 
 ## What actually shipped tonight before this refactor
@@ -84,7 +84,7 @@ Only after 1–5. Otherwise the CMS will 401 for signed-in users.
 - **Fly.io / Render / Railway**: user explicitly ruled these out for the backend. Stay on Vercel + Supabase JS.
 - **`serverless-http` was removed** — it hangs on Vercel's request shape. `api/index.js` calls `app(req, res)` directly.
 - **`assertProductionAuth()` in `lib/auth.js`**: prod crashes on start if `CLERK_SECRET_KEY` is missing. That's intentional.
-- **Public dynamic page render** currently hardcodes `PUBLIC_ORG_ID = 'admin'` — so nexus.comleycreative.com's public pages are Ethan's org. When clients get their own custom domains, resolve `PUBLIC_ORG_ID` from the incoming `Host` header instead.
+- **Public dynamic page render** currently hardcodes `PUBLIC_ORG_ID = 'admin'` — so nexuscmshub.com's public pages are Ethan's org. When clients get their own custom domains, resolve `PUBLIC_ORG_ID` from the incoming `Host` header instead.
 
 ## The one thing that might bite you
 

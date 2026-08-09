@@ -912,7 +912,7 @@ app.post('/api/export', deferred501('Static site export is temporarily disabled 
 // ================= DYNAMIC PAGE RENDER =================
 
 const nexusSite = () => ({
-  // The platform host (nexus.comleycreative.com) is a hybrid: some paths
+  // The platform host (nexuscmshub.com) is a hybrid: some paths
   // are real published marketing pages (/, /pricing), but most top-level
   // paths are SPA app routes (/welcome, /admin, /super-admin, and every
   // /:orgSlug workspace). isPlatform tells the render handler to fall
@@ -974,7 +974,7 @@ p{color:#a1a1aa;font-size:14px;}</style></head>
 //   - Host === DEFAULT_PUBLIC_ORG_ID's explicit override -> that org, if set.
 //   - Otherwise -> Nexus's own site (lib/nexus.js). This is the front door
 //     everyone lands on before signing up for a workspace, including on
-//     the bare nexus.comleycreative.com host until a client claims it.
+//     the bare nexuscmshub.com host until a client claims it.
 async function resolvePublicSite(host) {
   const orgs = await storage.orgs.list();
   const matched = orgs.find((o) => o.domain && o.domain === host);

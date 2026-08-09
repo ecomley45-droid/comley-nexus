@@ -4,7 +4,7 @@ import { Rocket, Layers, Zap, ShieldCheck, GitBranch, Sparkles } from 'lucide-re
 import { GlassShell, GlassPanel, GlassButton } from '../cms/lib/ui/Glass.jsx';
 import { useMe } from '../cms/lib/useMe.jsx';
 
-// Public marketing landing at nexus.comleycreative.com/.
+// Public marketing landing at nexuscmshub.com/.
 // When a signed-in user arrives here, we send them straight to their org's
 // CMS at /:orgSlug so they don't have to click "Sign in" then be bounced.
 // When they're signed out, we show the marketing pitch + a CTA that opens

@@ -1,5 +1,5 @@
 // Resolves a Clerk user to the org slug that appears in their CMS URL —
-// e.g. nexus.comleycreative.com/{orgSlug}/pages. The value stored in
+// e.g. nexuscmshub.com/{orgSlug}/pages. The value stored in
 // Clerk publicMetadata.orgSlug wins. Otherwise we fall back to the
 // bootstrap slug ("admin") for anyone whose email is in the
 // VITE_ADMIN_EMAILS allowlist. Anyone else gets no slug (server-side

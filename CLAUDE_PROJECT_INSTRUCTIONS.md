@@ -46,7 +46,7 @@ There are effectively **two kinds of "site"** in the system:
 - All stored HTML/content passes through **`lib/sanitize.js`** (`sanitize-html`). Secrets (OAuth tokens, integration API keys) are encrypted at rest with an **AES-256-GCM vault** (`lib/secretCrypto.js`) and never sent to the client. Draft pages are viewable only via signed **preview tokens**. Helmet CSP is tuned per surface.
 
 ### Deployment & data ops
-- **GitHub → Vercel → Supabase.** Push to **`main`** auto-deploys to production (`nexus.comleycreative.com`). `vite build` outputs `dist/`; the server is the `api/index.js` function (`maxDuration` 30s). `vercel.json` routes `/api/*` to the function, serves published pages through it, and falls back to the SPA shell for app routes.
+- **GitHub → Vercel → Supabase.** Push to **`main`** auto-deploys to production (`nexuscmshub.com`). `vite build` outputs `dist/`; the server is the `api/index.js` function (`maxDuration` 30s). `vercel.json` routes `/api/*` to the function, serves published pages through it, and falls back to the SPA shell for app routes.
 - **Migrations:** add a `db/migrations/NNN_*.sql` file (idempotent — `create table if not exists`, etc.) and register it in `db/apply.mjs`. Against a **fresh** DB run `node db/apply.mjs` (needs `SUPABASE_DB_URL`, connect via the **session pooler**, not the IPv6-only direct host). Against the **already-migrated production** DB, apply the single new file only — the full script re-runs the base schema and will conflict.
 - **Conventions:** work on a branch; pushing to `main` deploys. Commit messages end with a `Co-Authored-By:` trailer. Keep new code stylistically consistent with the file around it (the codebase favors dense, well-commented modules).
 

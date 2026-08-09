@@ -66,7 +66,7 @@ function CreateWorkspaceForm() {
           className="w-full mb-1"
         />
         <p className="text-[11px] text-zinc-500 mb-4">
-          nexus.comleycreative.com/<span className="text-zinc-300">{slug || 'acme'}</span>
+          nexuscmshub.com/<span className="text-zinc-300">{slug || 'acme'}</span>
         </p>
 
         <label className="text-xs text-zinc-400 block mb-2">Start with</label>
