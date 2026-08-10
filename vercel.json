@@ -11,6 +11,12 @@
   },
   "routes": [
     {
+      "src": "/(.*)",
+      "has": [{ "type": "host", "value": "^www\\.nexuscmshub\\.com$" }],
+      "status": 308,
+      "headers": { "Location": "https://nexuscmshub.com/$1" }
+    },
+    {
       "src": "/super-admin(/.*)?",
       "has": [{ "type": "host", "value": "^admin\\.nexuscmshub\\.com$" }],
       "status": 308,
