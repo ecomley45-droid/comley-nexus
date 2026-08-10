@@ -1,6 +1,6 @@
 import { Navigate, useParams } from 'react-router-dom';
 import { SignedIn, SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
-import { useMe } from './useMe.jsx';
+import { useMe, useIsSuperAdmin } from './useMe.jsx';
 import { GlassShell } from './ui/Glass.jsx';
 
 // Guard for every /:orgSlug/* route. Two stacked checks:
@@ -15,11 +15,16 @@ import { GlassShell } from './ui/Glass.jsx';
 function OrgGate({ children }) {
   const { orgSlug } = useParams();
   const { me, loading } = useMe();
+  const isSuperAdmin = useIsSuperAdmin();
   if (loading) return <LoadingShell />;
   const mySlug = me?.org?.slug || null;
-  // No workspace yet -> self-serve creation instead of the old dead-end
-  // "contact us" panel.
-  if (!mySlug) return <Navigate to="/welcome" replace />;
+  if (!mySlug) {
+    // A platform super-admin legitimately has no client workspace -- send them
+    // to the Super Admin portal, not the self-serve "create a workspace" flow.
+    if (isSuperAdmin) return <Navigate to="/super-admin" replace />;
+    // Otherwise: no workspace yet -> self-serve creation.
+    return <Navigate to="/welcome" replace />;
+  }
   if (mySlug !== orgSlug) return <Navigate to={`/${mySlug}`} replace />;
   return children;
 }

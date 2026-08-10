@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { SignedIn, SignedOut, SignInButton } from '@clerk/clerk-react';
 import { Rocket, Layers, Zap, ShieldCheck, GitBranch, Sparkles } from 'lucide-react';
 import { GlassShell, GlassPanel, GlassButton } from '../cms/lib/ui/Glass.jsx';
-import { useMe } from '../cms/lib/useMe.jsx';
+import { useMe, useIsSuperAdmin } from '../cms/lib/useMe.jsx';
 
 // Public marketing landing at nexuscmshub.com/.
 // When a signed-in user arrives here, we send them straight to their org's
@@ -49,16 +49,23 @@ const FEATURES = [
 function AutoRedirectSignedIn() {
   const navigate = useNavigate();
   const { me, loading } = useMe();
+  const isSuperAdmin = useIsSuperAdmin();
   if (loading) return <p className="text-sm text-zinc-400">Loading workspace…</p>;
   const slug = me?.org?.slug;
-  if (!slug) {
-    // Signed in but not a member of any org — send them to a friendly
-    // "request access" panel rather than a hostile 403.
-    Promise.resolve().then(() => navigate('/no-workspace', { replace: true }));
-    return <p className="text-sm text-zinc-400">Checking workspace access…</p>;
+  if (slug) {
+    Promise.resolve().then(() => navigate(`/${slug}`, { replace: true }));
+    return <p className="text-sm text-zinc-400">Taking you to your workspace…</p>;
   }
-  Promise.resolve().then(() => navigate(`/${slug}`, { replace: true }));
-  return <p className="text-sm text-zinc-400">Taking you to your workspace…</p>;
+  // No client workspace. A platform super-admin belongs in the Super Admin
+  // portal, not the self-serve "create a workspace" flow.
+  if (isSuperAdmin) {
+    Promise.resolve().then(() => navigate('/super-admin', { replace: true }));
+    return <p className="text-sm text-zinc-400">Taking you to Super Admin…</p>;
+  }
+  // Genuinely org-less user -> self-serve workspace creation. (Was
+  // "/no-workspace", which isn't a route and fell through to a redirect loop.)
+  Promise.resolve().then(() => navigate('/welcome', { replace: true }));
+  return <p className="text-sm text-zinc-400">Checking workspace access…</p>;
 }
 
 function TopBar() {

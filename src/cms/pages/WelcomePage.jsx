@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { SignedIn, SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
 import { GlassShell, GlassPanel, GlassButton, GlassInput } from '../lib/ui/Glass.jsx';
 import { getSiteTemplates, createWorkspace } from '../lib/api.js';
-import { useMe } from '../lib/useMe.jsx';
+import { useMe, useIsSuperAdmin } from '../lib/useMe.jsx';
 
 // Self-serve workspace creation for a signed-in user who has no workspace
 // yet (RequireOrg forwards them here instead of the old dead-end "No
@@ -23,13 +23,18 @@ function CreateWorkspaceForm() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { me, loading, refresh } = useMe();
+  const isSuperAdmin = useIsSuperAdmin();
 
   useEffect(() => { getSiteTemplates().then(setTemplates).catch(() => {}); }, []);
 
-  // Already have a workspace? Straight to it.
+  // Already have a workspace? Straight to it. A platform super-admin with no
+  // client workspace belongs in the Super Admin portal, not this create-a-
+  // workspace form.
   useEffect(() => {
-    if (!loading && me?.org?.slug) navigate(`/${me.org.slug}`, { replace: true });
-  }, [loading, me]);
+    if (loading) return;
+    if (me?.org?.slug) navigate(`/${me.org.slug}`, { replace: true });
+    else if (isSuperAdmin) navigate('/super-admin', { replace: true });
+  }, [loading, me, isSuperAdmin]);
 
   const submit = async () => {
     setBusy(true); setError('');
