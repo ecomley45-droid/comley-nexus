@@ -1296,34 +1296,46 @@ Sentry.setupExpressErrorHandler(app);
 // a bare "Internal server error" for it sent people hunting through logs for
 // something the message could have just said. Postgres reports it as 42P01;
 // PostgREST passes the text through, so matching on either is enough.
-const MISSING_TABLE = /relation "[^"]*" does not exist|\b42P01\b/i;
-const MISSING_COLUMN = /column [^ ]* does not exist|\b42703\b/i;
+// Supabase/PostgREST reports a missing table/column two ways: the raw Postgres
+// error (42P01 / 42703 with "... does not exist"), or — when the object is
+// absent from PostgREST's schema cache (e.g. a migration ran via direct SQL and
+// the API cache is stale) — a PGRST205/PGRST204 "Could not find the table/column
+// ... in the schema cache". Match both, or a schema-cache miss falls through to
+// a bare 500 with no hint of the real fix.
+const MISSING_TABLE = /relation "[^"]*" does not exist|\b42P01\b|\bPGRST205\b|could not find the table [^]* in the schema cache/i;
+const MISSING_COLUMN = /column [^ ]* does not exist|\b42703\b|\bPGRST204\b|could not find the '[^']*' column/i;
 
 app.use((err, req, res, _next) => {
   console.error('[unhandled]', err.message);
+  // Platform super-admins get the underlying error text so production issues are
+  // debuggable without log access. Never exposed to regular users.
+  const detail = isSuperAdminViewer(req.viewer) ? err.message : undefined;
+  const withDetail = (body) => (detail ? { ...body, detail } : body);
 
   if (MISSING_TABLE.test(err.message || '')) {
-    const table = /relation "(?:public\.)?([^"]+)"/i.exec(err.message)?.[1];
-    return res.status(503).json({
-      error: table
-        ? `This feature needs a database table ("${table}") that hasn't been created yet. Run the pending migrations: npm run migrate`
+    const table = /relation "(?:public\.)?([^"]+)"|table '(?:public\.)?([^']+)'/i.exec(err.message);
+    const name = table?.[1] || table?.[2];
+    return res.status(503).json(withDetail({
+      error: name
+        ? `This feature needs a database table ("${name}") that hasn't been created (or PostgREST's schema cache is stale). Run the pending migrations (npm run migrate); if the table exists, reload the API schema cache in Supabase.`
         : "This feature needs a database migration that hasn't been applied yet. Run: npm run migrate",
-    });
+    }));
   }
 
   // A missing COLUMN (42703) is the same class of problem as a missing table
   // -- code deployed ahead of its migration -- but reports differently, so it
   // used to fall through to a bare 500 with no hint of the real fix.
   if (MISSING_COLUMN.test(err.message || '')) {
-    const col = /column "?([\w.]+)"? does not exist/i.exec(err.message)?.[1];
-    return res.status(503).json({
-      error: col
-        ? `This feature needs a database column ("${col}") that a migration hasn't added yet. Run: npm run migrate`
+    const col = /column "?([\w.]+)"? does not exist|'([^']+)' column/i.exec(err.message);
+    const name = col?.[1] || col?.[2];
+    return res.status(503).json(withDetail({
+      error: name
+        ? `This feature needs a database column ("${name}") that a migration hasn't added yet (or PostgREST's schema cache is stale). Run: npm run migrate`
         : "This feature needs a database migration that hasn't been applied yet. Run: npm run migrate",
-    });
+    }));
   }
 
-  res.status(500).json({ error: 'Internal server error' });
+  res.status(500).json(withDetail({ error: 'Internal server error' }));
 });
 
 export default app;
