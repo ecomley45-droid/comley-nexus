@@ -72,6 +72,7 @@ import {
   attachClerk, resolveViewer, requireRole, requirePermission, requireOrgMatch, requireSuperAdmin,
   isSuperAdminViewer, assertProductionAuth, requireAuth,
 } from './lib/auth.js';
+import { requestCounterMiddleware, getRequestCounts } from './lib/requestCounters.js';
 import { sanitizePage, sanitizeGlobalSettings, sanitizeContentHtml, pagesContainScriptBlock, pagesContainFullHtmlMode } from './lib/sanitize.js';
 import * as storage from './lib/storage.js';
 import * as nexus from './lib/nexus.js';
@@ -123,6 +124,7 @@ app.use('/api', rateLimit({
 
 attachClerk(app);
 app.use(resolveViewer);
+app.use(requestCounterMiddleware);
 
 const feedbackJson = express.json({ limit: '4mb' });
 const feedbackLimit = rateLimit({ windowMs: 60_000, max: 5, standardHeaders: true, legacyHeaders: false });
@@ -176,8 +178,12 @@ app.get('/api/health', (req, res) => {
 });
 
 // Basic operational metrics for Nexus Command's app-registry status view
-// (comley-nexus-ecosystem-migration-plan.md §1/§4). Deliberately no
-// per-org/business data — process-level stats only, safe to leave public.
+// (comley-nexus-ecosystem-migration-plan.md §1/§4). Process-level stats plus
+// request counts (total and per-org, since Command graphs both) — no other
+// per-org/business data. Left unauthenticated like /api/health so Command's
+// poll job doesn't need its own credential; the tradeoff is that per-org
+// request COUNTS (not content) are visible to anyone who finds this URL —
+// low sensitivity, but a real one, worth this note rather than silence.
 const pkgVersion = (() => {
   try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8')).version; } catch { return null; }
 })();
@@ -189,6 +195,7 @@ app.get('/api/metrics', (_req, res) => {
     node_version: process.version,
     app_version: pkgVersion,
     env: process.env.NODE_ENV || 'development',
+    requests: getRequestCounts(),
   });
 });
 
