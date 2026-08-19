@@ -47,6 +47,7 @@ import { mountCommerceWebhooks, mountCommerceApi } from './lib/commerce/routes.j
 import { mountOpsApi } from './lib/ops/routes.js';
 import { mountNexusApi } from './lib/nexusRoutes.js';
 import { mountSuperAdminApi } from './lib/superAdminRoutes.js';
+import { mountViewAsHandoff } from './lib/viewAsHandoff.js';
 import { mountBlockCatalogApi } from './lib/blockCatalogRoutes.js';
 import { mountMarketplaceApi } from './lib/marketplaceRoutes.js';
 import { mountEventsApi } from './lib/eventsRoutes.js';
@@ -254,6 +255,7 @@ mountCommerceApi(app);
 mountOpsApi(app);
 mountNexusApi(app);
 mountSuperAdminApi(app);
+mountViewAsHandoff(app);
 mountBlockCatalogApi(app);
 mountMarketplaceApi(app);
 mountEventsApi(app);
