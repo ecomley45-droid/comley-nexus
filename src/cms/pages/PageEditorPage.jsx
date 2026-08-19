@@ -1179,7 +1179,7 @@ export default function PageEditorPage({ nexus = false }) {
       {catalogOpen && <BlockCatalogPicker onClose={() => setCatalogOpen(false)} onInsert={insertCatalogBlock} />}
 
       {undoToast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl border border-white/15 bg-zinc-900/95 backdrop-blur px-4 py-2.5 shadow-xl">
+        <div className="fixed bottom-[max(1.5rem,calc(env(safe-area-inset-bottom)+1rem))] left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl border border-white/15 bg-zinc-900/95 backdrop-blur px-4 py-2.5 shadow-xl">
           <span className="text-sm text-zinc-200">{undoToast.label}</span>
           <button
             onClick={() => undoRef.current?.()}

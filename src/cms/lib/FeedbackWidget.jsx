@@ -104,7 +104,7 @@ export default function FeedbackWidget({ area }) {
     return (
       <button
         onClick={openWidget}
-        className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm font-medium text-white bg-gradient-to-tr from-glass-indigo to-glass-fuchsia shadow-lg shadow-glass-fuchsia/30 hover:brightness-110 active:scale-95 transition"
+        className="fixed bottom-[max(1.5rem,calc(env(safe-area-inset-bottom)+1rem))] right-6 z-40 inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm font-medium text-white bg-gradient-to-tr from-glass-indigo to-glass-fuchsia shadow-lg shadow-glass-fuchsia/30 hover:brightness-110 active:scale-95 transition"
       >
         <MessageSquarePlus className="w-4 h-4" />
         Feedback
@@ -113,7 +113,7 @@ export default function FeedbackWidget({ area }) {
   }
 
   return (
-    <GlassPanel className="fixed bottom-6 right-4 sm:right-6 z-40 w-[calc(100vw-2rem)] sm:w-96 max-h-[80vh] overflow-auto p-4">
+    <GlassPanel className="fixed bottom-[max(1.5rem,calc(env(safe-area-inset-bottom)+1rem))] right-4 sm:right-6 z-40 w-[calc(100vw-2rem)] sm:w-96 max-h-[80vh] overflow-auto p-4">
       <div className="flex justify-between items-center mb-3">
         <h3 className="font-medium text-zinc-100">{submitted ? 'Thanks!' : 'Report an issue'}</h3>
         <button onClick={closeWidget} className="text-zinc-400 hover:text-white">
