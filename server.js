@@ -175,6 +175,23 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, at: new Date().toISOString(), env: process.env.NODE_ENV || 'development' });
 });
 
+// Basic operational metrics for Nexus Command's app-registry status view
+// (comley-nexus-ecosystem-migration-plan.md §1/§4). Deliberately no
+// per-org/business data — process-level stats only, safe to leave public.
+const pkgVersion = (() => {
+  try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8')).version; } catch { return null; }
+})();
+app.get('/api/metrics', (_req, res) => {
+  const mem = process.memoryUsage();
+  res.json({
+    uptime_seconds: Math.round(process.uptime()),
+    memory_mb: { rss: Math.round(mem.rss / 1048576), heap_used: Math.round(mem.heapUsed / 1048576) },
+    node_version: process.version,
+    app_version: pkgVersion,
+    env: process.env.NODE_ENV || 'development',
+  });
+});
+
 // Returns the current viewer's identity + org. The client uses this to
 // figure out which /:orgSlug to route to after sign-in without duplicating
 // the ADMIN_EMAILS bootstrap logic in the browser bundle.
