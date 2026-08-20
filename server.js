@@ -73,7 +73,7 @@ import {
   attachClerk, resolveViewer, requireRole, requirePermission, requireOrgMatch, requireSuperAdmin,
   isSuperAdminViewer, assertProductionAuth, requireAuth,
 } from './lib/auth.js';
-import { requestCounterMiddleware, getRequestCounts } from './lib/requestCounters.js';
+import { requestCounterMiddleware, getRequestCounts, getCpuPercent, getLatencyStats } from './lib/requestCounters.js';
 import { sanitizePage, sanitizeGlobalSettings, sanitizeContentHtml, pagesContainScriptBlock, pagesContainFullHtmlMode } from './lib/sanitize.js';
 import * as storage from './lib/storage.js';
 import * as nexus from './lib/nexus.js';
@@ -190,14 +190,25 @@ const pkgVersion = (() => {
 })();
 app.get('/api/metrics', (_req, res) => {
   const mem = process.memoryUsage();
-  res.json({
+  const payload = {
     uptime_seconds: Math.round(process.uptime()),
     memory_mb: { rss: Math.round(mem.rss / 1048576), heap_used: Math.round(mem.heapUsed / 1048576) },
     node_version: process.version,
     app_version: pkgVersion,
     env: process.env.NODE_ENV || 'development',
     requests: getRequestCounts(),
-  });
+  };
+  // Defensive: a bizarre failure sampling CPU/latency shouldn't 500 the whole
+  // response — just omit that field and still report the rest.
+  try {
+    const cpu = getCpuPercent();
+    if (cpu != null) payload.cpu_percent = cpu;
+  } catch { /* omit cpu_percent */ }
+  try {
+    const latency = getLatencyStats();
+    if (latency) payload.latency_ms = latency;
+  } catch { /* omit latency_ms */ }
+  res.json(payload);
 });
 
 // Returns the current viewer's identity + org. The client uses this to
