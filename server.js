@@ -102,7 +102,20 @@ app.set('trust proxy', 1);
 app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
+  // Default frameguard (X-Frame-Options: SAMEORIGIN) can only express a
+  // single origin, so it can't allow Command's Simulate page to iframe this
+  // app alongside same-origin framing -- disabled here in favor of the CSP
+  // frame-ancestors header below, which supports a real origin list.
+  frameguard: false,
 }));
+// Site-wide frame-ancestors: same-origin plus Command's console specifically
+// (Simulate's device-preview iframe), not a wildcard. Narrower per-route CSP
+// (modelFrame.js, the nexus/pages 'full-html' branch) already sets its own
+// stricter frame-ancestors and is unaffected by this default.
+app.use((req, res, next) => {
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'self' https://command.comleynexus.com");
+  next();
+});
 
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:5173')
   .split(',').map((s) => s.trim()).filter(Boolean);
