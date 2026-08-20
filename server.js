@@ -472,12 +472,11 @@ a{color:#a5b4fc;}</style></head>
 <body><div class="box"><h1>Thanks — got it.</h1><p>Your message has been sent.</p><p><a href="${backHref}">&larr; Back</a></p></div></body></html>`;
 
 async function orgIdForHost(host) {
-  const orgs = await storage.orgs.list();
-  const matched = orgs.find((o) => o.domain && o.domain === host);
+  const matched = await storage.orgs.findByDomain(host);
   if (matched) return matched.paused ? null : matched.id;
   const explicitDefault = process.env.DEFAULT_PUBLIC_ORG_ID || process.env.PUBLIC_ORG_ID;
   if (explicitDefault) {
-    const org = orgs.find((o) => o.id === explicitDefault);
+    const org = await storage.orgs.get(explicitDefault);
     return org?.paused ? null : explicitDefault;
   }
   return null;
@@ -581,8 +580,10 @@ app.patch('/api/feedback/:id', requireOrg, requirePermission('feedback', 'edit')
 // ================= ORG MANAGEMENT (super-admin only) =================
 
 // List every org in the system. Only visible to super-admins (ADMIN_EMAILS).
+// Keyset-paginated ({ limit, before } -> { items, next_cursor }) since this
+// is an unbounded, platform-wide, ever-growing list -- see storage.orgs.list().
 app.get('/api/orgs', requireSuperAdmin, async (req, res, next) => {
-  try { res.json(await storage.orgs.list()); } catch (e) { next(e); }
+  try { res.json(await storage.orgs.list({ limit: req.query.limit, before: req.query.before })); } catch (e) { next(e); }
 });
 
 // Create a new org and add its first admin. This is the one-click
@@ -1031,13 +1032,12 @@ p{color:#a1a1aa;font-size:14px;}</style></head>
 //     everyone lands on before signing up for a workspace, including on
 //     the bare nexuscmshub.com host until a client claims it.
 async function resolvePublicSite(host) {
-  const orgs = await storage.orgs.list();
-  const matched = orgs.find((o) => o.domain && o.domain === host);
+  const matched = await storage.orgs.findByDomain(host);
   if (matched) return orgSite(matched.id, matched.paused);
 
   const explicitDefault = process.env.DEFAULT_PUBLIC_ORG_ID || process.env.PUBLIC_ORG_ID;
   if (explicitDefault) {
-    const org = orgs.find((o) => o.id === explicitDefault);
+    const org = await storage.orgs.get(explicitDefault);
     return orgSite(explicitDefault, org?.paused);
   }
 

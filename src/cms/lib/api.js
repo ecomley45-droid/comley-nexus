@@ -69,7 +69,15 @@ export const requestCustomDomain = (domain) =>
   request('/org/custom-domain', { method: 'PATCH', body: JSON.stringify({ domain }) });
 
 // ---- Orgs (super-admin) ----
-export const listOrgs = () => request('/orgs');
+// Keyset-paginated: { limit, before } -> { items, next_cursor }. See
+// server.js's GET /api/orgs and storage.orgs.list().
+export const listOrgs = ({ limit, before } = {}) => {
+  const params = new URLSearchParams();
+  if (limit) params.set('limit', limit);
+  if (before) params.set('before', before);
+  const qs = params.toString();
+  return request(`/orgs${qs ? `?${qs}` : ''}`);
+};
 export const createOrg = (payload) => request('/orgs', { method: 'POST', body: JSON.stringify(payload) });
 export const getSiteTemplates = () => request('/site-templates');
 export const createWorkspace = (payload) => request('/signup/workspace', { method: 'POST', body: JSON.stringify(payload) });

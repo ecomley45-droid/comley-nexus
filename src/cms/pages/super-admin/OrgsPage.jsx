@@ -21,14 +21,30 @@ const PROTECTED_ORG_ID = 'comley-creative';
 
 export default function OrgsPage() {
   const [orgs, setOrgs] = useState([]);
+  const [nextCursor, setNextCursor] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState('');
 
+  // Keyset-paginated (see api.js's listOrgs / server.js's GET /api/orgs) --
+  // the workspace list grows forever as clients are onboarded, so this
+  // fetches one bounded page at a time instead of every workspace ever
+  // created.
   const refresh = () => {
     setLoading(true);
-    listOrgs().then((data) => { setOrgs(data); setLoading(false); }).catch((e) => { setError(e.message); setLoading(false); });
+    listOrgs().then(({ items, next_cursor }) => {
+      setOrgs(items); setNextCursor(next_cursor); setLoading(false);
+    }).catch((e) => { setError(e.message); setLoading(false); });
+  };
+
+  const loadMore = () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    listOrgs({ before: nextCursor }).then(({ items, next_cursor }) => {
+      setOrgs((prev) => [...prev, ...items]); setNextCursor(next_cursor); setLoadingMore(false);
+    }).catch((e) => { setError(e.message); setLoadingMore(false); });
   };
 
   useEffect(refresh, []);
@@ -55,6 +71,14 @@ export default function OrgsPage() {
           <OrgRow key={o.id} org={o} onSelect={() => setSelected(o)} onDeleted={refresh} onUpdated={refresh} />
         ))}
       </div>
+
+      {!loading && nextCursor && (
+        <div className="mt-4 text-center">
+          <GlassButton onClick={loadMore} disabled={loadingMore}>
+            {loadingMore ? 'Loading…' : 'Load more'}
+          </GlassButton>
+        </div>
+      )}
 
       {showNew && <NewOrgModal onClose={() => setShowNew(false)} onCreated={() => { setShowNew(false); refresh(); }} />}
       {selected && <OrgMembersModal org={selected} onClose={() => setSelected(null)} />}
