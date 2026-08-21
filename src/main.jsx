@@ -47,7 +47,14 @@ if (sentryDsn) {
 const root = (
   <StrictMode>
     {clerkKey ? (
-      <ClerkProvider publishableKey={clerkKey}>
+      // afterSignOutUrl routes through /api/session/clear (lib/sessionHandoff.js)
+      // rather than straight to "/", so signing out of this app's own Clerk
+      // instance (via UserButton, the UserProfile modal's built-in sign-out,
+      // etc. — anywhere CMS itself doesn't call clerk.signOut() directly) also
+      // drops the long-lived shared_session cookie, if one was set via a Nexus
+      // Command sign-in handoff. That route clears the cookie and redirects to
+      // "/" itself.
+      <ClerkProvider publishableKey={clerkKey} afterSignOutUrl="/api/session/clear">
         <MeProvider>
           <App />
         </MeProvider>

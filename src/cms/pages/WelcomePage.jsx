@@ -104,10 +104,64 @@ function CreateWorkspaceForm() {
   );
 }
 
+// Nexus Command's own origin -- hardcoded, same as the frame-ancestors CSP
+// entry already in server.js (both already reference command.comleynexus.com
+// directly; no env var for it exists anywhere in the ecosystem yet). Used
+// only to build the "sign up via Comley Nexus" link below -- see the new
+// POST /api/session/handoff + GET /sign-up?handoff=cms flow in nexus-core's
+// apps/command.
+const COMMAND_SIGN_UP_URL = 'https://command.comleynexus.com/sign-up';
+
+// This is the entry point new users actually land on -- LandingPage.jsx's
+// "Get started" sends signed-out visitors here (via navigate('/welcome')),
+// not through RequireOrg's/RequireSuperAdmin's auto-RedirectToSignIn (those
+// guard already-linked app routes, not new-user acquisition). Previously
+// this went straight into Clerk's own hosted Account Portal sign-up with no
+// stop here; now it offers a second, additive path: hosted sign-up on
+// Command. "Sign in" below preserves the exact old behavior (straight to
+// Clerk's Account Portal) for existing CMS accounts -- unchanged.
+function SignedOutWelcome() {
+  const returnTo = typeof window !== 'undefined' ? window.location.origin : '';
+  const commandSignUpHref = `${COMMAND_SIGN_UP_URL}?handoff=cms&return_to=${encodeURIComponent(returnTo)}`;
+  return (
+    <div className="max-w-md mx-auto pt-24 px-6 text-center">
+      <GlassPanel className="p-8">
+        <h1 className="text-2xl font-semibold mb-2">Welcome</h1>
+        <p className="text-sm text-zinc-400 mb-6">
+          Sign in to your existing workspace, or create a new account.
+        </p>
+        <div className="grid gap-2">
+          <RedirectToSignInButton />
+          <a
+            href={commandSignUpHref}
+            className="text-sm text-zinc-400 hover:text-zinc-200 underline underline-offset-2"
+          >
+            New here? Create an account via Comley Nexus
+          </a>
+        </div>
+      </GlassPanel>
+    </div>
+  );
+}
+
+// SignIn's own Clerk Account Portal redirect, wrapped as a click instead of
+// firing automatically -- RedirectToSignIn navigates on render, so the only
+// way to show it alongside the new link above (rather than instantly
+// replacing this whole page) is to defer it until the button is pressed.
+function RedirectToSignInButton() {
+  const [go, setGo] = useState(false);
+  if (go) return <RedirectToSignIn />;
+  return (
+    <GlassButton onClick={() => setGo(true)} className="w-full justify-center">
+      Sign in
+    </GlassButton>
+  );
+}
+
 export default function WelcomePage() {
   return (
     <GlassShell>
-      <SignedOut><RedirectToSignIn /></SignedOut>
+      <SignedOut><SignedOutWelcome /></SignedOut>
       <SignedIn><CreateWorkspaceForm /></SignedIn>
     </GlassShell>
   );
