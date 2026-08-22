@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { SignedIn, SignedOut, SignInButton } from '@clerk/clerk-react';
+import { SignedIn, SignedOut } from '@clerk/clerk-react';
 import { Rocket, Layers, Zap, ShieldCheck, GitBranch, Sparkles } from 'lucide-react';
 import { GlassShell, GlassPanel, GlassButton } from '../cms/lib/ui/Glass.jsx';
 import { useMe, useIsSuperAdmin } from '../cms/lib/useMe.jsx';
@@ -7,11 +7,17 @@ import { useMe, useIsSuperAdmin } from '../cms/lib/useMe.jsx';
 // Public marketing landing at nexuscmshub.com/.
 // When a signed-in user arrives here, we send them straight to their org's
 // CMS at /:orgSlug so they don't have to click "Sign in" then be bounced.
-// When they're signed out, we show the marketing pitch + a CTA that opens
-// Clerk's hosted sign-in flow.
+// When they're signed out, the CTAs are plain links to cms.comleynexus.com
+// rather than Clerk's in-page sign-in modal -- the shared Clerk instance's
+// production keys are locked to comleynexus.com and its subdomains, so
+// Clerk refuses to even load (400 "Production Keys are only allowed for
+// domain...") from this domain. cms.comleynexus.com IS a subdomain, so
+// sending users there for the actual sign-in works.
 //
 // Copy is intentionally light — this is the first thing every prospect
 // sees, so it stays focused on "what is Nexus, and why should I care".
+
+const CMS_APP_URL = 'https://cms.comleynexus.com/';
 
 const FEATURES = [
   {
@@ -77,9 +83,9 @@ function TopBar() {
       </Link>
       <div className="flex items-center gap-3">
         <SignedOut>
-          <SignInButton mode="modal">
+          <a href={CMS_APP_URL} className="inline-block">
             <GlassButton variant="secondary" className="text-sm">Sign in</GlassButton>
-          </SignInButton>
+          </a>
         </SignedOut>
         <SignedIn>
           <AutoRedirectSignedIn />
@@ -108,9 +114,9 @@ function Hero() {
       </p>
       <div className="flex flex-wrap gap-3 justify-center">
         <SignedOut>
-          <SignInButton mode="modal">
+          <a href={CMS_APP_URL} className="inline-block">
             <GlassButton className="text-sm px-6 py-3">Get started</GlassButton>
-          </SignInButton>
+          </a>
           <a href="mailto:hello@comleycreative.com?subject=Nexus%20demo" className="inline-block">
             <GlassButton variant="secondary" className="text-sm px-6 py-3">Book a demo</GlassButton>
           </a>
@@ -161,9 +167,9 @@ function CTA() {
         </p>
         <div className="flex flex-wrap gap-3 justify-center">
           <SignedOut>
-            <SignInButton mode="modal">
+            <a href={CMS_APP_URL} className="inline-block">
               <GlassButton className="text-sm px-6 py-3">Sign in</GlassButton>
-            </SignInButton>
+            </a>
             <a href="mailto:hello@comleycreative.com?subject=Nexus%20access" className="inline-block">
               <GlassButton variant="secondary" className="text-sm px-6 py-3">Request access</GlassButton>
             </a>
