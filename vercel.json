@@ -20,13 +20,13 @@
       "src": "/super-admin(/.*)?",
       "has": [{ "type": "host", "value": "^admin\\.nexuscmshub\\.com$" }],
       "status": 308,
-      "headers": { "Location": "https://nexuscmshub.com/super-admin$1" }
+      "headers": { "Location": "https://cms.comleynexus.com/super-admin$1" }
     },
     {
       "src": "/(.*)",
       "has": [{ "type": "host", "value": "^admin\\.nexuscmshub\\.com$" }],
       "status": 308,
-      "headers": { "Location": "https://nexuscmshub.com/super-admin" }
+      "headers": { "Location": "https://cms.comleynexus.com/super-admin" }
     },
     {
       "src": "/api/(.*)",
